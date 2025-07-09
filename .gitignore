@@ -8,3 +8,4 @@ fish/fish_variables
 .config
 
 gpt-cli/history
+.env

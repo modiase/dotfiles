@@ -1,7 +1,8 @@
-with import <nixpkgs> {};
-[ awscli2
-  bat
+{ pkgs }:
+
+with pkgs; [
   cargo
+  claude-code
   coreutils
   direnv
   docker 
@@ -9,32 +10,35 @@ with import <nixpkgs> {};
   fzf 
   google-cloud-sdk
   gcc 
+  gemini-cli
   gnused
-  gtop 
-  httpie 
-  jq 
-  jupyter
+  gpt-cli
+  httpie
+  jq
   jwt-cli
-  neovim 
+  nix-prefetch-git
   nix-tree
-  nodejs 
-  pstree 
+  nodePackages.pnpm
+  nodePackages.ts-node
+  nodePackages.typescript
+  nodejs
+  pass
+  pass-git-helper
+  poetry
+  pstree
   (python313.withPackages (ps: with ps; [
-	boto3
+    boto3
     ipython
     matplotlib
     numpy
     pandas
+    ruff
   ]))
-  ripgrep 
-  tldr 
-  tmux 
+  pstree
+  ripgrep
+  tldr
   tree
   tshark
-  nix-prefetch-git
-  nodePackages.pnpm 
-  nodePackages.ts-node 
-  nodePackages.typescript 
   uv
   watch
 ]

@@ -1,9 +1,14 @@
 # Dotfiles
 
-A repository containing assorted configuration files to facilitate rapid
-replication of my development setup on new machines.
+## Setup
 
-## Frontend Dependencies
+### Install nix and home-manager
 
-Frontend dependencies can primarily be installed using `brew --cask` on macos or by some other means on other platforms.
-Required dependencies are: - Alacritty # Terminal emulator - font-iosevka-nerd-font # font used in alacritty
+[Nix Install Instructions](https://nix.dev/install-nix.html)
+[Home Manager Install Instructions](https://nix-community.github.io/home-manager/index.xhtml#ch-installation)
+
+### Activate Settings
+
+```bash
+./activate
+```

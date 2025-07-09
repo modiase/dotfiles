@@ -26,7 +26,7 @@ let
 	postInstall = ''
         mkdir -p "$out/bin"
       cat <<EOF > "$out/bin/claude"
-      #!$usr/bin/env sh
+      #!/usr/bin/env sh
       ${pkgs.nodejs-18_x}/bin/node "$out/node_modules/@anthropic-ai/claude-code/cli.js"
       EOF
       chmod +x "$out/bin/claude"
