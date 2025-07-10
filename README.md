@@ -1,5 +1,13 @@
 # Dotfiles
 
+## Housekeeping
+
+```bash
+pre-commit install
+```
+
+To install git-hooks
+
 ## Setup
 
 ### Bootstrap

@@ -27,6 +27,7 @@ with pkgs;
   pass
   pass-git-helper
   poetry
+  pre-commit
   pstree
   (python313.withPackages (
     ps: with ps; [
