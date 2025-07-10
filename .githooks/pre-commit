@@ -1,5 +1,5 @@
 #!/usr/bin/env nix-shell
-#! nix-shell -i bash -p fd nixfmt stylua fish
+#! nix-shell -i bash -p fd nixfmt-rfc-style stylua fish
 
 fd -e nix -x nixfmt
 stylua .

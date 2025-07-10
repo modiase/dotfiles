@@ -1,6 +1,7 @@
 { pkgs }:
 
-with pkgs; [
+with pkgs;
+[
   awscli2
   cargo
   claude-code
@@ -27,8 +28,16 @@ with pkgs; [
   pass-git-helper
   poetry
   pstree
-  (python313.withPackages
-    (ps: with ps; [ boto3 ipython matplotlib numpy pandas ruff ]))
+  (python313.withPackages (
+    ps: with ps; [
+      boto3
+      ipython
+      matplotlib
+      numpy
+      pandas
+      ruff
+    ]
+  ))
   pstree
   ripgrep
   tldr

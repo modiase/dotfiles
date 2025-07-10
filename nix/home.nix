@@ -1,23 +1,31 @@
-{ config, pkgs, system, lib, ... }:
+{
+  config,
+  pkgs,
+  system,
+  lib,
+  ...
+}:
 
 {
-  imports = [
-    ./alacritty.nix
-    ./bash.nix
-    ./bat.nix
-    ./btop.nix
-    ./fish.nix
-    ./git.nix
-    ./neovim.nix
-    ./tmux.nix
-    ./zsh.nix
-  ] ++ (if system == "aarch64-darwin" then
-    [ ./platforms/darwin.nix ]
-  else
-    [ ./platforms/linux.nix ]) ++ (if lib.hasPrefix "aarch64" system then
-      [ ./architectures/aarch64.nix ]
-    else
-      [ ./architectures/x86_64.nix ]);
+  imports =
+    [
+      ./alacritty.nix
+      ./bash.nix
+      ./bat.nix
+      ./btop.nix
+      ./fish.nix
+      ./git.nix
+      ./neovim.nix
+      ./tmux.nix
+      ./zsh.nix
+    ]
+    ++ (if system == "aarch64-darwin" then [ ./platforms/darwin.nix ] else [ ./platforms/linux.nix ])
+    ++ (
+      if lib.hasPrefix "aarch64" system then
+        [ ./architectures/aarch64.nix ]
+      else
+        [ ./architectures/x86_64.nix ]
+    );
 
   home.username = "moye";
 
