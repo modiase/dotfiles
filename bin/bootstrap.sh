@@ -110,12 +110,4 @@ install_nix(){
 }
 
 
-install_fish(){
-	debug "Installing fish shell."
-	nix-env -iA nixpkgs.fish &>/dev/null
-}
-
-
 install_nix "$(uname)"
-
-install_fish

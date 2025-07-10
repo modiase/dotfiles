@@ -2,13 +2,18 @@
 
 ## Setup
 
-### Install nix and home-manager
+### Bootstrap
 
-[Nix Install Instructions](https://nix.dev/install-nix.html)
-[Home Manager Install Instructions](https://nix-community.github.io/home-manager/index.xhtml#ch-installation)
+If the environment has not already been set up with nix call ./bootstrap to ensure nix is available
+
+```bash
+./bin/bootstrap.sh
+```
 
 ### Activate Settings
 
+Note that the activate script assumes the user is called 'moye'.
+
 ```bash
-./activate
+./bin/activate
 ```
