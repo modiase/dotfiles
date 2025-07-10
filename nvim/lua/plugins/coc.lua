@@ -135,7 +135,6 @@ return {
 
 		-- CoC extensions
 		vim.g.coc_global_extensions = {
-			"@yaegassy/coc-ruff",
 			"coc-clangd",
 			"coc-css",
 			"coc-emmet",
