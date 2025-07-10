@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/sh -eu
 
 export NIX_CONFIG="experimental-features = nix-command flakes"
 
@@ -17,12 +17,13 @@ for cmd in git nix; do
   fi
 done
 
+HOME_MANAGER_CMD='nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake'
 if [ "$(uname -s)" = "Darwin" ]; then
-  nix shell nixpkgs#home-manager -c home-manager switch --flake .#moye-aarch64-darwin
+   $HOME_MANAGER_CMD .#moye-aarch64-darwin
 else
   if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]; then
-    nix shell nixpkgs#home-manager -c home-manager switch --flake .#moye-aarch64-linux
+    $HOME_MANAGER_CMD .#moye-aarch64-linux
   else
-    nix shell nixpkgs#home-manager -c home-manager switch --flake .#moye-x86_64-linux
+    $HOME_MANAGER_CMD .#moye-x86_64-linux
   fi
 fi
