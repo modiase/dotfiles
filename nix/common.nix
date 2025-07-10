@@ -1,6 +1,7 @@
 { pkgs }:
 
 with pkgs; [
+  awscli2
   cargo
   claude-code
   coreutils
