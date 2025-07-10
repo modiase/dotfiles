@@ -1,5 +1,5 @@
-function jira-get -d "Make a get request to the jira api using httpie" 
-    argparse --name=jira-get 'h/help' 'p/path=' -- $argv
+function jira-get -d "Make a get request to the jira api using httpie"
+    argparse --name=jira-get h/help 'p/path=' -- $argv
     if not set -q _flag_p
         echo "jira-get -p/--path=<path> [additional-args]"
         return 1
@@ -9,7 +9,7 @@ function jira-get -d "Make a get request to the jira api using httpie"
 end
 
 function jira-post -d "Make a put request to the jira api using httpie"
-    argparse --name=jira-get 'h/help' 'p/path=' -- $argv
+    argparse --name=jira-get h/help 'p/path=' -- $argv
     if not set -q _flag_p
         echo "jira-get -p/--path=<path> [additional-args]"
         return 1

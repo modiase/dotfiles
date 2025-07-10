@@ -1,4 +1,4 @@
 return {
-	'airblade/vim-gitgutter',
-	event = 'VeryLazy'
+	"airblade/vim-gitgutter",
+	event = "VeryLazy",
 }

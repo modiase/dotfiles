@@ -1,9 +1,7 @@
 { config, pkgs, ... }:
 
 {
-  home.packages = with pkgs; [
-    skhd
-  ];
+  home.packages = with pkgs; [ skhd ];
 
   home.file.".config/skhd/skhdrc".text = ''
     cmd + shift - b : open -a "Google Chrome"

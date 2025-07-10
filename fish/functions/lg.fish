@@ -1,3 +1,3 @@
 function lg
-	lazygit
+    lazygit
 end

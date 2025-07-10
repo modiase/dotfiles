@@ -1,4 +1,4 @@
 return {
-	'smithbm2316/centerpad.nvim',
-	event = 'VeryLazy',
+	"smithbm2316/centerpad.nvim",
+	event = "VeryLazy",
 }

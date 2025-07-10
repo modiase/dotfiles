@@ -4,7 +4,7 @@ if set -q ANTHROPIC_API_KEY
 end
 
 set -l api_key
-if test (uname) = "Darwin"
+if test (uname) = Darwin
     set api_key (security find-generic-password -w -s "ANTHROPIC_API_KEY" 2>/dev/null)
     if test $status -ne 0
         echo "Error: Anthropic API key not found in macOS Keychain." >&2

@@ -1,9 +1,3 @@
 { pkgs }:
 
-pkgs.mkShell {
-  buildInputs = with pkgs; [
-    bashInteractive
-    git
-    nix
-  ];
-}
+pkgs.mkShell { buildInputs = with pkgs; [ bashInteractive git nix ]; }

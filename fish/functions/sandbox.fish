@@ -1,3 +1,3 @@
 function sandbox
-	cd (mktemp -d)
+    cd (mktemp -d)
 end

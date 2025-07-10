@@ -5,11 +5,11 @@ with pkgs; [
   claude-code
   coreutils
   direnv
-  docker 
-  fd 
-  fzf 
+  docker
+  fd
+  fzf
   google-cloud-sdk
-  gcc 
+  gcc
   gemini-cli
   gnused
   gpt-cli
@@ -26,14 +26,8 @@ with pkgs; [
   pass-git-helper
   poetry
   pstree
-  (python313.withPackages (ps: with ps; [
-    boto3
-    ipython
-    matplotlib
-    numpy
-    pandas
-    ruff
-  ]))
+  (python313.withPackages
+    (ps: with ps; [ boto3 ipython matplotlib numpy pandas ruff ]))
   pstree
   ripgrep
   tldr

@@ -1,11 +1,11 @@
 function pynix -d "Create a python environment with the specified packages using nix."
-    argparse --name=pynix 'h/help' 'v/version=' -- $argv
+    argparse --name=pynix h/help 'v/version=' -- $argv
     if set -q _flag_h
-        echo "Help"
+        echo Help
         return 0
     end
 
-    set -l py_version "313"
+    set -l py_version 313
     if set -q _flag_v
         set py_version (echo $_flag_v | awk -F '.' '{ print $1$2 }')
     end

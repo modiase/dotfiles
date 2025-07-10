@@ -66,16 +66,56 @@
         normal.family = "Iosevka Nerd Font";
       };
       keyboard.bindings = [
-        { chars = "º"; key = "Key0"; mods = "Alt"; }
-        { chars = "¡"; key = "Key1"; mods = "Alt"; }
-        { chars = "€"; key = "Key2"; mods = "Alt"; }
-        { chars = "#"; key = "Key3"; mods = "Alt"; }
-        { chars = "¢"; key = "Key4"; mods = "Alt"; }
-        { chars = "∞"; key = "Key5"; mods = "Alt"; }
-        { chars = "§"; key = "Key6"; mods = "Alt"; }
-        { chars = "¶"; key = "Key7"; mods = "Alt"; }
-        { chars = "•"; key = "Key8"; mods = "Alt"; }
-        { chars = "ª"; key = "Key9"; mods = "Alt"; }
+        {
+          chars = "º";
+          key = "Key0";
+          mods = "Alt";
+        }
+        {
+          chars = "¡";
+          key = "Key1";
+          mods = "Alt";
+        }
+        {
+          chars = "€";
+          key = "Key2";
+          mods = "Alt";
+        }
+        {
+          chars = "#";
+          key = "Key3";
+          mods = "Alt";
+        }
+        {
+          chars = "¢";
+          key = "Key4";
+          mods = "Alt";
+        }
+        {
+          chars = "∞";
+          key = "Key5";
+          mods = "Alt";
+        }
+        {
+          chars = "§";
+          key = "Key6";
+          mods = "Alt";
+        }
+        {
+          chars = "¶";
+          key = "Key7";
+          mods = "Alt";
+        }
+        {
+          chars = "•";
+          key = "Key8";
+          mods = "Alt";
+        }
+        {
+          chars = "ª";
+          key = "Key9";
+          mods = "Alt";
+        }
       ];
       window = {
         decorations = "transparent";

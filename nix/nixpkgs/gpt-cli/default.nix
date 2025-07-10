@@ -3,7 +3,7 @@
 python3Packages.buildPythonApplication rec {
   pname = "gpt_command_line";
   version = "0.4.3";
-  
+
   format = "pyproject";
 
   src = python3Packages.fetchPypi {
@@ -11,11 +11,7 @@ python3Packages.buildPythonApplication rec {
     sha256 = "1ilrsk5f3zsbz3gmm1qgmc6y8rn60cdr1x02k4j1b6752lbfcgg3";
   };
 
-  nativeBuildInputs = with python3Packages; [
-    setuptools
-    wheel
-    pip
-  ];
+  nativeBuildInputs = with python3Packages; [ setuptools wheel pip ];
 
   propagatedBuildInputs = with python3Packages; [
     click
