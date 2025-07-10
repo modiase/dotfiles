@@ -23,9 +23,7 @@
     "ma": "addFile",
     "mA": "addDirectory"
   },
-  "python.formatting.provider": "ruff",
   "python.linting.enabled": true,
-  "python.linting.ruffEnabled": true,
   "snippets.ultisnips.enable": false,
   "tsserver.maxTsServerMemory": 8192,
   "tsserver.log": "normal"
