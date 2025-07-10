@@ -20,10 +20,16 @@ done
 HOME_MANAGER_CMD='nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake'
 if [ "$(uname -s)" = "Darwin" ]; then
    $HOME_MANAGER_CMD .#moye-aarch64-darwin
-else
+elif [ "$(uname -s)" = "Linux" ]; then
   if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]; then
     $HOME_MANAGER_CMD .#moye-aarch64-linux
-  else
+  elif [ "$(uname -m)" = "x86_64" ]; then
     $HOME_MANAGER_CMD .#moye-x86_64-linux
+  else
+    echo "Error: Unsupported Linux architecture '$(uname -m)'" >&2
+    exit 1
   fi
+else
+  echo "Error: Unsupported operating system '$(uname -s)'" >&2
+  exit 1
 fi
