@@ -43,6 +43,9 @@
 
       set -g default-terminal "alacritty"
       set -g terminal-overrides ',*alacritty*:Tc'
+      set -g default-command ${pkgs.fish}/bin/fish
+
+
     '';
   };
 }
