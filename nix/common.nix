@@ -46,4 +46,5 @@ with pkgs;
   tshark
   uv
   watch
+  wireguard-tools
 ]
