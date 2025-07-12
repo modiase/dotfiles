@@ -3,6 +3,11 @@
 {
   programs.zsh = {
     enable = true;
+    profileExtra = ''
+      if [ -n "$ZSH_VERSION" ]; then
+        source ~/.zshrc
+      fi
+    '';
     initContent =
       ''
         if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then

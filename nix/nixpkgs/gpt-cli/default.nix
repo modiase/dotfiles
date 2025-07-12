@@ -37,6 +37,10 @@ python3Packages.buildPythonApplication rec {
     sed -i 's/~=/>=/' pyproject.toml
   '';
 
+  postInstall = ''
+    ln -s $out/bin/gpt $out/bin/gptcli
+  '';
+
   pythonImportsCheck = [ "gptcli" ];
 
   meta = with lib; {

@@ -1,6 +1,6 @@
 set -l modelname claude-sonnet-4-20250514
 if set -q ANTHROPIC_API_KEY
-    gpt --model $modelname $argv
+    gptcli --model $modelname $argv
     return
 end
 
@@ -28,4 +28,4 @@ else
     end
 end
 
-ANTHROPIC_API_KEY="$api_key" gpt --model $modelname $argv
+ANTHROPIC_API_KEY="$api_key" gptcli --model $modelname $argv
