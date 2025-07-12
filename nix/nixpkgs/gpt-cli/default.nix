@@ -1,4 +1,4 @@
-{ lib, python3Packages }:
+{ lib, python3Packages, gnused }:
 
 python3Packages.buildPythonApplication rec {
   pname = "gpt_command_line";
@@ -15,7 +15,7 @@ python3Packages.buildPythonApplication rec {
     setuptools
     wheel
     pip
-  ];
+  ] ++ [ gnused ];
 
   propagatedBuildInputs = with python3Packages; [
     click
@@ -33,8 +33,8 @@ python3Packages.buildPythonApplication rec {
   ];
 
   postPatch = ''
-    # Remove strict version constraints from pyproject.toml
     sed -i 's/~=/>=/' pyproject.toml
+    sed -i '/^TERMINAL_WELCOME = """/,/^"""/c\TERMINAL_WELCOME = ""' gptcli/cli.py
   '';
 
   postInstall = ''
