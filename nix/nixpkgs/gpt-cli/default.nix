@@ -1,4 +1,8 @@
-{ lib, python3Packages, gnused }:
+{
+  lib,
+  python3Packages,
+  gnused,
+}:
 
 python3Packages.buildPythonApplication rec {
   pname = "gpt_command_line";
@@ -11,11 +15,14 @@ python3Packages.buildPythonApplication rec {
     sha256 = "1ilrsk5f3zsbz3gmm1qgmc6y8rn60cdr1x02k4j1b6752lbfcgg3";
   };
 
-  nativeBuildInputs = with python3Packages; [
-    setuptools
-    wheel
-    pip
-  ] ++ [ gnused ];
+  nativeBuildInputs =
+    with python3Packages;
+    [
+      setuptools
+      wheel
+      pip
+    ]
+    ++ [ gnused ];
 
   propagatedBuildInputs = with python3Packages; [
     click
