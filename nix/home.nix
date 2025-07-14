@@ -10,14 +10,13 @@
   imports =
     [
       ./alacritty.nix
-      ./bash.nix
       ./bat.nix
       ./btop.nix
       ./fish.nix
       ./git.nix
       ./neovim.nix
+      ./sh.nix
       ./tmux.nix
-      ./zsh.nix
     ]
     ++ (if system == "aarch64-darwin" then [ ./platforms/darwin.nix ] else [ ./platforms/linux.nix ])
     ++ (
