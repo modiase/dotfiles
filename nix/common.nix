@@ -10,6 +10,7 @@ with pkgs;
   docker
   fd
   fzf
+  go
   google-cloud-sdk
   gcc
   gemini-cli
