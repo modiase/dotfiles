@@ -20,7 +20,9 @@
       + (
         if pkgs.stdenv.isDarwin then
           ''
-            if [[ $- == *i* && -z "$IN_NIX_SHELL" && -z "$NO_FISH" ]] && type fish > /dev/null 2>&1; then
+            if [[ $- == *i* && -z "$NO_FISH" && -z "$IN_NIX_SHELL" && -z "$NIX_BUILD_CORES" && -z "$__structuredAttrs" ]] && \
+               type fish > /dev/null 2>&1 && \
+               ! ps -o comm= -p $PPID 2>/dev/null | grep -q "nix"; then
               exec fish
             fi
           ''
