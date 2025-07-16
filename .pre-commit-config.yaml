@@ -10,3 +10,12 @@ repos:
         args:
           - -c
           - "nix-shell -p fd nixfmt-rfc-style stylua fish --run 'fd -e nix -x nixfmt && stylua . && fd -e fish -x fish_indent -w'"
+      - id: remove-trailing-whitespace
+        name: remove trailing whitespace
+        entry: bash
+        language: system
+        files: .*
+        pass_filenames: false
+        args:
+          - -c
+          - 'nix-shell -p gnused --run ''git diff --cached --name-only | xargs -r sed -i "s/[[:space:]]*$//"'''
