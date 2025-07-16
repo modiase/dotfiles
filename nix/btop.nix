@@ -5,5 +5,6 @@
 
   xdg.configFile."btop/btop.conf".text = ''
     color_theme = "nord"
+    theme_background = False
   '';
 }
