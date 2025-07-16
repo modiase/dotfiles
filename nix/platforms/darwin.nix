@@ -10,5 +10,6 @@
     colima
     coreutils-prefixed
     iproute2mac
+    (pkgs.callPackage ../nixpkgs/apple-containers.nix { })
   ];
 }
