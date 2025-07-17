@@ -16,6 +16,7 @@
       gpg.openpgp.program = "${pkgs.gnupg}/bin/gpg";
       push.autoSetupRemote = true;
       pull.rebase = true;
+      init.defaultBranch = "main";
     };
   };
 }
