@@ -3,7 +3,7 @@ FROM --platform=linux/${PLATFORM} nixos/nix:latest
 
 RUN nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs && \
     nix-channel --update && \
-    nix-env -iA nixpkgs.neovim
+    nix-env -iA nixpkgs.neovim nixpkgs.nixfmt-rfc-style
 
 WORKDIR /sandbox
 RUN echo '{\
@@ -23,5 +23,4 @@ RUN echo '{\
         ];\
       };\
     };\
-}' > /sandbox/flake.nix
-
+}' > /sandbox/flake.nix && nixfmt /sandbox/flake.nix
