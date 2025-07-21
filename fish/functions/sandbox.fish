@@ -1,40 +1,10 @@
-#
-# Creates a temporary sandbox environment using a NixOS Docker container.
-#
-# Usage:
-#   sandbox       - Create a sandbox and destroy it on exit.
-#   sandbox -k    - Create a sandbox and keep the directory on exit.
-#
-
-set --local keep_dir 0
+set --local keep_volume 0
 argparse k/keep -- $argv
 if set -q _flag_keep
-    set keep_dir 1
+    set keep_volume 1
 end
 
-set --local sandbox_dir (mktemp -d)
-echo "Created sandbox at: $sandbox_dir"
-
-set --local flake_content '{
-  description = "A development environment with Neovim";
-
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-
-  outputs = { self, nixpkgs }:
-    let
-      pkgs = nixpkgs.legacyPackages.x86_64-linux;
-    in
-    {
-      devShells.x86_64-linux.default = pkgs.mkShell {
-        buildInputs = [
-          pkgs.bashInteractive
-          pkgs.neovim
-        ];
-      };
-    };
-}
-'
-printf '%s\n' $flake_content >"$sandbox_dir/flake.nix"
+set --local volume_name "sandbox-"(random)
 
 set --local arch (uname -m)
 
@@ -52,8 +22,11 @@ end
 set --local image "moyeodiase/nix-sandbox:$docker_arch"
 echo "Using image: $image"
 
+docker volume create $volume_name
+echo "Created volume: $volume_name"
+
 docker run -it --rm \
-    -v "$sandbox_dir:/sandbox" \
+    -v "$volume_name:/sandbox" \
     -v "/nix/store:/host-store:ro" \
     -w /sandbox \
     -e NIX_CONFIG="extra-experimental-features = nix-command flakes
@@ -61,6 +34,6 @@ extra-substituters = file:///host-store?trusted=1" \
     $image \
     bash
 
-if [ $keep_dir -eq 0 ]
-    rm -rf "$sandbox_dir"
+if [ $keep_volume -eq 0 ]
+    docker volume rm $volume_name
 end
