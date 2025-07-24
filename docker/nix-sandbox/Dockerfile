@@ -13,14 +13,15 @@ RUN echo '{\
 \
   outputs = { self, nixpkgs }:\
     let\
-      system = if builtins.currentSystem == "x86_64-linux" then "x86_64-linux" else "aarch64-linux";\
-      pkgs = nixpkgs.legacyPackages.${system};\
+      forAllSystems = nixpkgs.lib.genAttrs [ "x86_64-linux" "aarch64-linux" ];\
     in\
     {\
-      devShells.${system}.default = pkgs.mkShell {\
-        buildInputs = [\
-          pkgs.bashInteractive\
-        ];\
-      };\
+      devShells = forAllSystems (system: {\
+        default = nixpkgs.legacyPackages.${system}.mkShell {\
+          buildInputs = [\
+            nixpkgs.legacyPackages.${system}.bashInteractive\
+          ];\
+        };\
+      });\
     };\
 }' > /sandbox/flake.nix && nixfmt /sandbox/flake.nix
