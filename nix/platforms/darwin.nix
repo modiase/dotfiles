@@ -12,4 +12,8 @@
     iproute2mac
     (pkgs.callPackage ../nixpkgs/apple-containers.nix { })
   ];
+
+  home.file.".local/bin/bash" = {
+    source = "${pkgs.bash}/bin/bash";
+  };
 }
