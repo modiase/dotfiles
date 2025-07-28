@@ -4,6 +4,7 @@
   programs.alacritty = {
     enable = true;
     settings = {
+      env.TERM = "alacritty";
       general.live_config_reload = true;
       terminal.shell.program = "${pkgs.zsh}/bin/zsh";
       colors = {
