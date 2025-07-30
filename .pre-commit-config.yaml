@@ -18,4 +18,4 @@ repos:
         pass_filenames: false
         args:
           - -c
-          - 'nix-shell -p gnused --run ''git diff --cached --name-only | xargs -r sed -i "s/[[:space:]]*$//"'''
+          - 'nix-shell -p gnused --run ''git diff --cached --name-only --diff-filter d | xargs -r sed -i "s/[[:space:]]*$//"'''
