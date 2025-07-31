@@ -47,7 +47,7 @@ function mkc --description "Create a C project with Meson, Ninja, and Nix flake"
           fi
           meson compile -C build run
         \'\';
-        run_test = pkgs.writeShellScriptBin "run_test" \'\'
+        run_tests = pkgs.writeShellScriptBin "run_tests" \'\'
           if [ ! -f build/build.ninja ]; then
             echo "Build directory not set up, running setup first..."
             meson setup build
