@@ -67,7 +67,7 @@ function mkc --description "Create a C project with Meson, Ninja, and Nix flake"
             # commands
             setup
             run
-            run_test
+            run_tests
           ];
         };
       });
