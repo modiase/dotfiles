@@ -14,7 +14,7 @@ function mkc --description "Create a C project with Meson, Ninja, and Nix flake"
         end
     end
 
-    set -l target_files flake.nix meson.build src test build
+    set -l target_files flake.nix meson.build src test build inc
     for file in $target_files
         if test -e $file
             echo "Error: $file already exists. Aborting to avoid overwriting existing files."
@@ -45,14 +45,27 @@ function mkc --description "Create a C project with Meson, Ninja, and Nix flake"
             echo "Build directory not set up, running setup first..."
             meson setup build
           fi
-          meson compile -C build run
+          redirect=""
+          [ "$1" != "-v" ] && redirect=">/dev/null 2>&1"
+          eval "meson compile -C build main $redirect"
+          ./build/main
         \'\';
         run_tests = pkgs.writeShellScriptBin "run_tests" \'\'
           if [ ! -f build/build.ninja ]; then
             echo "Build directory not set up, running setup first..."
             meson setup build
           fi
-          meson test -C build
+          redirect=""
+          [ "$1" != "-v" ] && redirect=">/dev/null 2>&1"
+          eval "meson compile -C build $redirect"
+          flags=""
+          filter=""
+          [ "$1" != "-v" ] && flags="--quiet" && filter="2>&1 | grep -v \'^ninja:\'"
+          if eval "meson test -C build $flags $filter"; then
+            echo "✓ All tests passed"
+          else
+            echo "✗ Tests failed"
+          fi
         \'\';
       in
       {
@@ -63,6 +76,7 @@ function mkc --description "Create a C project with Meson, Ninja, and Nix flake"
             meson
             ninja
             pkg-config
+            gnugrep
 
             # commands
             setup
@@ -114,6 +128,13 @@ int main(void) {
         return 1
     end
     set -a created_items build
+
+    echo "Creating inc directory..."
+    if not mkdir inc
+        cleanup_on_failure
+        return 1
+    end
+    set -a created_items inc
 
     echo "Creating test/test_main.c..."
     printf '#include <stdio.h>
@@ -194,18 +215,19 @@ endif
 
 add_project_arguments(c_flags, language: \'c\')
 
+inc_directory = include_directories(\'inc\')
+
 main_exe = executable(\'main\',
   \'src/main.c\',
+  include_directories: inc_directory,
   install: false)
 
 test_exe = executable(\'test_main\',
   \'test/test_main.c\',
+  include_directories: inc_directory,
   install: false)
 
 test(\'basic_test\', test_exe)
-
-run_target(\'run\',
-  command: main_exe)
 ' >meson.build
     if test $status -ne 0
         cleanup_on_failure
@@ -221,6 +243,7 @@ run_target(\'run\',
     echo "- meson.build (Build configuration)"
     echo "- src/main.c (Main source file)"
     echo "- test/test_main.c (Test file)"
+    echo "- inc/ (Include directory)"
 
     return 0
 end
