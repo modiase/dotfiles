@@ -36,7 +36,6 @@ function mkc --description "Create a C project with Meson, Ninja, and Nix flake"
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        # Choose compiler based on system
         compiler = if pkgs.stdenv.isDarwin then pkgs.clang else pkgs.gcc;
 
         setup = pkgs.writeShellScriptBin "setup" "meson setup build";
