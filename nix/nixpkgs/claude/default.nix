@@ -5,12 +5,12 @@
 let
   claude-code = pkgs.stdenv.mkDerivation {
     pname = "claude-code";
-    version = "0.2.36";
+    version = "1.0.62";
     src = pkgs.fetchFromGitHub {
       owner = "anthropics";
       repo = "claude-code";
-      rev = "555b6b5b8a5f06f1e8725a584e62fb6b7c8eece5"; # Match with version
-      sha256 = "sha256-9nF+RrtuQ3pIiePG90iKHeZosNwHX9XBzhS7z7nTkJE="; # Update this
+      rev = "5faa082d6e4e5300485daafb94615fe133175055";
+      sha256 = "1abbr41r6giw7ks5k2p471bhmihl5vhsanpjn29664xx86mkj5z9";
     };
 
     nativeBuildInputs = [ pkgs.nodejs-18_x ];
