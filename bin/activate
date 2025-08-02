@@ -1,5 +1,18 @@
 #!/bin/sh -eu
 
+SHOW_TRACE=""
+while getopts "d" opt; do
+  case $opt in
+    d)
+      SHOW_TRACE="--show-trace"
+      ;;
+    \?)
+      echo "Usage: $0 [-d]" >&2
+      exit 1
+      ;;
+  esac
+done
+
 export NIX_CONFIG="experimental-features = nix-command flakes"
 
 if [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ]; then
@@ -17,7 +30,7 @@ for cmd in git nix; do
   fi
 done
 
-HOME_MANAGER_CMD='nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake'
+HOME_MANAGER_CMD="nix shell nixpkgs#home-manager -c home-manager switch -b backup $SHOW_TRACE --flake"
 if [ "$(uname -s)" = "Darwin" ]; then
    $HOME_MANAGER_CMD .#moye-aarch64-darwin
 elif [ "$(uname -s)" = "Linux" ]; then
