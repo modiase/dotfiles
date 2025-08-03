@@ -5,6 +5,7 @@ with pkgs;
   awscli2
   cargo
   claude-code
+  codex-cli
   coreutils
   direnv
   docker

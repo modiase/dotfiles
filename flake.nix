@@ -34,6 +34,7 @@
           overlays = [
             (self: super: {
               gpt-cli = super.callPackage ./nix/nixpkgs/gpt-cli { };
+              codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
             })
           ];
         };
@@ -56,6 +57,7 @@
           overlays = [
             (self: super: {
               gpt-cli = super.callPackage ./nix/nixpkgs/gpt-cli { };
+              codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
             })
           ];
         };
@@ -78,6 +80,7 @@
           overlays = [
             (self: super: {
               gpt-cli = super.callPackage ./nix/nixpkgs/gpt-cli { };
+              codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
             })
           ];
         };
