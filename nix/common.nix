@@ -20,6 +20,7 @@ with pkgs;
   httpie
   jq
   jwt-cli
+  ngrok
   nix-prefetch-git
   nix-tree
   nodePackages.pnpm
