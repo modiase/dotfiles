@@ -5,7 +5,7 @@ let
     in_nix_environment() {
        [[ -n "$NIX_GCROOT" ]] && return 0
        [[ -n "$IN_NIX_SHELL" ]] && return 0
-       
+
        return 1
     }
 
@@ -30,11 +30,14 @@ in
   programs = {
     bash = {
       enable = true;
-      initExtra = nixInit + ''
-        if [ -f "$HOME/.bashrc.local" ]; then
-          source "$HOME/.bashrc.local"
-        fi
-      '' + execFish;
+      initExtra =
+        nixInit
+        + ''
+          if [ -f "$HOME/.bashrc.local" ]; then
+            source "$HOME/.bashrc.local"
+          fi
+        ''
+        + execFish;
     };
 
     zsh = {
@@ -44,11 +47,14 @@ in
           source ~/.zshrc
         fi
       '';
-      initContent = nixInit + ''
-        if [ -f "$HOME/.zshrc.local" ]; then
-          source "$HOME/.zshrc.local"
-        fi
-      '' + execFish;
+      initContent =
+        nixInit
+        + ''
+          if [ -f "$HOME/.zshrc.local" ]; then
+            source "$HOME/.zshrc.local"
+          fi
+        ''
+        + execFish;
     };
   };
 }

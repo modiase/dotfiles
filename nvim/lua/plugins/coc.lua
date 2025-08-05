@@ -140,6 +140,7 @@ return {
 			"coc-emmet",
 			"coc-eslint",
 			"coc-explorer",
+			"coc-go",
 			"coc-html",
 			"coc-json",
 			"coc-lua",
