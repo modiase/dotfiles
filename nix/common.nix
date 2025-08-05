@@ -20,6 +20,7 @@ with pkgs;
   httpie
   jq
   jwt-cli
+  kubectl
   ngrok
   nix-prefetch-git
   nix-tree
