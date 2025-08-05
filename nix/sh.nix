@@ -30,7 +30,11 @@ in
   programs = {
     bash = {
       enable = true;
-      initExtra = nixInit + execFish;
+      initExtra = nixInit + ''
+        if [ -f "$HOME/.bashrc.local" ]; then
+          source "$HOME/.bashrc.local"
+        fi
+      '' + execFish;
     };
 
     zsh = {
@@ -40,7 +44,11 @@ in
           source ~/.zshrc
         fi
       '';
-      initContent = nixInit + execFish;
+      initContent = nixInit + ''
+        if [ -f "$HOME/.zshrc.local" ]; then
+          source "$HOME/.zshrc.local"
+        fi
+      '' + execFish;
     };
   };
 }
