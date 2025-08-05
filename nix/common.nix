@@ -23,6 +23,7 @@ with pkgs;
   ngrok
   nix-prefetch-git
   nix-tree
+  nixfmt-rfc-style
   nodePackages.pnpm
   nodePackages.ts-node
   nodePackages.typescript
