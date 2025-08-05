@@ -88,6 +88,10 @@ in
       function fish_greeting
         fish_prompt
       end
+
+      if test -f $HOME/.config/fish/config.local.fish
+          source $HOME/.config/fish/config.local.fish
+      end
     '';
   };
 }
