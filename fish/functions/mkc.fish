@@ -1,215 +1,214 @@
-function mkc --description "Create a C project with Meson, Ninja, and Nix flake"
-    set -l created_items
+set -l created_items
 
-    function cleanup_on_failure
-        if test (count $created_items) -gt 0
-            echo "Cleaning up created files and directories..."
-            for item in $created_items[-1..1]
-                if test -d $item
-                    rmdir $item 2>/dev/null
-                else if test -f $item
-                    rm $item 2>/dev/null
-                end
+function cleanup_on_failure
+    if test (count $created_items) -gt 0
+        echo "Cleaning up created files and directories..."
+        for item in $created_items[-1..1]
+            if test -d $item
+                rmdir $item 2>/dev/null
+            else if test -f $item
+                rm $item 2>/dev/null
             end
         end
     end
+end
 
-    set -l target_files flake.nix meson.build src test build inc
-    for file in $target_files
-        if test -e $file
-            echo "Error: $file already exists. Aborting to avoid overwriting existing files."
-            return 1
-        end
+set -l target_files flake.nix meson.build src test build inc
+for file in $target_files
+    if test -e $file
+        echo "Error: $file already exists. Aborting to avoid overwriting existing files."
+        return 1
     end
+end
 
-    echo "Creating flake.nix..."
-    printf '{
-  description = "C project development environment";
+echo "Creating flake.nix..."
+printf '{
+description = "C project development environment";
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
-  };
+inputs = {
+nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+flake-utils.url = "github:numtide/flake-utils";
+};
 
-  outputs = { self, nixpkgs, flake-utils }:
-    flake-utils.lib.eachDefaultSystem (system:
-      let
-        pkgs = nixpkgs.legacyPackages.${system};
+outputs = { self, nixpkgs, flake-utils }:
+flake-utils.lib.eachDefaultSystem (system:
+  let
+    pkgs = nixpkgs.legacyPackages.${system};
 
-        compiler = if pkgs.stdenv.isDarwin then pkgs.clang else pkgs.gcc;
+    compiler = if pkgs.stdenv.isDarwin then pkgs.clang else pkgs.gcc;
 
-        setup = pkgs.writeShellScriptBin "setup" "meson setup build";
-        run = pkgs.writeShellScriptBin "run" \'\'
-          if [ ! -f build/build.ninja ]; then
-            echo "Build directory not set up, running setup first..."
-            meson setup build
-          fi
-          redirect=""
-          [ "$1" != "-v" ] && redirect=">/dev/null 2>&1"
-          eval "meson compile -C build main $redirect"
-          ./build/main
-        \'\';
-        run_tests = pkgs.writeShellScriptBin "run_tests" \'\'
-          if [ ! -f build/build.ninja ]; then
-            echo "Build directory not set up, running setup first..."
-            meson setup build
-          fi
-          redirect=""
-          [ "$1" != "-v" ] && redirect=">/dev/null 2>&1"
-          eval "meson compile -C build $redirect"
-          flags=""
-          filter=""
-          [ "$1" != "-v" ] && flags="--quiet" && filter="2>&1 | grep -v \'^ninja:\'"
-          if eval "meson test -C build $flags $filter"; then
-            echo "✓ All tests passed"
-          else
-            echo "✗ Tests failed"
-          fi
-        \'\';
-      in
-      {
-        devShells.default = pkgs.mkShell {
-          buildInputs = with pkgs; [
-            # tools
-            compiler
-            meson
-            ninja
-            pkg-config
-            gnugrep
+    setup = pkgs.writeShellScriptBin "setup" "meson setup build";
+    run = pkgs.writeShellScriptBin "run" \'\'
+      if [ ! -f build/build.ninja ]; then
+        echo "Build directory not set up, running setup first..."
+        meson setup build
+      fi
+      redirect=""
+      [ "$1" != "-v" ] && redirect=">/dev/null 2>&1"
+      eval "meson compile -C build main $redirect"
+      ./build/main
+    \'\';
+    run_tests = pkgs.writeShellScriptBin "run_tests" \'\'
+      if [ ! -f build/build.ninja ]; then
+        echo "Build directory not set up, running setup first..."
+        meson setup build
+      fi
+      redirect=""
+      [ "$1" != "-v" ] && redirect=">/dev/null 2>&1"
+      eval "meson compile -C build $redirect"
+      flags=""
+      filter=""
+      [ "$1" != "-v" ] && flags="--quiet" && filter="2>&1 | grep -v \'^ninja:\'"
+      if eval "meson test -C build $flags $filter"; then
+        echo "✓ All tests passed"
+      else
+        echo "✗ Tests failed"
+      fi
+    \'\';
+  in
+  {
+    devShells.default = pkgs.mkShell {
+      buildInputs = with pkgs; [
+        # tools
+        compiler
+        meson
+        ninja
+        pkg-config
+        gnugrep
 
-            # commands
-            setup
-            run
-            run_tests
-          ];
-        };
-      });
+        # commands
+        setup
+        run
+        run_tests
+      ];
+    };
+  });
 }
 ' >flake.nix
-    if test $status -ne 0
-        cleanup_on_failure
-        return 1
-    end
-    set -a created_items flake.nix
+if test $status -ne 0
+    cleanup_on_failure
+    return 1
+end
+set -a created_items flake.nix
 
-    echo "Creating src directory..."
-    if not mkdir src
-        cleanup_on_failure
-        return 1
-    end
-    set -a created_items src
+echo "Creating src directory..."
+if not mkdir src
+    cleanup_on_failure
+    return 1
+end
+set -a created_items src
 
-    echo "Creating src/main.c..."
-    printf '#include <stdio.h>
+echo "Creating src/main.c..."
+printf '#include <stdio.h>
 #include <stdlib.h>
 
 int main(void) {
-    printf("Hello, World!\\\\n");
-    return EXIT_SUCCESS;
+printf("Hello, World!\\\\n");
+return EXIT_SUCCESS;
 }
 ' >src/main.c
-    if test $status -ne 0
-        cleanup_on_failure
-        return 1
-    end
-    set -a created_items src/main.c
+if test $status -ne 0
+    cleanup_on_failure
+    return 1
+end
+set -a created_items src/main.c
 
-    echo "Creating test directory..."
-    if not mkdir test
-        cleanup_on_failure
-        return 1
-    end
-    set -a created_items test
+echo "Creating test directory..."
+if not mkdir test
+    cleanup_on_failure
+    return 1
+end
+set -a created_items test
 
-    echo "Creating build directory..."
-    if not mkdir build
-        cleanup_on_failure
-        return 1
-    end
-    set -a created_items build
+echo "Creating build directory..."
+if not mkdir build
+    cleanup_on_failure
+    return 1
+end
+set -a created_items build
 
-    echo "Creating inc directory..."
-    if not mkdir inc
-        cleanup_on_failure
-        return 1
-    end
-    set -a created_items inc
+echo "Creating inc directory..."
+if not mkdir inc
+    cleanup_on_failure
+    return 1
+end
+set -a created_items inc
 
-    echo "Creating test/test_main.c..."
-    printf '#include <stdio.h>
+echo "Creating test/test_main.c..."
+printf '#include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
 
 // Simple test function
 int test_basic_functionality(void) {
-    // Basic assertion test
-    assert(1 == 1);
-    printf("test_basic_functionality: PASSED\\\\n");
-    return 0;
+// Basic assertion test
+assert(1 == 1);
+printf("test_basic_functionality: PASSED\\\\n");
+return 0;
 }
 
 int main(void) {
-    printf("Running tests...\\\\n");
+printf("Running tests...\\\\n");
 
-    test_basic_functionality();
+test_basic_functionality();
 
-    printf("All tests passed!\\\\n");
-    return EXIT_SUCCESS;
+printf("All tests passed!\\\\n");
+return EXIT_SUCCESS;
 }
 ' >test/test_main.c
-    if test $status -ne 0
-        cleanup_on_failure
-        return 1
-    end
-    set -a created_items test/test_main.c
+if test $status -ne 0
+    cleanup_on_failure
+    return 1
+end
+set -a created_items test/test_main.c
 
-    # Create meson.build
-    echo "Creating meson.build..."
-    printf 'project(\'c_project\', \'c\',
-  version: \'0.1.0\',
-  default_options: [
-    \'warning_level=3\',
-    \'werror=false\'
-  ])
+# Create meson.build
+echo "Creating meson.build..."
+printf 'project(\'c_project\', \'c\',
+version: \'0.1.0\',
+default_options: [
+\'warning_level=3\',
+\'werror=false\'
+])
 
 cc = meson.get_compiler(\'c\')
 
 c_flags = []
 
 if cc.get_id() == \'gcc\'
-  c_flags += [
-    \'-Wall\',
-    \'-Wextra\',
-    \'-Wpedantic\',
-    \'-Wformat=2\',
-    \'-Wno-unused-parameter\',
-    \'-Wshadow\',
-    \'-Wwrite-strings\',
-    \'-Wstrict-prototypes\',
-    \'-Wold-style-definition\',
-    \'-Wredundant-decls\',
-    \'-Wnested-externs\',
-    \'-Wmissing-include-dirs\',
-    \'-Wjump-misses-init\'
-  ]
+c_flags += [
+\'-Wall\',
+\'-Wextra\',
+\'-Wpedantic\',
+\'-Wformat=2\',
+\'-Wno-unused-parameter\',
+\'-Wshadow\',
+\'-Wwrite-strings\',
+\'-Wstrict-prototypes\',
+\'-Wold-style-definition\',
+\'-Wredundant-decls\',
+\'-Wnested-externs\',
+\'-Wmissing-include-dirs\',
+\'-Wjump-misses-init\'
+]
 elif cc.get_id() == \'clang\'
-  c_flags += [
-    \'-Wall\',
-    \'-Wextra\',
-    \'-Wpedantic\',
-    \'-Wformat=2\',
-    \'-Wno-unused-parameter\',
-    \'-Wshadow\',
-    \'-Wwrite-strings\',
-    \'-Wstrict-prototypes\',
-    \'-Wold-style-definition\',
-    \'-Wredundant-decls\',
-    \'-Wnested-externs\',
-    \'-Wmissing-include-dirs\',
-    \'-Wconditional-uninitialized\'
-  ]
+c_flags += [
+\'-Wall\',
+\'-Wextra\',
+\'-Wpedantic\',
+\'-Wformat=2\',
+\'-Wno-unused-parameter\',
+\'-Wshadow\',
+\'-Wwrite-strings\',
+\'-Wstrict-prototypes\',
+\'-Wold-style-definition\',
+\'-Wredundant-decls\',
+\'-Wnested-externs\',
+\'-Wmissing-include-dirs\',
+\'-Wconditional-uninitialized\'
+]
 else
-  error(\'Unsupported compiler: \' + cc.get_id() + \'. Only GCC and Clang are supported.\')
+error(\'Unsupported compiler: \' + cc.get_id() + \'. Only GCC and Clang are supported.\')
 endif
 
 add_project_arguments(c_flags, language: \'c\')
@@ -217,33 +216,31 @@ add_project_arguments(c_flags, language: \'c\')
 inc_directory = include_directories(\'inc\')
 
 main_exe = executable(\'main\',
-  \'src/main.c\',
-  include_directories: inc_directory,
-  install: false)
+\'src/main.c\',
+include_directories: inc_directory,
+install: false)
 
 test_exe = executable(\'test_main\',
-  \'test/test_main.c\',
-  include_directories: inc_directory,
-  install: false)
+\'test/test_main.c\',
+include_directories: inc_directory,
+install: false)
 
 test(\'basic_test\', test_exe)
 ' >meson.build
-    if test $status -ne 0
-        cleanup_on_failure
-        return 1
-    end
-    set -a created_items meson.build
-
-    echo ""
-    echo "✅ C project scaffolded successfully!"
-    echo ""
-    echo "Files created:"
-    echo "- flake.nix (Nix development environment)"
-    echo "- meson.build (Build configuration)"
-    echo "- src/main.c (Main source file)"
-    echo "- test/test_main.c (Test file)"
-    echo "- inc/ (Include directory)"
-
-    return 0
+if test $status -ne 0
+    cleanup_on_failure
+    return 1
 end
-mkc
+set -a created_items meson.build
+
+echo ""
+echo "✅ C project scaffolded successfully!"
+echo ""
+echo "Files created:"
+echo "- flake.nix (Nix development environment)"
+echo "- meson.build (Build configuration)"
+echo "- src/main.c (Main source file)"
+echo "- test/test_main.c (Test file)"
+echo "- inc/ (Include directory)"
+
+return 0
