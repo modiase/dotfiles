@@ -1,0 +1,1 @@
+git status &>/dev/null; and python -c 'import sys;assert len(sys.argv) >= 3, "Missing argument";from pathlib import Path;print(Path(sys.argv[2]).absolute().relative_to(Path(sys.argv[1])))' (git rev-parse --show-toplevel) $argv
