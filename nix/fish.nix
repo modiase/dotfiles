@@ -49,6 +49,16 @@ in
         fish_prompt
       end
 
+      functions -q gbr && complete -c 'gbr' -w 'git branch'
+      functions -q gco && complete -c 'gco' -w 'git checkout'
+      functions -q gfch && complete -c 'gfch' -w 'git fetch'
+      functions -q gadd && complete -c 'gadd' -w 'git add'
+      functions -q gmrg && complete -c 'gmrg' -w 'git merge'
+      functions -q grb && complete -c 'grb' -w 'git rebase'
+      functions -q grst && complete -c 'grst' -w 'git reset'
+      functions -q gsw && complete -c 'gsw' -w 'git switch'
+      functions -q gtag && complete -c 'gtag' -w 'git tag'
+
       if test -f $HOME/.config/fish/config.local.fish
           source $HOME/.config/fish/config.local.fish
       end
