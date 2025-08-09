@@ -12,6 +12,7 @@ with pkgs;
   fd
   fzf
   go
+  gopls
   google-cloud-sdk
   gcc
   gemini-cli
