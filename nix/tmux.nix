@@ -61,7 +61,7 @@ in
       # VSCode integrated terminal settings
       set -g default-terminal "xterm-256color"
       set -g terminal-overrides ',xterm-256color:Tc'
-      set -ga terminal-overrides ',*:XT:Ms@:Smulx@:Setulc@'
+      set -ga terminal-overrides ',*:XT:Smulx@:Setulc@'
       set -ga terminal-overrides ',*:setrgbf@:setrgbb@:setrgbaf@:setrgbab@'
 
       run-shell '${pkgs.tmuxPlugins.sensible}/share/tmux-plugins/sensible/sensible.tmux'
