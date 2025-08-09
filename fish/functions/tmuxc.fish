@@ -1,7 +1,7 @@
 set -l root_dir (pwd)
 
 set -l current_dir (pwd)
-while test "$current_dir" != "/"
+while test "$current_dir" != /
     if test -d "$current_dir/.vscode"
         set root_dir "$current_dir"
         break
