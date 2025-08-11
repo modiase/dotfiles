@@ -42,33 +42,29 @@ in
       continuum
       sysstat
     ];
-    extraConfig =
-      commonTmuxConfig
-      + ''
-        bind r source-file ~/.config/tmux/tmux.conf
+    extraConfig = commonTmuxConfig + ''
+      bind r source-file ~/.config/tmux/tmux.conf
 
-        set -g terminal-overrides ',*alacritty*:Tc'
-        set -g default-terminal "tmux-256color"
-        set -ga terminal-overrides ",alacritty:Tc"
-      '';
+      set -g terminal-overrides ',*alacritty*:Tc'
+      set -g default-terminal "tmux-256color"
+      set -ga terminal-overrides ",alacritty:Tc"
+    '';
   };
 
-  home.file.".config/tmux/tmux-vscode.conf".text =
-    commonTmuxConfig
-    + ''
-      bind r source-file ~/.config/tmux/tmux-vscode.conf
+  home.file.".config/tmux/tmux-vscode.conf".text = commonTmuxConfig + ''
+    bind r source-file ~/.config/tmux/tmux-vscode.conf
 
-      # VSCode integrated terminal settings
-      set -g default-terminal "xterm-256color"
-      set -g terminal-overrides ',xterm-256color:Tc'
-      set -ga terminal-overrides ',*:XT:Smulx@:Setulc@'
-      set -ga terminal-overrides ',*:setrgbf@:setrgbb@:setrgbaf@:setrgbab@'
+    # VSCode integrated terminal settings
+    set -g default-terminal "xterm-256color"
+    set -g terminal-overrides ',xterm-256color:Tc'
+    set -ga terminal-overrides ',*:XT:Smulx@:Setulc@'
+    set -ga terminal-overrides ',*:setrgbf@:setrgbb@:setrgbaf@:setrgbab@'
 
-      run-shell '${pkgs.tmuxPlugins.sensible}/share/tmux-plugins/sensible/sensible.tmux'
-      run-shell '${pkgs.tmuxPlugins.nord}/share/tmux-plugins/nord/nord.tmux'
-      run-shell '${pkgs.tmuxPlugins.vim-tmux-navigator}/share/tmux-plugins/vim-tmux-navigator/vim-tmux-navigator.tmux'
-      run-shell '${pkgs.tmuxPlugins.resurrect}/share/tmux-plugins/resurrect/resurrect.tmux'
-      run-shell '${pkgs.tmuxPlugins.continuum}/share/tmux-plugins/continuum/continuum.tmux'
-      run-shell '${pkgs.tmuxPlugins.sysstat}/share/tmux-plugins/sysstat/sysstat.tmux'
-    '';
+    run-shell '${pkgs.tmuxPlugins.sensible}/share/tmux-plugins/sensible/sensible.tmux'
+    run-shell '${pkgs.tmuxPlugins.nord}/share/tmux-plugins/nord/nord.tmux'
+    run-shell '${pkgs.tmuxPlugins.vim-tmux-navigator}/share/tmux-plugins/vim-tmux-navigator/vim-tmux-navigator.tmux'
+    run-shell '${pkgs.tmuxPlugins.resurrect}/share/tmux-plugins/resurrect/resurrect.tmux'
+    run-shell '${pkgs.tmuxPlugins.continuum}/share/tmux-plugins/continuum/continuum.tmux'
+    run-shell '${pkgs.tmuxPlugins.sysstat}/share/tmux-plugins/sysstat/sysstat.tmux'
+  '';
 }
