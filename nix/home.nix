@@ -42,6 +42,7 @@
     google-cloud-sdk
     gcc
     gemini-cli
+    gh
     gnused
     gpt-cli
     httpie
