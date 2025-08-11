@@ -7,24 +7,23 @@
 }:
 
 {
-  imports =
-    [
-      ./alacritty.nix
-      ./bat.nix
-      ./btop.nix
-      ./fish.nix
-      ./git.nix
-      ./neovim.nix
-      ./sh.nix
-      ./tmux.nix
-    ]
-    ++ (if system == "aarch64-darwin" then [ ./platforms/darwin.nix ] else [ ./platforms/linux.nix ])
-    ++ (
-      if lib.hasPrefix "aarch64" system then
-        [ ./architectures/aarch64.nix ]
-      else
-        [ ./architectures/x86_64.nix ]
-    );
+  imports = [
+    ./alacritty.nix
+    ./bat.nix
+    ./btop.nix
+    ./fish.nix
+    ./git.nix
+    ./neovim.nix
+    ./sh.nix
+    ./tmux.nix
+  ]
+  ++ (if system == "aarch64-darwin" then [ ./platforms/darwin.nix ] else [ ./platforms/linux.nix ])
+  ++ (
+    if lib.hasPrefix "aarch64" system then
+      [ ./architectures/aarch64.nix ]
+    else
+      [ ./architectures/x86_64.nix ]
+  );
 
   home.username = "moye";
 
@@ -49,6 +48,7 @@
     jq
     jwt-cli
     kubectl
+    ncdu
     ngrok
     nix-prefetch-git
     nix-tree
