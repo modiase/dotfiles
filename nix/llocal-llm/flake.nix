@@ -1,5 +1,5 @@
 {
-  description = "llama.cpp with state-of-the-art 1B model for macOS";
+  description = "llama.cpp with Qwen2.5-7B model for macOS";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -20,11 +20,14 @@
           config.allowUnfree = true;
         };
 
+        serverPort = "11434";
+
         modelInfo = {
-          name = "google_gemma-3-1b-it";
-          repo = "bartowski/google_gemma-3-1b-it-GGUF";
-          file = "google_gemma-3-1b-it-Q4_K_M.gguf";
-          size = "806MB";
+          name = "Qwen2.5-7B-Instruct";
+          repo = "bartowski/Qwen2.5-7B-Instruct-GGUF";
+          file = "Qwen2.5-7B-Instruct-Q4_K_M.gguf";
+          size = "4.68GB";
+          sha256 = "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423";
         };
 
         modelDownloader = pkgs.writeShellScript "download-model" ''
@@ -43,49 +46,37 @@
           cd "$MODEL_DIR"
 
           if [[ -f "$MODEL_FILE" ]]; then
-            echo "Model exists. Verifying integrity..."
-            if ${pkgs.file}/bin/file "$MODEL_FILE" | grep -q "data"; then
-              echo "Model verification passed. Using existing model."
+            echo "Model exists. Verifying SHA256 hash..."
+            ACTUAL_HASH=$(${pkgs.coreutils}/bin/sha256sum "$MODEL_FILE" | cut -d' ' -f1)
+            EXPECTED_HASH="${modelInfo.sha256}"
+
+            if [[ "$ACTUAL_HASH" == "$EXPECTED_HASH" ]]; then
+              echo "✓ Hash verification passed. Using existing model."
               exit 0
             else
-              echo "Model corrupted. Re-downloading..."
-              rm -f "$MODEL_FILE"
+              echo "✗ Hash verification failed!"
+              echo "Expected: $EXPECTED_HASH"
+              echo "Actual:   $ACTUAL_HASH"
+              echo "Please manually verify the file integrity and source."
+              exit 1
             fi
           fi
 
-          download_with_retry() {
+          download_model() {
             local url="$1"
             local output="$2"
-            local max_attempts=3
-            local delay=5
 
-            for attempt in $(seq 1 $max_attempts); do
-              echo "Download attempt $attempt/$max_attempts..."
+            echo "Downloading from: $url"
+            echo "Saving to: $output"
 
-              if timeout 1800 ${pkgs.curl}/bin/curl \
-                -L \
-                -C - \
-                --retry 3 \
-                --retry-delay 10 \
-                -H "User-Agent: llama.cpp-nix/1.0" \
-                -o "$output.tmp" \
-                "$url"; then
-
-                if [[ -f "$output.tmp" ]] && [[ $(stat -c%s "$output.tmp" 2>/dev/null || stat -f%z "$output.tmp") -gt 1000000 ]]; then
-                  mv "$output.tmp" "$output"
-                  echo "Download successful: $output"
-                  return 0
-                fi
-              fi
-
-              echo "Attempt $attempt failed. Retrying in $delay seconds..."
-              rm -f "$output.tmp"
-              sleep $delay
-              delay=$((delay * 2))
-            done
-
-            echo "All download attempts failed"
-            return 1
+            ${pkgs.curl}/bin/curl \
+              -L \
+              -C - \
+              --retry 3 \
+              --retry-delay 10 \
+              -H "User-Agent: llama.cpp-nix/1.0" \
+              -o "$output" \
+              "$url"
           }
 
           HF_URL="https://huggingface.co/$HF_REPO/resolve/main/$MODEL_FILE"
@@ -94,19 +85,25 @@
           echo "URL: $HF_URL"
           echo "Size: ${modelInfo.size}"
 
-          if download_with_retry "$HF_URL" "$MODEL_FILE"; then
+          if download_model "$HF_URL" "$MODEL_FILE"; then
             echo "Model download completed successfully!"
 
-            if ${pkgs.file}/bin/file "$MODEL_FILE" | grep -q "data"; then
-              echo "Model integrity verified."
+            echo "Verifying SHA256 hash..."
+            ACTUAL_HASH=$(${pkgs.coreutils}/bin/sha256sum "$MODEL_FILE" | cut -d' ' -f1)
+            EXPECTED_HASH="${modelInfo.sha256}"
+
+            if [[ "$ACTUAL_HASH" == "$EXPECTED_HASH" ]]; then
+              echo "✓ Hash verification passed"
               echo "Model ready: $MODEL_DIR/$MODEL_FILE"
             else
-              echo "ERROR: Downloaded model failed verification"
-              rm -f "$MODEL_FILE"
+              echo "✗ Hash verification failed!"
+              echo "Expected: $EXPECTED_HASH"
+              echo "Actual:   $ACTUAL_HASH"
+              echo "Please manually verify the download source and file integrity."
               exit 1
             fi
           else
-            echo "ERROR: Failed to download model after all attempts"
+            echo "ERROR: Failed to download model"
             exit 1
           fi
         '';
@@ -118,8 +115,8 @@
           src = pkgs.fetchFromGitHub {
             owner = "ggml-org";
             repo = "llama.cpp";
-            rev = "618575c5825d7d4f170e686e772178d2aae148ae";
-            hash = "sha256-uPg3P8pRR1B3/b/ddDvdSOTRm4zUBKU0XhwVFO6K2XM=";
+            rev = "f08c4c0d8d0cb6caaf8b7ad316039232b9fa059c";
+            hash = "sha256-cbYoITYGk+pdXkCVMCll1mnL2nEGUvTcQbA65S1xZg8=";
           };
 
           nativeBuildInputs = with pkgs; [
@@ -373,7 +370,7 @@
                   --threads "$THREADS" \
                   --ctx-size 4096 \
                   --host 127.0.0.1 \
-                  --port 43477 \
+                  --port ${serverPort} \
                   "$@"
                 ;;
               run|*)
@@ -465,7 +462,7 @@
             --threads 4 \
             --ctx-size 4096 \
             --host 127.0.0.1 \
-            --port 43477 \
+            --port ${serverPort} \
             --n-gpu-layers 99
         '';
 
@@ -538,9 +535,9 @@
           echo "=== llama.cpp Service Installer ==="
 
           if [[ -f "$PLIST_PATH" ]] && launchctl list "$SERVICE_NAME" >/dev/null 2>&1; then
-            if curl -s --connect-timeout 2 http://127.0.0.1:43477/health >/dev/null 2>&1; then
+            if curl -s --connect-timeout 2 http://127.0.0.1:${serverPort}/health >/dev/null 2>&1; then
               echo "✓ Service is already installed and running!"
-              echo "✓ Server responding on http://127.0.0.1:43477"
+              echo "✓ Server responding on http://127.0.0.1:${serverPort}"
               echo ""
               echo "Management commands:"
               echo "  nix run .#service-status"
@@ -575,14 +572,14 @@
             echo "✓ Service is running!"
 
             for i in {1..10}; do
-              if curl -s --connect-timeout 1 http://127.0.0.1:43477/health >/dev/null 2>&1; then
-                echo "✓ Server is responding on port 43477"
+              if curl -s --connect-timeout 1 http://127.0.0.1:${serverPort}/health >/dev/null 2>&1; then
+                echo "✓ Server is responding on port ${serverPort}"
                 break
               fi
               sleep 1
             done
 
-            if curl -s --connect-timeout 2 http://127.0.0.1:43477/health >/dev/null 2>&1; then
+            if curl -s --connect-timeout 2 http://127.0.0.1:${serverPort}/health >/dev/null 2>&1; then
               echo "✓ Installation successful!"
             else
               echo "⚠ Service loaded but server not responding yet"
@@ -590,7 +587,7 @@
             fi
 
             echo ""
-            echo "Server URL: http://127.0.0.1:43477"
+            echo "Server URL: http://127.0.0.1:${serverPort}"
             echo ""
             echo "Management commands:"
             echo "  nix run .#service-status"
@@ -653,7 +650,7 @@
           fi
 
           sleep 1
-          if curl -s --connect-timeout 1 http://127.0.0.1:43477/health >/dev/null 2>&1; then
+          if curl -s --connect-timeout 1 http://127.0.0.1:${serverPort}/health >/dev/null 2>&1; then
             echo "⚠ Warning: Server still responding - may need manual termination"
           else
             echo "✓ Server confirmed stopped"
@@ -682,8 +679,8 @@
             echo "✓ Service is loaded"
 
             # Test server endpoint
-            if curl -s --connect-timeout 2 http://127.0.0.1:43477/health >/dev/null 2>&1; then
-              echo "✓ Server is responding on port 43477"
+            if curl -s --connect-timeout 2 http://127.0.0.1:${serverPort}/health >/dev/null 2>&1; then
+              echo "✓ Server is responding on port ${serverPort}"
             else
               echo "⚠ Service loaded but server not responding"
             fi
@@ -734,7 +731,7 @@
           set -euo pipefail
 
           PROMPT="$1"
-          SERVER_URL="http://127.0.0.1:43477"
+          SERVER_URL="http://127.0.0.1:${serverPort}"
 
           if [[ -z "$PROMPT" ]]; then
             echo "Usage: $0 \"Your prompt here\""
@@ -789,7 +786,7 @@
             '';
 
             meta = with pkgs.lib; {
-              description = "Complete llama.cpp solution with 1B model for macOS";
+              description = "Complete llama.cpp solution with Qwen2.5-7B model for macOS";
               platforms = [
                 "aarch64-darwin"
                 "x86_64-darwin"
@@ -808,12 +805,16 @@
 
           server = {
             type = "app";
-            program = "${self.packages.${system}.llama-cpp-complete}/bin/llama-nix";
+            program = "${pkgs.writeShellScript "llama-server" ''
+              exec ${self.packages.${system}.llama-cpp-complete}/bin/llama-nix server "$@"
+            ''}";
           };
 
           download = {
             type = "app";
-            program = "${self.packages.${system}.llama-cpp-complete}/bin/llama-nix";
+            program = "${pkgs.writeShellScript "llama-download" ''
+              exec ${self.packages.${system}.llama-cpp-complete}/bin/llama-nix download "$@"
+            ''}";
           };
 
           service-install = {
