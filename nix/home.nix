@@ -60,6 +60,7 @@
     nodejs
     pass
     pass-git-helper
+    pgcli
     poetry
     pre-commit
     pstree
