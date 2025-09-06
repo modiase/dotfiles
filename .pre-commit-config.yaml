@@ -19,3 +19,13 @@ repos:
         args:
           - -c
           - 'nix-shell -p gnused --run ''git diff --cached --name-only --diff-filter d | xargs -r sed -i "s/[[:space:]]*$//"'''
+      - id: delete-merged-branches
+        name: delete merged branches on main
+        entry: bash
+        language: system
+        always_run: true
+        pass_filenames: false
+        stages: [post-checkout, post-rewrite]
+        args:
+          - -c
+          - 'if [ "$(git branch --show-current)" = "main" ]; then git branch --merged main | grep -v main | xargs -r git branch -d; fi'
