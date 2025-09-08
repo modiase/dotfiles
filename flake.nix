@@ -7,6 +7,10 @@
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-darwin = {
+      url = "github:lnl7/nix-darwin";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -15,6 +19,7 @@
       self,
       nixpkgs,
       home-manager,
+      nix-darwin,
       flake-utils,
       ...
     }@inputs:
@@ -92,6 +97,32 @@
           {
             home.homeDirectory = "/Users/${username}";
             home.stateVersion = "24.05";
+          }
+        ];
+      };
+
+      # nix-darwin configuration
+      darwinConfigurations."iris" = nix-darwin.lib.darwinSystem {
+        system = "aarch64-darwin";
+        modules = [
+          {
+            # Basic nix-darwin configuration
+            nixpkgs.hostPlatform = "aarch64-darwin";
+            nix.settings.experimental-features = "nix-command flakes";
+            programs.zsh.enable = true;
+            system.stateVersion = 6;
+
+            # User configuration
+            users.users.${username} = {
+              name = username;
+              home = "/Users/${username}";
+            };
+
+            # System packages
+            environment.systemPackages = with nixpkgs.legacyPackages.aarch64-darwin; [
+              vim
+              git
+            ];
           }
         ];
       };

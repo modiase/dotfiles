@@ -15,6 +15,11 @@ done
 
 export NIX_CONFIG="experimental-features = nix-command flakes"
 
+# Run Sequoia nixbld user migration (idempotent)
+if [ "$(uname -s)" = "Darwin" ]; then
+  curl --proto '=https' --tlsv1.2 -sSf -L https://github.com/NixOS/nix/raw/master/scripts/sequoia-nixbld-user-migration.sh | bash - >/dev/null 2>&1 || true
+fi
+
 if [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ]; then
   . "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
 fi
@@ -32,7 +37,16 @@ done
 
 HOME_MANAGER_CMD="nix shell nixpkgs#home-manager -c home-manager switch -b backup $SHOW_TRACE --flake"
 if [ "$(uname -s)" = "Darwin" ]; then
-   $HOME_MANAGER_CMD .#moye-aarch64-darwin
+  # Install/update nix-darwin if not already installed
+  if ! command -v darwin-rebuild >/dev/null 2>&1; then
+    echo "Installing nix-darwin..."
+    sudo NIX_CONFIG="experimental-features = nix-command flakes" nix run nix-darwin/master#darwin-rebuild -- switch --flake .
+  else
+    echo "Updating nix-darwin configuration..."
+    sudo NIX_CONFIG="experimental-features = nix-command flakes" darwin-rebuild switch --flake .
+  fi
+
+  $HOME_MANAGER_CMD .#moye-aarch64-darwin
 elif [ "$(uname -s)" = "Linux" ]; then
   if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]; then
     $HOME_MANAGER_CMD .#moye-aarch64-linux
