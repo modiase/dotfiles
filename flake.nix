@@ -101,24 +101,42 @@
         ];
       };
 
-      # nix-darwin configuration
       darwinConfigurations."iris" = nix-darwin.lib.darwinSystem {
         system = "aarch64-darwin";
         modules = [
           {
-            # Basic nix-darwin configuration
             nixpkgs.hostPlatform = "aarch64-darwin";
             nix.settings.experimental-features = "nix-command flakes";
             programs.zsh.enable = true;
             system.stateVersion = 6;
 
-            # User configuration
             users.users.${username} = {
               name = username;
               home = "/Users/${username}";
             };
 
-            # System packages
+            environment.systemPackages = with nixpkgs.legacyPackages.aarch64-darwin; [
+              vim
+              git
+            ];
+          }
+        ];
+      };
+
+      darwinConfigurations."pallas" = nix-darwin.lib.darwinSystem {
+        system = "aarch64-darwin";
+        modules = [
+          {
+            nixpkgs.hostPlatform = "aarch64-darwin";
+            nix.settings.experimental-features = "nix-command flakes";
+            programs.zsh.enable = true;
+            system.stateVersion = 6;
+
+            users.users.${username} = {
+              name = username;
+              home = "/Users/${username}";
+            };
+
             environment.systemPackages = with nixpkgs.legacyPackages.aarch64-darwin; [
               vim
               git
