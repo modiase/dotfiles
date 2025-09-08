@@ -12,6 +12,10 @@ in
     enable = true;
     functions = functions;
     shellAliases = {
+      ls = "eza --icons --git";
+      ll = "eza --icons -l --git";
+      lt = "eza --icons=always --color=always --tree | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
+      cat = "bat";
     };
     shellAbbrs = {
       csv2json = "python -c 'import csv, json, sys; print(json.dumps([dict(r) for r in csv.DictReader(sys.stdin)]))'";

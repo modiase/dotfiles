@@ -36,6 +36,7 @@
     coreutils
     direnv
     docker
+    eza
     fd
     fzf
     go
@@ -50,6 +51,7 @@
     jq
     jwt-cli
     kubectl
+    moar
     ncdu
     ngrok
     nix-prefetch-git
@@ -78,7 +80,6 @@
     pstree
     ripgrep
     tldr
-    tree
     tshark
     uv
     watch

@@ -119,6 +119,10 @@
               vim
               git
             ];
+
+            fonts.packages = with nixpkgs.legacyPackages.aarch64-darwin; [
+              nerd-fonts.iosevka
+            ];
           }
         ];
       };
@@ -140,6 +144,10 @@
             environment.systemPackages = with nixpkgs.legacyPackages.aarch64-darwin; [
               vim
               git
+            ];
+
+            fonts.packages = with nixpkgs.legacyPackages.aarch64-darwin; [
+              nerd-fonts.iosevka
             ];
           }
         ];
