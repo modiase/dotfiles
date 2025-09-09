@@ -3,17 +3,20 @@ let
   dotfiles = ../.;
   functionFiles = builtins.attrNames (builtins.readDir (dotfiles + /fish/functions));
   toFunctionName = file: pkgs.lib.strings.removeSuffix ".fish" file;
-  functions = pkgs.lib.genAttrs (map toFunctionName functionFiles) (
-    name: builtins.readFile (dotfiles + /fish/functions + "/${name}.fish")
-  );
+  functions =
+    pkgs.lib.genAttrs (map toFunctionName functionFiles) (
+      name: builtins.readFile (dotfiles + /fish/functions + "/${name}.fish")
+    )
+    // {
+      ls = "eza --icons=always --color=always --git $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
+      ll = "eza --icons=always --color=always -l --git $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
+    };
 in
 {
   programs.fish = {
     enable = true;
     functions = functions;
     shellAliases = {
-      ls = "eza --icons --git";
-      ll = "eza --icons -l --git";
       lt = "eza --icons=always --color=always --tree | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
       cat = "bat";
     };
