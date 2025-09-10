@@ -4,7 +4,7 @@
   programs.git = {
     enable = true;
     userName = "Moye Odiase";
-    userEmail = "moyeodiase@hotmail.co.uk";
+    userEmail = "moyeodiase@gmail.com";
     extraConfig = {
       core.editor = "nvim";
       credential.helper =
