@@ -10,6 +10,7 @@ let
     // {
       ls = "eza --icons=always --color=always --git $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
       ll = "eza --icons=always --color=always -l --git $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
+      lt = "eza --icons=always --color=always --tree  $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
     };
 in
 {
@@ -17,7 +18,6 @@ in
     enable = true;
     functions = functions;
     shellAliases = {
-      lt = "eza --icons=always --color=always --tree | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
       cat = "bat";
     };
     shellAbbrs = {
