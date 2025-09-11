@@ -1,4 +1,6 @@
-#!/bin/sh -eu
+#!/bin/sh
+
+set -euo pipefail
 
 SHOW_TRACE=""
 while getopts "d" opt; do
@@ -37,7 +39,6 @@ done
 
 HOME_MANAGER_CMD="nix shell nixpkgs#home-manager -c home-manager switch -b backup $SHOW_TRACE --flake"
 if [ "$(uname -s)" = "Darwin" ]; then
-  # Install/update nix-darwin if not already installed
   if ! command -v darwin-rebuild >/dev/null 2>&1; then
     echo "Installing nix-darwin..."
     sudo NIX_CONFIG="experimental-features = nix-command flakes" nix run nix-darwin/master#darwin-rebuild -- switch --flake .
