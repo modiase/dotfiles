@@ -78,6 +78,37 @@ darwin_install_nix(){
 			eval "$(command -v bash) <(curl -L https://nixos.org/nix/install)"
 }
 
+install_darwin_sudoers(){
+	if [[ "$(uname)" != "Darwin" ]]; then
+		return
+	fi
+
+	local sudoers_file="/etc/sudoers.d/${USER}_allow_darwin_rebuild"
+	local source_file="${SCRIPT_DIR}/../lib/allow_darwin_rebuild"
+
+	if [[ -f "$sudoers_file" ]]; then
+		debug "Sudoers file already exists: $sudoers_file"
+		return
+	fi
+
+	if [[ ! -f "$source_file" ]]; then
+		perror "Source sudoers file not found: $source_file"
+		exit $EXIT_FAILURE
+	fi
+
+	debug "Installing Darwin sudoers file: $sudoers_file"
+
+	# Create the sudoers file with USER variable substitution
+	sed "s/\${USER}/$USER/g" "$source_file" | sudo tee "$sudoers_file" > /dev/null
+
+	if [[ $? -eq 0 ]]; then
+		debug "Successfully installed sudoers file: $sudoers_file"
+	else
+		perror "Failed to install sudoers file: $sudoers_file"
+		exit $EXIT_FAILURE
+	fi
+}
+
 
 install_nix(){
 	local platform=$1
@@ -94,6 +125,7 @@ install_nix(){
 	case "${platform}" in
 		Darwin)
 			darwin_install_nix
+			install_darwin_sudoers
 			;;
 		Linux)
 			linux_install_nix
@@ -106,7 +138,7 @@ install_nix(){
 	esac
 
 	postinstall_nix
-	
+
 }
 
 

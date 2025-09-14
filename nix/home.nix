@@ -29,6 +29,7 @@
 
   home.packages = with pkgs; [
     (callPackage ./nixpkgs/ankigen { })
+    (callPackage ./nixpkgs/cursor-agent { })
     awscli2
     cargo
     claude-code

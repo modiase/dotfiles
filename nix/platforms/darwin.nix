@@ -10,6 +10,7 @@
     colima
     coreutils-prefixed
     iproute2mac
+    gettext
     (pkgs.callPackage ../nixpkgs/apple-containers.nix { })
   ];
 
