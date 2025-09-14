@@ -20,17 +20,17 @@ let
       else
         fetchurl {
           url = "https://downloads.cursor.com/lab/${version}/darwin/x64/agent-cli-package.tar.gz";
-          sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+          sha256 = lib.fakeSha256;
         }
     else if stdenv.isAarch64 then
       fetchurl {
         url = "https://downloads.cursor.com/lab/${version}/linux/arm64/agent-cli-package.tar.gz";
-        sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+        sha256 = lib.fakeSha256;
       }
     else
       fetchurl {
         url = "https://downloads.cursor.com/lab/${version}/linux/x64/agent-cli-package.tar.gz";
-        sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+        sha256 = "sha256-tUy4sxaDsPL2aIMjd3W/1aAj2uL04He90sQ0k3YxRtE=";
       };
 in
 stdenv.mkDerivation rec {
@@ -39,6 +39,11 @@ stdenv.mkDerivation rec {
   inherit src;
 
   nativeBuildInputs = lib.optionals stdenv.isLinux [ autoPatchelfHook ];
+
+  buildInputs = lib.optionals stdenv.isLinux [
+    stdenv.cc.cc.lib
+    stdenv.cc.libc
+  ];
 
   sourceRoot = ".";
 
