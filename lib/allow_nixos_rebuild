@@ -1,0 +1,2 @@
+Defaults!/run/current-system/sw/bin/nixos-rebuild env_keep += "NIX_CONFIG"
+${USER} ALL=(ALL) NOPASSWD: /run/current-system/sw/bin/nixos-rebuild

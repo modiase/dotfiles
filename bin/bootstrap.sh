@@ -1,3 +1,4 @@
+
 # Minimal bootstrap script
 # Build a minimal enviornment which can install packages using nix
 
@@ -98,7 +99,41 @@ install_darwin_sudoers(){
 
 	debug "Installing Darwin sudoers file: $sudoers_file"
 
-	# Create the sudoers file with USER variable substitution
+	sed "s/\${USER}/$USER/g" "$source_file" | sudo tee "$sudoers_file" > /dev/null
+
+	if [[ $? -eq 0 ]]; then
+		debug "Successfully installed sudoers file: $sudoers_file"
+	else
+		perror "Failed to install sudoers file: $sudoers_file"
+		exit $EXIT_FAILURE
+	fi
+}
+
+install_nixos_sudoers(){
+	if [[ "$(uname)" != "Linux" ]]; then
+		return
+	fi
+
+	if [[ ! -f /etc/nixos/configuration.nix ]]; then
+		debug "Not running on NixOS, skipping nixos-rebuild sudoers installation"
+		return
+	fi
+
+	local sudoers_file="/etc/sudoers.d/${USER}_allow_nixos_rebuild"
+	local source_file="${SCRIPT_DIR}/../lib/allow_nixos_rebuild"
+
+	if [[ -f "$sudoers_file" ]]; then
+		debug "Sudoers file already exists: $sudoers_file"
+		return
+	fi
+
+	if [[ ! -f "$source_file" ]]; then
+		perror "Source sudoers file not found: $source_file"
+		exit $EXIT_FAILURE
+	fi
+
+	debug "Installing NixOS sudoers file: $sudoers_file"
+
 	sed "s/\${USER}/$USER/g" "$source_file" | sudo tee "$sudoers_file" > /dev/null
 
 	if [[ $? -eq 0 ]]; then
@@ -129,6 +164,7 @@ install_nix(){
 			;;
 		Linux)
 			linux_install_nix
+			install_nixos_sudoers
 			;;
 
 		*)
