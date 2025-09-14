@@ -49,6 +49,11 @@ if [ "$(uname -s)" = "Darwin" ]; then
 
   $HOME_MANAGER_CMD .#moye-aarch64-darwin
 elif [ "$(uname -s)" = "Linux" ]; then
+  if [ -f /etc/NIXOS ]; then
+    echo "Updating NixOS configuration..."
+    sudo nixos-rebuild switch --flake .
+  fi
+
   if [ "$(uname -m)" = "aarch64" ] || [ "$(uname -m)" = "arm64" ]; then
     $HOME_MANAGER_CMD .#moye-aarch64-linux
   elif [ "$(uname -m)" = "x86_64" ]; then

@@ -152,5 +152,19 @@
           }
         ];
       };
+
+      nixosConfigurations."herakles" = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          ./systems/herakles/configuration.nix
+          ./systems/herakles/hardware-configuration.nix
+          {
+            nix.settings.experimental-features = [
+              "nix-command"
+              "flakes"
+            ];
+          }
+        ];
+      };
     };
 }
