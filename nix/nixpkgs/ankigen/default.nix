@@ -61,8 +61,8 @@ pkgs.writeShellScriptBin "ankigen" ''
     local api_key="$(security find-generic-password -a "$USER" -s "OPENAI_API_KEY" -w)"
     [ -z "$api_key" ] && { echo "Could not find OPENAI_API_KEY in Keychain."; exit 1; }
 
-    local model="gpt-5"
-    [ "$FAST" = true ] && model="gpt-5-mini"
+    local model="gpt-4.1"
+    [ "$FAST" = true ] && model="o4-mini"
 
     local tools='[]'
     [ "$USE_WEB" = true ] && tools='[{"type":"web_search"}]'
