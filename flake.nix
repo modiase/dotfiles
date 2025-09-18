@@ -40,6 +40,8 @@
             (self: super: {
               gpt-cli = super.callPackage ./nix/nixpkgs/gpt-cli { };
               codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
+              space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
+              lato = super.callPackage ./nix/nixpkgs/lato { };
             })
           ];
         };
@@ -63,6 +65,8 @@
             (self: super: {
               gpt-cli = super.callPackage ./nix/nixpkgs/gpt-cli { };
               codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
+              space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
+              lato = super.callPackage ./nix/nixpkgs/lato { };
             })
           ];
         };
@@ -86,6 +90,8 @@
             (self: super: {
               gpt-cli = super.callPackage ./nix/nixpkgs/gpt-cli { };
               codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
+              space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
+              lato = super.callPackage ./nix/nixpkgs/lato { };
             })
           ];
         };
@@ -103,53 +109,33 @@
 
       darwinConfigurations."iris" = nix-darwin.lib.darwinSystem {
         system = "aarch64-darwin";
+        pkgs = import nixpkgs {
+          system = "aarch64-darwin";
+          overlays = [
+            (self: super: {
+              space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
+              lato = super.callPackage ./nix/nixpkgs/lato { };
+            })
+          ];
+        };
         modules = [
-          {
-            nixpkgs.hostPlatform = "aarch64-darwin";
-            nix.settings.experimental-features = "nix-command flakes";
-            programs.zsh.enable = true;
-            system.stateVersion = 6;
-
-            users.users.${username} = {
-              name = username;
-              home = "/Users/${username}";
-            };
-
-            environment.systemPackages = with nixpkgs.legacyPackages.aarch64-darwin; [
-              vim
-              git
-            ];
-
-            fonts.packages = with nixpkgs.legacyPackages.aarch64-darwin; [
-              nerd-fonts.iosevka
-            ];
-          }
+          ./systems/iris/configuration.nix
         ];
       };
 
       darwinConfigurations."pallas" = nix-darwin.lib.darwinSystem {
         system = "aarch64-darwin";
+        pkgs = import nixpkgs {
+          system = "aarch64-darwin";
+          overlays = [
+            (self: super: {
+              space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
+              lato = super.callPackage ./nix/nixpkgs/lato { };
+            })
+          ];
+        };
         modules = [
-          {
-            nixpkgs.hostPlatform = "aarch64-darwin";
-            nix.settings.experimental-features = "nix-command flakes";
-            programs.zsh.enable = true;
-            system.stateVersion = 6;
-
-            users.users.${username} = {
-              name = username;
-              home = "/Users/${username}";
-            };
-
-            environment.systemPackages = with nixpkgs.legacyPackages.aarch64-darwin; [
-              vim
-              git
-            ];
-
-            fonts.packages = with nixpkgs.legacyPackages.aarch64-darwin; [
-              nerd-fonts.iosevka
-            ];
-          }
+          ./systems/pallas/configuration.nix
         ];
       };
 
