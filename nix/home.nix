@@ -37,6 +37,7 @@
     coreutils
     direnv
     docker
+    dust
     eza
     fd
     fzf
@@ -66,6 +67,7 @@
     pass-git-helper
     pgcli
     poetry
+    procs
     pre-commit
     pstree
     (python313.withPackages (
@@ -80,6 +82,7 @@
     ))
     pstree
     ripgrep
+    sd
     tldr
     tshark
     uv

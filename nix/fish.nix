@@ -19,6 +19,9 @@ in
     functions = functions;
     shellAliases = {
       cat = "bat";
+      du = "dust";
+      ps = "procs";
+      top = "btop";
     };
     shellAbbrs = {
       csv2json = "python -c 'import csv, json, sys; print(json.dumps([dict(r) for r in csv.DictReader(sys.stdin)]))'";
