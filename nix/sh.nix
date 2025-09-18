@@ -5,13 +5,25 @@ let
     in_nix_environment() {
        [[ -n "$NIX_GCROOT" ]] && return 0
        [[ -n "$IN_NIX_SHELL" ]] && return 0
-
        return 1
     }
 
+    # Only run execFish for actual interactive user shells
+    # Skip if any of these conditions are true:
+    # - Not an interactive shell
+    # - Fish is disabled via NO_FISH
+    # - Fish is not available
+    # - In a Nix environment
+    # - Cursor agent is running
+    # - Running in a non-terminal environment (no TTY)
+    # - Parent process is not a terminal/shell
+    # - Running in background or non-interactive context
     if [[ $- == *i* && -z "$NO_FISH" ]] && \
-      type fish > /dev/null 2>&1 && \
-      ! in_nix_environment; then
+       type fish > /dev/null 2>&1 && \
+       ! in_nix_environment && \
+       [[ -z "$CURSOR_AGENT" ]] && \
+       [[ -t 0 && -t 1 ]] && \
+       [[ "$(ps -o comm= -p $PPID)" =~ (login|sshd|tmux|screen|zsh|bash) ]]; then
        exec fish
     fi
   '';
