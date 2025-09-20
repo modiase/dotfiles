@@ -20,12 +20,12 @@ let
       else
         fetchurl {
           url = "https://downloads.cursor.com/lab/${version}/darwin/x64/agent-cli-package.tar.gz";
-          sha256 = lib.fakeSha256;
+          sha256 = "sha256-iP3RNgy5qQeGd9STWI/eN8p2MKG3ZGdQ/NUsQn/oUrk=";
         }
     else if stdenv.isAarch64 then
       fetchurl {
         url = "https://downloads.cursor.com/lab/${version}/linux/arm64/agent-cli-package.tar.gz";
-        sha256 = lib.fakeSha256;
+        sha256 = "sha256-zWIg5lrwVGpmO8jW0vglo8r9wmCvxyfvgWv6LO8P9mg=";
       }
     else
       fetchurl {
