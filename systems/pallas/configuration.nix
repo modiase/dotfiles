@@ -6,6 +6,10 @@
   programs.zsh.enable = true;
   system.stateVersion = 6;
 
+  networking.hostName = "pallas";
+  networking.ComputerName = "pallas";
+  networking.localHostName = "pallas";
+
   users.users.moye = {
     name = "moye";
     home = "/Users/moye";

@@ -6,6 +6,10 @@
   programs.zsh.enable = true;
   system.stateVersion = 6;
 
+  networking.hostName = "iris";
+  networking.ComputerName = "iris";
+  networking.localHostName = "iris";
+
   users.users.moye = {
     name = "moye";
     home = "/Users/moye";

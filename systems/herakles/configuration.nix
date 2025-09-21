@@ -54,6 +54,16 @@
 
   services.openssh.enable = true;
 
+  services.avahi = {
+    enable = true;
+    nssmdns = true;
+    publish = {
+      enable = true;
+      addresses = true;
+      workstation = true;
+    };
+  };
+
   networking.firewall.enable = false;
 
   nixpkgs.config.allowUnfree = true;
