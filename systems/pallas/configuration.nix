@@ -7,7 +7,7 @@
   system.stateVersion = 6;
 
   networking.hostName = "pallas";
-  networking.ComputerName = "pallas";
+  networking.computerName = "pallas";
   networking.localHostName = "pallas";
 
   users.users.moye = {

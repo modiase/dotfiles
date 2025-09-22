@@ -7,7 +7,7 @@
   system.stateVersion = 6;
 
   networking.hostName = "iris";
-  networking.ComputerName = "iris";
+  networking.computerName = "iris";
   networking.localHostName = "iris";
 
   users.users.moye = {
