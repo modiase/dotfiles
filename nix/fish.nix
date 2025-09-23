@@ -56,12 +56,7 @@ in
       fish_user_key_bindings
       bind \cs change_directory
       function fish_greeting
-        echo -n (hostname)
-        echo -n " "
-        echo -n (set_color d8dee9)">"
-        echo -n (set_color d8dee9)">"
-        echo -n (set_color 88c0d0)">"
-        echo -n (set_color normal)" "
+        fish_prompt
       end
 
       functions -q gbr && complete -c 'gbr' -w 'git branch'
