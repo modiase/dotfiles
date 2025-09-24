@@ -1,4 +1,9 @@
-{ pkgs, ... }:
+{
+  pkgs,
+  lib,
+  system,
+  ...
+}:
 let
   dotfiles = ../.;
   functionFiles = builtins.attrNames (builtins.readDir (dotfiles + /fish/functions));
@@ -17,12 +22,23 @@ in
 {
   programs.fish = {
     enable = true;
-    functions = functions;
+    functions =
+      lib.genAttrs (map toFunctionName (
+        builtins.attrNames (builtins.readDir (dotfiles + /fish/functions))
+      )) (name: builtins.readFile (dotfiles + /fish/functions + "/${name}.fish"))
+      // {
+        ls = "eza --icons=always --color=always --git $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
+        ll = "eza --icons=always --color=always -l --git $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
+        lt = "eza --icons=always --color=always --tree  $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
+      };
     shellAliases = {
       cat = "bat";
       du = "dust";
       ps = "procs";
       top = "btop";
+    }
+    // lib.optionalAttrs (lib.hasSuffix "-linux" system) {
+      pbcopy = "xclip -selection clipboard";
     };
     shellAbbrs = {
       csv2json = "python -c 'import csv, json, sys; print(json.dumps([dict(r) for r in csv.DictReader(sys.stdin)]))'";

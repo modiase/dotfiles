@@ -50,9 +50,15 @@
     nvitop
     vim
     wget
+    xorg.xauth
   ];
 
-  services.openssh.enable = true;
+  services.openssh = {
+    enable = true;
+    settings = {
+      X11Forwarding = true;
+    };
+  };
 
   services.avahi = {
     enable = true;
@@ -74,6 +80,7 @@
   hardware.graphics = {
     enable = true;
     enable32Bit = true;
+    package = config.hardware.nvidia.package;
   };
 
   hardware.nvidia = {
