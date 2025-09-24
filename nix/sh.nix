@@ -1,6 +1,7 @@
 { pkgs, ... }:
 
 let
+  displayResolver = import ./lib/resolve-display.nix { inherit pkgs; };
   execFish = ''
     in_nix_environment() {
        [[ -n "$NIX_GCROOT" ]] && return 0
@@ -37,6 +38,16 @@ let
     fi
   '';
 
+  setDisplay = ''
+    if [ -z "$DISPLAY" ]; then
+      _hm_display="$("${displayResolver}")"
+      if [ -n "$_hm_display" ]; then
+        export DISPLAY="$_hm_display"
+      fi
+      unset _hm_display
+    fi
+  '';
+
 in
 {
   programs = {
@@ -44,6 +55,7 @@ in
       enable = true;
       initExtra =
         nixInit
+        + setDisplay
         + ''
           if [ -f "$HOME/.bashrc.local" ]; then
             source "$HOME/.bashrc.local"
@@ -61,6 +73,7 @@ in
       '';
       initContent =
         nixInit
+        + setDisplay
         + ''
           if [ -f "$HOME/.zshrc.local" ]; then
             source "$HOME/.zshrc.local"

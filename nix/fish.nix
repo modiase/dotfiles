@@ -3,6 +3,7 @@ let
   dotfiles = ../.;
   functionFiles = builtins.attrNames (builtins.readDir (dotfiles + /fish/functions));
   toFunctionName = file: pkgs.lib.strings.removeSuffix ".fish" file;
+  displayResolver = import ./lib/resolve-display.nix { inherit pkgs; };
   functions =
     pkgs.lib.genAttrs (map toFunctionName functionFiles) (
       name: builtins.readFile (dotfiles + /fish/functions + "/${name}.fish")
@@ -27,6 +28,13 @@ in
       csv2json = "python -c 'import csv, json, sys; print(json.dumps([dict(r) for r in csv.DictReader(sys.stdin)]))'";
     };
     shellInit = ''
+      if test -z "$DISPLAY"
+          set -l hm_display ( "${displayResolver}" ); or set -l hm_display ""
+          if test -n "$hm_display"
+              set -gx DISPLAY $hm_display
+          end
+          set -e hm_display
+      end
       set -gx DOTFILES "$HOME/Dotfiles"
       set -gx MANPAGER "nvim +Man!"
       set -U fish_prompt_prefix (hostname)

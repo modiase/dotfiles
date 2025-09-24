@@ -15,6 +15,8 @@
     home = "/Users/moye";
   };
 
+  system.primaryUser = "moye";
+
   environment.systemPackages = with pkgs; [
     vim
     git
@@ -25,4 +27,5 @@
     space-grotesk
     lato
   ];
+
 }

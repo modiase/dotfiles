@@ -13,6 +13,8 @@
     gettext
     gnupg
     (pkgs.callPackage ../nixpkgs/apple-containers.nix { })
+    xquartz
+    xorg.xauth
   ];
 
   home.file.".local/bin/bash" = {
