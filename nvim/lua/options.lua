@@ -16,16 +16,28 @@ vim.cmd("syntax on")
 vim.cmd("colorscheme nord")
 
 vim.api.nvim_set_hl(0, "DiffAdd", {
-	-- fg = '#ffffff',
 	bg = "#103510",
 })
 
 vim.api.nvim_set_hl(0, "DiffChange", {
-	-- fg = '#ffffff',
 	bg = "#4c566a",
 })
 
 vim.api.nvim_set_hl(0, "DiffDelete", {
-	-- fg = '#ffffff',
 	bg = "#401010",
+})
+
+vim.api.nvim_set_hl(0, "CocInlayHint", {
+	fg = "#88c0d0", -- Nord light blue for inlay hints
+	bg = "NONE", -- No background
+})
+
+vim.api.nvim_set_hl(0, "CocInlayHintParameter", {
+	fg = "#88c0d0", -- Nord light blue for parameter hints
+	bg = "NONE", -- No background
+})
+
+vim.api.nvim_set_hl(0, "CocInlayHintType", {
+	fg = "#88c0d0", -- Nord light blue for type hints
+	bg = "NONE", -- No background
 })
