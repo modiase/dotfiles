@@ -53,6 +53,10 @@
     xorg.xauth
   ];
 
+  fonts.packages = with pkgs; [
+    nerd-fonts.iosevka
+  ];
+
   services.openssh = {
     enable = true;
     settings = {
@@ -62,7 +66,7 @@
 
   services.avahi = {
     enable = true;
-    nssmdns = true;
+    nssmdns4 = true;
     publish = {
       enable = true;
       addresses = true;
