@@ -74,6 +74,7 @@ if [ $LOG_LEVEL -ge 3 ]; then
     set -x
 fi
 
+set -o pipefail
 export NIX_CONFIG="experimental-features = nix-command flakes"
 
 COLOR_RESET='\033[0m'
@@ -154,13 +155,19 @@ case "$OS" in
             log_info "Updating nix-darwin configuration..."
             REBUILD_CMD="darwin-rebuild"
         fi
-        sudo NIX_CONFIG="experimental-features = nix-command flakes" $REBUILD_CMD switch --flake . --max-jobs $MAX_CORES --cores $MAX_CORES 2>&1 | process_output "darwin-rebuild" "$COLOR_BLUE"
+        if ! sudo NIX_CONFIG="experimental-features = nix-command flakes" $REBUILD_CMD switch --flake . --max-jobs $MAX_CORES --cores $MAX_CORES 2>&1 | process_output "darwin-rebuild" "$COLOR_BLUE"; then
+            log_error "Darwin configuration update failed!"
+            exit 1
+        fi
         HOME_MANAGER_TARGET="moye-aarch64-darwin"
         ;;
     "Linux")
         if [ -f /etc/NIXOS ]; then
             log_info "Updating NixOS configuration..."
-            sudo nixos-rebuild switch --flake . --max-jobs $MAX_CORES --cores $MAX_CORES 2>&1 | process_output "nixos-rebuild" "$COLOR_BLUE"
+            if ! sudo nixos-rebuild switch --flake . --max-jobs $MAX_CORES --cores $MAX_CORES 2>&1 | process_output "nixos-rebuild" "$COLOR_BLUE"; then
+                log_error "NixOS configuration update failed!"
+                exit 1
+            fi
         fi
 
         case "$ARCH" in
@@ -173,6 +180,9 @@ case "$OS" in
 esac
 
 log_info "Updating home-manager configuration..."
-nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake .#$HOME_MANAGER_TARGET 2>&1 | process_output "home-manager" "$COLOR_GREEN"
+if ! nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake .#$HOME_MANAGER_TARGET 2>&1 | process_output "home-manager" "$COLOR_GREEN"; then
+    log_error "Home-manager configuration update failed!"
+    exit 1
+fi
 
 log_success "Configuration updated successfully!"
