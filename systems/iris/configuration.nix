@@ -20,6 +20,8 @@
   environment.systemPackages = with pkgs; [
     vim
     git
+    yabai
+    skhd
   ];
 
   fonts.packages = with pkgs; [
@@ -27,5 +29,25 @@
     space-grotesk
     lato
   ];
+
+  launchd.user.agents.yabai = {
+    serviceConfig = {
+      ProgramArguments = [ "${pkgs.yabai}/bin/yabai" ];
+      KeepAlive = true;
+      RunAtLoad = true;
+      StandardOutPath = "/tmp/yabai.out.log";
+      StandardErrorPath = "/tmp/yabai.err.log";
+    };
+  };
+
+  launchd.user.agents.skhd = {
+    serviceConfig = {
+      ProgramArguments = [ "${pkgs.skhd}/bin/skhd" ];
+      KeepAlive = true;
+      RunAtLoad = true;
+      StandardOutPath = "/tmp/skhd.out.log";
+      StandardErrorPath = "/tmp/skhd.err.log";
+    };
+  };
 
 }
