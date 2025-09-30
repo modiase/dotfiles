@@ -53,6 +53,7 @@
     jq
     jwt-cli
     kubectl
+    lsof
     moar
     ncdu
     ngrok
