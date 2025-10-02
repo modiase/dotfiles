@@ -12,6 +12,17 @@
       "moye"
     ];
   };
+  nix.distributedBuilds = true;
+  nix.buildMachines = [
+    {
+      hostName = "herakles";
+      system = "x86_64-linux";
+      sshUser = "moye";
+      sshKey = "/var/root/.ssh/herakles_ed25519";
+      maxJobs = 8;
+      speedFactor = 1;
+    }
+  ];
   programs.zsh.enable = true;
   system.stateVersion = 6;
 
