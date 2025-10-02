@@ -64,6 +64,7 @@
     nodePackages.ts-node
     nodePackages.typescript
     nodejs
+    opentofu
     pass
     pass-git-helper
     pgcli
