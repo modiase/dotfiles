@@ -107,6 +107,7 @@
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkgKbtJrytuOoQqR5RQY="
       "cuda-maintainers.cachix.org-1:0dq3bujKpuEPMCX6U4WylrUDZ9JyUG0VpVZa7CNfq5E="
     ];
+    trusted-users = [ "moye" "root" ];
   };
 
   system.stateVersion = "25.05";
