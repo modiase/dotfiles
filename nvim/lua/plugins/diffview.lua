@@ -22,6 +22,7 @@ return {
 			{ "<leader>gd", "<cmd>DiffviewOpen main<CR>", desc = "Open Diffview" },
 			{ "<leader>gh", "<cmd>DiffviewFileHistory<CR>", desc = "Open File History" },
 			{ "<leader>gc", "<cmd>DiffviewClose<CR>", desc = "Close Diffview" },
+			{ "<leader>gr", "<cmd>DiffviewRefresh<CR>", desc = "DiffviewRefresh" },
 		},
 	},
 }
