@@ -26,9 +26,13 @@ in
       hostName = "herakles";
       system = "x86_64-linux";
       sshUser = "moye";
-      sshKey = "/var/root/.ssh/herakles_ed25519";
-      maxJobs = 8;
+      sshKey = "/var/root/.ssh/iris.pem";
+      maxJobs = 0;
       speedFactor = 1;
+      supportedFeatures = [
+        "kvm"
+        "big-parallel"
+      ];
     }
   ];
   programs.zsh.enable = true;

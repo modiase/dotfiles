@@ -1,12 +1,34 @@
-*.bk
-*.local*
-**/.DS_Store
-**/node_modules/*
-nvim/sessions/*
-
-fish/fish_variables
-.config
-
+# CLI history and env
 gpt-cli/history
 .env
 .cache/
+
+# Editor artifacts
+nvim/sessions/*
+
+# General backups and locals
+*.bk
+*.local*
+
+# OpenTofu state
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.*
+**/tofu.tfstate
+**/tofu.tfstate.*
+infra/tofu.tfvars
+infra/terraform.tfvars
+
+# OS / tooling clutter
+**/.DS_Store
+**/node_modules/*
+
+# Shell / config artifacts
+fish/fish_variables
+.config
+
+# git
+worktrees/
+
+# Agents
+INSTRUCT.md

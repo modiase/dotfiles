@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: build-and-deploy-hermes.sh [-v LEVEL] [-h]
+
+Build hermes NixOS image and deploy to GCE via OpenTofu.
+
+Options:
+  -v LEVEL    Verbosity level: 1 (debug logs), 2 (bash tracing + terraform trace)
+  -h, --help  Show this help message
+
+Environment variables:
+  PROJECT_ID  GCP project ID (default: modiase-infra)
+
+Example:
+  PROJECT_ID=modiase-infra ./bin/build-and-deploy-hermes.sh -v 1
+USAGE
+}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+export CI=1
+export TERM=dumb
+export NO_COLOR=${NO_COLOR:-false}
+
+LOG_LEVEL=${LOG_LEVEL:-2}
+COLOR_ENABLED=${COLOR_ENABLED:-true}
+LOGGING_NO_PREFIX=${LOGGING_NO_PREFIX:-0}
+source "$SCRIPT_DIR/lib.sh"
+COLOR_CYAN="$COLOR_WHITE"
+
+PROJECT_ID="${PROJECT_ID:-modiase-infra}"
+DEST_URI="gs://modiase-infra/images/hermes-nixos-latest.tar.gz"
+IMAGE_ATTR="nixosConfigurations.hermes.config.system.build.googleComputeImage"
+REMOTE_HOST="herakles"
+TF_VAR_FILE="$REPO_ROOT/infra/tofu.tfvars"
+VERBOSE_LEVEL=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -v)
+      VERBOSE_LEVEL="$2"; shift 2;
+      ;;
+    -h|--help)
+      usage; exit 0;
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+if [[ $VERBOSE_LEVEL -ge 2 ]]; then
+  set -x
+  export TF_LOG=TRACE
+elif [[ $VERBOSE_LEVEL -ge 1 ]]; then
+  export TF_LOG=DEBUG
+fi
+
+BUILD_ARGS=(
+  --attr "$IMAGE_ATTR"
+  --dest "$DEST_URI"
+  --remote-host "$REMOTE_HOST"
+)
+
+if [[ $VERBOSE_LEVEL -gt 0 ]]; then
+  BUILD_ARGS+=(-v "$VERBOSE_LEVEL")
+fi
+
+run_logged "build-image" "$COLOR_WHITE" \
+  env PROJECT_ID="$PROJECT_ID" LOGGING_NO_PREFIX=1 "$SCRIPT_DIR/build-gce-nixos-image.sh" \
+    "${BUILD_ARGS[@]}"
+
+pushd "$REPO_ROOT/infra" >/dev/null
+
+if [[ $VERBOSE_LEVEL -ge 1 ]]; then
+  log_info "Tainting hermes image resource to force rebuild"
+fi
+if ! run_logged "taint-image" "$COLOR_WHITE" tofu taint module.hermes.google_compute_image.hermes_nixos; then
+  log_info "taint-image skipped (resource may not exist)"
+fi
+
+if [[ $VERBOSE_LEVEL -ge 1 ]]; then
+  log_info "Tainting hermes instance to force recreation"
+fi
+if ! run_logged "taint-instance" "$COLOR_WHITE" tofu taint module.hermes.google_compute_instance.hermes; then
+  log_info "taint-instance skipped (resource may not exist)"
+fi
+
+if [[ $VERBOSE_LEVEL -ge 1 ]]; then
+  log_info "Applying terraform configuration with var-file: $TF_VAR_FILE"
+fi
+run_logged "tofu-apply" "$COLOR_WHITE" tofu apply -auto-approve -var-file="$TF_VAR_FILE"
+
+popd >/dev/null
+
+log_success "Hermes image build and deploy complete."

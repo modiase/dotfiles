@@ -202,5 +202,19 @@
         ];
         specialArgs = { inherit authorizedKeys authorizedKeyLists; };
       };
+
+      nixosConfigurations."hermes" = nixpkgs.lib.nixosSystem {
+        system = "x86_64-linux";
+        modules = [
+          ./systems/hermes/configuration.nix
+          ./systems/hermes/hardware-configuration.nix
+          {
+            nix.settings.experimental-features = [
+              "nix-command"
+              "flakes"
+            ];
+          }
+        ];
+      };
     };
 }
