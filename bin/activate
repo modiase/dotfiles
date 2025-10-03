@@ -77,52 +77,10 @@ fi
 set -o pipefail
 export NIX_CONFIG="experimental-features = nix-command flakes"
 
-COLOR_RESET='\033[0m'
-COLOR_RED='\033[0;31m'
-COLOR_GREEN='\033[0;32m'
-COLOR_YELLOW='\033[0;33m'
-COLOR_BLUE='\033[0;34m'
-COLOR_CYAN='\033[0;36m'
-
-colorize() {
-    local color=$1
-    local text=$2
-
-    if [ "$COLOR_ENABLED" = "true" ]; then
-        echo -e "${color}${text}${COLOR_RESET}"
-    else
-        echo "$text"
-    fi
-}
-
-log_info() {
-    if [ $LOG_LEVEL -ge 1 ]; then
-        colorize "$COLOR_CYAN" "$1"
-    fi
-}
-
-log_error() {
-    colorize "$COLOR_RED" "$1" >&2
-}
-
-log_success() {
-    if [ $LOG_LEVEL -ge 1 ]; then
-        colorize "$COLOR_GREEN" "$1"
-    fi
-}
-
-process_output() {
-    local prefix=$1
-    local color=$2
-
-    while IFS= read -r line; do
-        if [ $LOG_LEVEL -ge 2 ]; then
-            timestamp=$(date '+%H:%M:%S')
-            formatted_line="[$timestamp] [$prefix] $line"
-            colorize "$color" "$formatted_line"
-        fi
-    done
-}
+COLOR_ENABLED=${COLOR_ENABLED:-true}
+LOGGING_NO_PREFIX=${LOGGING_NO_PREFIX:-0}
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib.sh"
 
 if [ "$(uname -s)" = "Darwin" ]; then
     curl --proto '=https' --tlsv1.2 -sSf -L https://github.com/NixOS/nix/raw/master/scripts/sequoia-nixbld-user-migration.sh | bash - >/dev/null 2>&1 || true
@@ -155,8 +113,7 @@ case "$OS" in
             log_info "Updating nix-darwin configuration..."
             REBUILD_CMD="darwin-rebuild"
         fi
-        if ! sudo NIX_CONFIG="experimental-features = nix-command flakes" $REBUILD_CMD switch --flake . --max-jobs $MAX_CORES --cores $MAX_CORES 2>&1 | process_output "darwin-rebuild" "$COLOR_BLUE"; then
-            log_error "Darwin configuration update failed!"
+        if ! run_logged "darwin-rebuild" "$COLOR_WHITE" sudo NIX_CONFIG="experimental-features = nix-command flakes" $REBUILD_CMD switch --flake . --max-jobs $MAX_CORES --cores $MAX_CORES; then
             exit 1
         fi
         HOME_MANAGER_TARGET="moye-aarch64-darwin"
@@ -164,8 +121,7 @@ case "$OS" in
     "Linux")
         if [ -f /etc/NIXOS ]; then
             log_info "Updating NixOS configuration..."
-            if ! sudo nixos-rebuild switch --flake . --max-jobs $MAX_CORES --cores $MAX_CORES 2>&1 | process_output "nixos-rebuild" "$COLOR_BLUE"; then
-                log_error "NixOS configuration update failed!"
+            if ! run_logged "nixos-rebuild" "$COLOR_WHITE" sudo nixos-rebuild switch --flake . --max-jobs $MAX_CORES --cores $MAX_CORES; then
                 exit 1
             fi
         fi
@@ -179,9 +135,7 @@ case "$OS" in
     *) log_error "Unsupported operating system '$OS'"; exit 1 ;;
 esac
 
-log_info "Updating home-manager configuration..."
-if ! nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake .#$HOME_MANAGER_TARGET 2>&1 | process_output "home-manager" "$COLOR_GREEN"; then
-    log_error "Home-manager configuration update failed!"
+if ! run_logged "home-manager" "$COLOR_WHITE" nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake .#$HOME_MANAGER_TARGET; then
     exit 1
 fi
 

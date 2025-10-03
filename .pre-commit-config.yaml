@@ -19,6 +19,15 @@ repos:
         args:
           - -c
           - 'nix-shell -p gnused --run ''git diff --cached --name-only --diff-filter d | xargs -r sed -i "s/[[:space:]]*$//"'''
+      - id: format-terraform
+        name: format terraform
+        entry: bash
+        language: system
+        files: ^infra/.*\.tofu$
+        pass_filenames: false
+        args:
+          - -c
+          - 'nix-shell -p opentofu --run "cd infra && tofu fmt"'
       - id: delete-merged-branches
         name: delete merged branches on main
         entry: bash
