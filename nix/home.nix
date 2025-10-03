@@ -64,6 +64,7 @@
     nodePackages.ts-node
     nodePackages.typescript
     nodejs
+    ntfy-sh
     opentofu
     pass
     pass-git-helper

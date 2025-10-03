@@ -28,7 +28,6 @@ in
       sshUser = "moye";
       sshKey = "/var/root/.ssh/iris.pem";
       maxJobs = 0;
-      cores = 0;
       speedFactor = 1;
       supportedFeatures = [
         "kvm"
