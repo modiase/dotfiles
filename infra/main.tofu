@@ -16,6 +16,7 @@ provider "google" {
 module "hermes" {
   source = "../systems/hermes"
 
+  project_id            = var.project_id
   bucket_name           = var.bucket_name
   bucket_location       = var.bucket_location
   bucket_lifecycle_days = var.bucket_lifecycle_days

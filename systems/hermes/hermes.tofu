@@ -37,6 +37,12 @@ resource "google_storage_bucket_iam_member" "hermes_sa_object_admin" {
   member = "serviceAccount:${google_service_account.hermes_storage.email}"
 }
 
+resource "google_project_iam_member" "hermes_sa_secret_accessor" {
+  project = var.project_id
+  role    = "roles/secretmanager.secretAccessor"
+  member  = "serviceAccount:${google_service_account.hermes_storage.email}"
+}
+
 resource "google_compute_address" "hermes_static_ip" {
   name = var.static_ip_name
 }
@@ -86,7 +92,10 @@ resource "google_compute_instance" "hermes" {
 
   service_account {
     email  = google_service_account.hermes_storage.email
-    scopes = ["https://www.googleapis.com/auth/devstorage.read_write"]
+    scopes = [
+      "https://www.googleapis.com/auth/devstorage.read_write",
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
   }
 
   metadata = {

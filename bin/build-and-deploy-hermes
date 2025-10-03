@@ -73,7 +73,7 @@ if [[ $VERBOSE_LEVEL -gt 0 ]]; then
 fi
 
 run_logged "build-image" "$COLOR_WHITE" \
-  env PROJECT_ID="$PROJECT_ID" "$SCRIPT_DIR/build-gce-nixos-image.sh" \
+  env PROJECT_ID="$PROJECT_ID" LOGGING_NO_PREFIX=1 "$SCRIPT_DIR/build-gce-nixos-image.sh" \
     "${BUILD_ARGS[@]}"
 
 pushd "$REPO_ROOT/infra" >/dev/null

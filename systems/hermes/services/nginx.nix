@@ -74,6 +74,8 @@ in
       ];
       enableACME = false;
       forceSSL = false;
+      sslCertificate = "/etc/ssl/certs/cloudflare-origin.pem";
+      sslCertificateKey = "/etc/ssl/private/cloudflare-origin.key";
 
       locations."/" = {
         proxyPass = "http://127.0.0.1:5678/";
@@ -115,6 +117,8 @@ in
       ];
       enableACME = false;
       forceSSL = false;
+      sslCertificate = "/etc/ssl/certs/cloudflare-origin.pem";
+      sslCertificateKey = "/etc/ssl/private/cloudflare-origin.key";
 
       locations."/" = {
         proxyPass = "http://127.0.0.1:8080/";
@@ -157,6 +161,8 @@ in
       ];
       enableACME = false;
       forceSSL = false;
+      sslCertificate = "/etc/ssl/certs/cloudflare-origin.pem";
+      sslCertificateKey = "/etc/ssl/private/cloudflare-origin.key";
       root = pkgs.writeTextDir "index.html" ''
         <!DOCTYPE html>
         <html lang="en">
