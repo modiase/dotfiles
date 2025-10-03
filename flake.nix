@@ -30,6 +30,15 @@
         "aarch64-linux"
         "aarch64-darwin"
       ];
+      lib = nixpkgs.lib;
+      authorizedKeys = import ./systems/authorized-keys.nix;
+      authorizedKeyLists = lib.mapAttrs (
+        _: hostMap:
+        let
+          normalized = lib.mapAttrs (_: value: lib.toList value) hostMap;
+        in
+        lib.unique (lib.concatLists (lib.attrValues normalized))
+      ) authorizedKeys;
       darwinCommonModules = [
         (
           { pkgs, ... }:
@@ -156,6 +165,7 @@
             })
           ];
         };
+        specialArgs = { inherit authorizedKeys authorizedKeyLists; };
         modules = darwinCommonModules ++ [
           ./systems/iris/configuration.nix
         ];
@@ -172,6 +182,7 @@
             })
           ];
         };
+        specialArgs = { inherit authorizedKeys authorizedKeyLists; };
         modules = darwinCommonModules ++ [
           ./systems/pallas/configuration.nix
         ];
@@ -189,6 +200,7 @@
             ];
           }
         ];
+        specialArgs = { inherit authorizedKeys authorizedKeyLists; };
       };
     };
 }

@@ -2,6 +2,7 @@
   config,
   lib,
   pkgs,
+  authorizedKeyLists,
   ...
 }:
 
@@ -26,6 +27,7 @@
       "docker"
     ];
     createHome = true;
+    openssh.authorizedKeys.keys = authorizedKeyLists.moye or [ ];
   };
 
   security.sudo.extraRules = [
@@ -107,7 +109,10 @@
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkgKbtJrytuOoQqR5RQY="
       "cuda-maintainers.cachix.org-1:0dq3bujKpuEPMCX6U4WylrUDZ9JyUG0VpVZa7CNfq5E="
     ];
-    trusted-users = [ "moye" "root" ];
+    trusted-users = [
+      "moye"
+      "root"
+    ];
   };
 
   system.stateVersion = "25.05";

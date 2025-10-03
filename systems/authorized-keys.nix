@@ -1,0 +1,7 @@
+{
+  moye = {
+    pallas = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEaTZS5rxx2CBTas4rFKbqqtD4Rn+juiLAd/ZQ/8a9IQ";
+    herakles = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMERXz/hT594RxaJkPotO0EJtEb0+JkfHQfM7ALHhr2l";
+    iris = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMJVAM83rMVrLeqtoKiDB4B+V4800rJ2CYBLH2xg47oY";
+  };
+}
