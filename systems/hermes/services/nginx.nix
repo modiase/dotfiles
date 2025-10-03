@@ -25,6 +25,15 @@ let
   sslCertPath = "/etc/ssl/certs/cloudflare-origin.pem";
   sslKeyPath = "/etc/ssl/private/cloudflare-origin.key";
 
+  commonVhostConfig = {
+    listen = commonListenConfig;
+    enableACME = false;
+    forceSSL = false;
+    addSSL = true;
+    sslCertificate = sslCertPath;
+    sslCertificateKey = sslKeyPath;
+  };
+
   cloudflareIPv4 = [
     "173.245.48.0/20"
     "103.21.244.0/22"
@@ -75,13 +84,7 @@ in
       real_ip_recursive on;
     '';
 
-    virtualHosts."n8n.modiase.dev" = {
-      listen = commonListenConfig;
-      enableACME = false;
-      forceSSL = false;
-      sslCertificate = sslCertPath;
-      sslCertificateKey = sslKeyPath;
-
+    virtualHosts."n8n.modiase.dev" = commonVhostConfig // {
       locations."/" = {
         proxyPass = "http://127.0.0.1:5678/";
         proxyWebsockets = true;
@@ -99,13 +102,7 @@ in
       };
     };
 
-    virtualHosts."ntfy.modiase.dev" = {
-      listen = commonListenConfig;
-      enableACME = false;
-      forceSSL = false;
-      sslCertificate = sslCertPath;
-      sslCertificateKey = sslKeyPath;
-
+    virtualHosts."ntfy.modiase.dev" = commonVhostConfig // {
       locations."/" = {
         proxyPass = "http://127.0.0.1:8080/";
         proxyWebsockets = true;
@@ -124,12 +121,7 @@ in
       };
     };
 
-    virtualHosts."hermes.modiase.dev" = {
-      listen = commonListenConfig;
-      enableACME = false;
-      forceSSL = false;
-      sslCertificate = sslCertPath;
-      sslCertificateKey = sslKeyPath;
+    virtualHosts."hermes.modiase.dev" = commonVhostConfig // {
       root = pkgs.writeTextDir "index.html" ''
         <!DOCTYPE html>
         <html lang="en">
