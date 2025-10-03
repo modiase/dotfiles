@@ -156,7 +156,7 @@ cat > "$BOTO_CONFIG" << 'EOF'
 parallel_composite_upload_threshold = 150M
 EOF
 
-GSUTIL_ENV=(env BOTO_CONFIG="$BOTO_CONFIG" GSUTIL_PARALLEL_COMPOSITE_UPLOAD_THRESHOLD=150M)
+GSUTIL_ENV=(env BOTO_CONFIG="$BOTO_CONFIG")
 if [[ $VERBOSE_LEVEL -ge 1 ]]; then
   log_info "Uploading $(du -h "$LOCAL_COPY" | cut -f1) tarball to $DEST_URI"
 fi

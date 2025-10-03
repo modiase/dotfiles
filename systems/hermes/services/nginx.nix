@@ -1,6 +1,30 @@
 { config, pkgs, ... }:
 
 let
+  commonListenConfig = [
+    {
+      addr = "0.0.0.0";
+      port = 80;
+    }
+    {
+      addr = "[::]";
+      port = 80;
+    }
+    {
+      addr = "0.0.0.0";
+      port = 443;
+      ssl = true;
+    }
+    {
+      addr = "[::]";
+      port = 443;
+      ssl = true;
+    }
+  ];
+
+  sslCertPath = "/etc/ssl/certs/cloudflare-origin.pem";
+  sslKeyPath = "/etc/ssl/private/cloudflare-origin.key";
+
   cloudflareIPv4 = [
     "173.245.48.0/20"
     "103.21.244.0/22"
@@ -52,30 +76,11 @@ in
     '';
 
     virtualHosts."n8n.modiase.dev" = {
-      listen = [
-        {
-          addr = "0.0.0.0";
-          port = 80;
-        }
-        {
-          addr = "[::]";
-          port = 80;
-        }
-        {
-          addr = "0.0.0.0";
-          port = 443;
-          ssl = true;
-        }
-        {
-          addr = "[::]";
-          port = 443;
-          ssl = true;
-        }
-      ];
+      listen = commonListenConfig;
       enableACME = false;
       forceSSL = false;
-      sslCertificate = "/etc/ssl/certs/cloudflare-origin.pem";
-      sslCertificateKey = "/etc/ssl/private/cloudflare-origin.key";
+      sslCertificate = sslCertPath;
+      sslCertificateKey = sslKeyPath;
 
       locations."/" = {
         proxyPass = "http://127.0.0.1:5678/";
@@ -95,30 +100,11 @@ in
     };
 
     virtualHosts."ntfy.modiase.dev" = {
-      listen = [
-        {
-          addr = "0.0.0.0";
-          port = 80;
-        }
-        {
-          addr = "[::]";
-          port = 80;
-        }
-        {
-          addr = "0.0.0.0";
-          port = 443;
-          ssl = true;
-        }
-        {
-          addr = "[::]";
-          port = 443;
-          ssl = true;
-        }
-      ];
+      listen = commonListenConfig;
       enableACME = false;
       forceSSL = false;
-      sslCertificate = "/etc/ssl/certs/cloudflare-origin.pem";
-      sslCertificateKey = "/etc/ssl/private/cloudflare-origin.key";
+      sslCertificate = sslCertPath;
+      sslCertificateKey = sslKeyPath;
 
       locations."/" = {
         proxyPass = "http://127.0.0.1:8080/";
@@ -139,30 +125,11 @@ in
     };
 
     virtualHosts."hermes.modiase.dev" = {
-      listen = [
-        {
-          addr = "0.0.0.0";
-          port = 80;
-        }
-        {
-          addr = "[::]";
-          port = 80;
-        }
-        {
-          addr = "0.0.0.0";
-          port = 443;
-          ssl = true;
-        }
-        {
-          addr = "[::]";
-          port = 443;
-          ssl = true;
-        }
-      ];
+      listen = commonListenConfig;
       enableACME = false;
       forceSSL = false;
-      sslCertificate = "/etc/ssl/certs/cloudflare-origin.pem";
-      sslCertificateKey = "/etc/ssl/private/cloudflare-origin.key";
+      sslCertificate = sslCertPath;
+      sslCertificateKey = sslKeyPath;
       root = pkgs.writeTextDir "index.html" ''
         <!DOCTYPE html>
         <html lang="en">
