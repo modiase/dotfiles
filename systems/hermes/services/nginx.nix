@@ -27,28 +27,18 @@ let
     }
   ];
 
-  sslCertPath = "/etc/ssl/certs/cloudflare-origin.pem";
-  sslKeyPath = "/etc/ssl/private/cloudflare-origin.key";
-
   commonVhostConfig = {
     listen = commonListenConfig;
     enableACME = false;
     forceSSL = false;
     addSSL = true;
-    sslCertificate = sslCertPath;
-    sslCertificateKey = sslKeyPath;
+    sslCertificate = "/etc/ssl/certs/cloudflare-origin.pem";
+    sslCertificateKey = "/etc/ssl/private/cloudflare-origin.key";
   };
 
   commonProxyConfig = ''
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection $connection_upgrade;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-Host $host;
     proxy_set_header X-Forwarded-Port $server_port;
-    proxy_redirect off;
   '';
 
   cloudflareIPv4 = [
@@ -99,6 +89,7 @@ in
       ${setRealIpLines}
       real_ip_header CF-Connecting-IP;
       real_ip_recursive on;
+
     '';
 
     virtualHosts."n8n.${domain}" = commonVhostConfig // {
@@ -114,6 +105,8 @@ in
         proxyPass = "http://127.0.0.1:8080/";
         proxyWebsockets = true;
         extraConfig = commonProxyConfig + ''
+          proxy_buffering off;
+          proxy_request_buffering off;
           proxy_read_timeout 300;
         '';
       };

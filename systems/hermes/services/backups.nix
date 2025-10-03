@@ -6,8 +6,10 @@
 }:
 
 let
-  bucket = builtins.getEnv "HERMES_GCS_BUCKET";
   bucketName =
+    let
+      bucket = builtins.getEnv "HERMES_GCS_BUCKET";
+    in
     if bucket != "" then bucket else (config.environment.variables.HERMES_GCS_BUCKET or "");
   rcloneConf = ''
     [gcs]
@@ -49,8 +51,8 @@ in
     script = ''
       set -euo pipefail
 
-      if ${pkgs.rclone}/bin/rclone ${rcloneFlags} ls gcs:${bucketName}/ntfy >/dev/null 2>&1; then
-        ${pkgs.rclone}/bin/rclone ${rcloneFlags} sync gcs:${bucketName}/ntfy /var/lib/ntfy
+      if ${pkgs.rclone}/bin/rclone ${rcloneFlags} ls gcs:${bucketName}/ntfy-sh >/dev/null 2>&1; then
+        ${pkgs.rclone}/bin/rclone ${rcloneFlags} sync gcs:${bucketName}/ntfy-sh /var/lib/ntfy-sh
       fi
 
       if ${pkgs.rclone}/bin/rclone ${rcloneFlags} ls gcs:${bucketName}/n8n >/dev/null 2>&1; then
@@ -73,8 +75,8 @@ in
     script = lib.mkIf (bucketName != "") ''
       set -euo pipefail
 
-      echo "Backing up ntfy to gcs:${bucketName}/ntfy ..."
-      ${pkgs.rclone}/bin/rclone ${rcloneFlags} sync /var/lib/ntfy gcs:${bucketName}/ntfy --delete-after
+      echo "Backing up ntfy-sh to gcs:${bucketName}/ntfy-sh ..."
+      ${pkgs.rclone}/bin/rclone ${rcloneFlags} sync /var/lib/ntfy-sh gcs:${bucketName}/ntfy-sh --delete-after
 
       echo "Backing up n8n to gcs:${bucketName}/n8n ..."
       ${pkgs.rclone}/bin/rclone ${rcloneFlags} sync /var/lib/n8n gcs:${bucketName}/n8n --delete-after
@@ -90,14 +92,10 @@ in
   systemd.timers.hermes-backup = {
     wantedBy = [ "timers.target" ];
     timerConfig = {
-      OnCalendar = "02:00";
+      OnCalendar = "*:0/5";
       Persistent = true;
-      RandomizedDelaySec = "30m";
+      RandomizedDelaySec = "30s";
     };
   };
 
-  systemd.tmpfiles.rules = [
-    "d /var/lib/ntfy 0750 root root -"
-    "d /var/lib/n8n 0750 root root -"
-  ];
 }

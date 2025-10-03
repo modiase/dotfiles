@@ -17,7 +17,4 @@
     };
   };
 
-  systemd.tmpfiles.rules = [
-    "d /var/lib/n8n 0750 n8n n8n -"
-  ];
 }
