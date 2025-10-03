@@ -93,7 +93,7 @@ process_output(){
 		fi
 		local formatted="${prefix}${line}"
 		if [[ "$is_stderr" = "true" ]]; then
-			>&2 colorize "$COLOR_RED" "$formatted"
+			>&2 colorize "$COLOR_YELLOW" "$formatted"
 		else
 			colorize "$color" "$formatted"
 		fi
@@ -109,7 +109,7 @@ run_logged(){
 	(
 	  set -o pipefail
 	  "${@}" > >(process_output "$label" "$stdout_color" false) \
-	            2> >(process_output "$label" "$COLOR_RED" true)
+	            2> >(process_output "$label" "$COLOR_YELLOW" true)
 	) || status=$?
 	if [[ $status -ne 0 ]]; then
 		log_error "${label} failed (exit ${status})"

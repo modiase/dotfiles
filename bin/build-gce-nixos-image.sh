@@ -7,7 +7,7 @@ usage() {
   cat <<'USAGE'
 Usage: build-gce-nixos-image.sh --attr ATTR [--dest gs://bucket/path.tar.gz]
                                 [--flake FLAKE-URI]
-                                [--keep-build] [--remote-host HOST]
+                                [--keep-build] [--remote-host HOST] [-v] [-vv]
 
 Environment variables:
   PROJECT_ID      Optional (default: modiase-infra). Passed to gsutil via GSUtil:default_project_id.
@@ -20,12 +20,13 @@ Optional:
   --flake FLAKE      Flake URI to build (default: repo root)
   --keep-build       Leave the temporary build directory on disk
   --remote-host HOST Optional log hint that a remote builder HOST will execute the build
+  -v LEVEL           Verbosity level: 1 (print build logs), 2 (bash tracing + gsutil debug)
 
 Example (Hermes):
   PROJECT_ID=modiase-infra ./bin/build-gce-nixos-image.sh \\
     --attr nixosConfigurations.hermes.config.system.build.googleComputeImage \\
     --dest gs://modiase-infra/images/hermes-nixos-latest.tar.gz \\
-    --remote-host herakles
+    --remote-host herakles -v 1
 
 Without --dest the helper uploads a generic base image to gs://modiase-infra/images/base-nixos-latest-x86_64.tar.gz.
 USAGE
@@ -44,6 +45,7 @@ FLAKE_URI="$REPO_ROOT"
 IMAGE_ATTR=""
 KEEP_BUILD=0
 REMOTE_HOST=""
+VERBOSE_LEVEL=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -62,6 +64,9 @@ while [[ $# -gt 0 ]]; do
     --remote-host)
       REMOTE_HOST="$2"; shift 2;
       ;;
+    -v)
+      VERBOSE_LEVEL="$2"; shift 2;
+      ;;
     -h|--help)
       usage; exit 0;
       ;;
@@ -79,6 +84,10 @@ if [[ -z "$IMAGE_ATTR" ]]; then
   exit 1
 fi
 
+if [[ $VERBOSE_LEVEL -ge 2 ]]; then
+  set -x
+fi
+
 TMPDIR="$(mktemp -d)"
 if [[ $KEEP_BUILD -eq 0 ]]; then
   trap 'rm -rf "$TMPDIR"' EXIT
@@ -93,8 +102,16 @@ fi
 
 pushd "$TMPDIR" >/dev/null
 OUT_LINK="result-image"
-run_logged "nix-build" "$COLOR_WHITE" \
-  nix build "${FLAKE_URI}#${IMAGE_ATTR}" --out-link "$OUT_LINK" --max-jobs 0 --cores 0
+
+NIX_CMD=(nix build "${FLAKE_URI}#${IMAGE_ATTR}" --out-link "$OUT_LINK" --max-jobs 0 --cores 0 --log-format raw)
+if [[ -n "$REMOTE_HOST" ]]; then
+  NIX_CMD+=(--builders "ssh://moye@${REMOTE_HOST} x86_64-linux - - - kvm" --system x86_64-linux)
+fi
+if [[ $VERBOSE_LEVEL -ge 1 ]]; then
+  NIX_CMD+=(--print-build-logs)
+fi
+
+run_logged "nix-build" "$COLOR_WHITE" "${NIX_CMD[@]}"
 popd >/dev/null
 
 OUT_PATH="$(realpath "$TMPDIR/$OUT_LINK")"
@@ -129,10 +146,23 @@ if [[ -n "${PROJECT_ID:-}" ]]; then
   GSUTIL+=( -o "GSUtil:default_project_id=${PROJECT_ID}" )
 fi
 
-run_logged "upload-tar" "$COLOR_WHITE" env GSUTIL_PARALLEL_COMPOSITE_UPLOAD_THRESHOLD=150M "${GSUTIL[@]}" cp "$LOCAL_COPY" "$DEST_URI"
+if [[ $VERBOSE_LEVEL -ge 2 ]]; then
+  GSUTIL+=(-D)
+fi
+
+GSUTIL_ENV=(env GSUTIL_PARALLEL_COMPOSITE_UPLOAD_THRESHOLD=150M)
+if [[ $VERBOSE_LEVEL -ge 1 ]]; then
+  log_info "Uploading $(du -h "$LOCAL_COPY" | cut -f1) tarball to $DEST_URI"
+fi
+
+run_logged "upload-tar" "$COLOR_WHITE" "${GSUTIL_ENV[@]}" "${GSUTIL[@]}" cp "$LOCAL_COPY" "$DEST_URI"
 
 METADATA_URI="${DEST_URI%.tar.gz}.json"
-if ! run_logged "upload-metadata" "$COLOR_WHITE" env GSUTIL_PARALLEL_COMPOSITE_UPLOAD_THRESHOLD=150M "${GSUTIL[@]}" cp "$TMPDIR/image-metadata.json" "$METADATA_URI"; then
+if [[ $VERBOSE_LEVEL -ge 1 ]]; then
+  log_info "Uploading metadata to $METADATA_URI"
+fi
+
+if ! run_logged "upload-metadata" "$COLOR_WHITE" "${GSUTIL_ENV[@]}" "${GSUTIL[@]}" cp "$TMPDIR/image-metadata.json" "$METADATA_URI"; then
   log_error "Failed to upload metadata to $METADATA_URI"
   exit 1
 fi
