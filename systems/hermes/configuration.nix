@@ -6,6 +6,7 @@
 }:
 
 let
+  domain = "modiase.dev";
   authorizedKeys = import ../authorized-keys.nix;
 
   cloudflareCert = ''
@@ -39,6 +40,8 @@ in
     ./services/backups.nix
     (modulesPath + "/virtualisation/google-compute-image.nix")
   ];
+
+  _module.args.domain = domain;
 
   networking.hostName = "hermes";
   time.timeZone = "Europe/London";

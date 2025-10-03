@@ -1,4 +1,9 @@
-{ config, pkgs, ... }:
+{
+  config,
+  pkgs,
+  domain,
+  ...
+}:
 
 let
   commonListenConfig = [
@@ -33,6 +38,18 @@ let
     sslCertificate = sslCertPath;
     sslCertificateKey = sslKeyPath;
   };
+
+  commonProxyConfig = ''
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $connection_upgrade;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Port $server_port;
+    proxy_redirect off;
+  '';
 
   cloudflareIPv4 = [
     "173.245.48.0/20"
@@ -84,44 +101,25 @@ in
       real_ip_recursive on;
     '';
 
-    virtualHosts."n8n.modiase.dev" = commonVhostConfig // {
+    virtualHosts."n8n.${domain}" = commonVhostConfig // {
       locations."/" = {
         proxyPass = "http://127.0.0.1:5678/";
         proxyWebsockets = true;
-        extraConfig = ''
-          proxy_set_header Upgrade $http_upgrade;
-          proxy_set_header Connection $connection_upgrade;
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
-          proxy_set_header X-Forwarded-Host $host;
-          proxy_set_header X-Forwarded-Port $server_port;
-          proxy_redirect off;
-        '';
+        extraConfig = commonProxyConfig;
       };
     };
 
-    virtualHosts."ntfy.modiase.dev" = commonVhostConfig // {
+    virtualHosts."ntfy.${domain}" = commonVhostConfig // {
       locations."/" = {
         proxyPass = "http://127.0.0.1:8080/";
         proxyWebsockets = true;
-        extraConfig = ''
-          proxy_set_header Upgrade $http_upgrade;
-          proxy_set_header Connection $connection_upgrade;
-          proxy_set_header Host $host;
-          proxy_set_header X-Real-IP $remote_addr;
-          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-          proxy_set_header X-Forwarded-Proto $scheme;
-          proxy_set_header X-Forwarded-Host $host;
-          proxy_set_header X-Forwarded-Port $server_port;
-          proxy_redirect off;
+        extraConfig = commonProxyConfig + ''
           proxy_read_timeout 300;
         '';
       };
     };
 
-    virtualHosts."hermes.modiase.dev" = commonVhostConfig // {
+    virtualHosts."hermes.${domain}" = commonVhostConfig // {
       root = pkgs.writeTextDir "index.html" ''
         <!DOCTYPE html>
         <html lang="en">

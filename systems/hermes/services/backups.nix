@@ -14,6 +14,20 @@ let
     type = gcs
     env_auth = true
   '';
+
+  commonServiceConfig = {
+    Type = "oneshot";
+    User = "root";
+  };
+
+  commonPath = [
+    pkgs.rclone
+    pkgs.coreutils
+    pkgs.bash
+    pkgs.rsync
+  ];
+
+  rcloneFlags = "--config /etc/rclone/rclone.conf --fast-list --transfers=4 --checkers=8";
 in
 {
   environment.etc."rclone/rclone.conf".text = rcloneConf;
@@ -29,29 +43,18 @@ in
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
 
-    serviceConfig = {
-      Type = "oneshot";
-      User = "root";
-    };
-
-    path = [
-      pkgs.rclone
-      pkgs.coreutils
-      pkgs.bash
-      pkgs.rsync
-    ];
+    serviceConfig = commonServiceConfig;
+    path = commonPath;
 
     script = ''
       set -euo pipefail
 
-      if ${pkgs.rclone}/bin/rclone --config /etc/rclone/rclone.conf ls gcs:${bucketName}/ntfy >/dev/null 2>&1; then
-        ${pkgs.rclone}/bin/rclone --config /etc/rclone/rclone.conf \
-          sync gcs:${bucketName}/ntfy /var/lib/ntfy --fast-list --transfers=4 --checkers=8
+      if ${pkgs.rclone}/bin/rclone ${rcloneFlags} ls gcs:${bucketName}/ntfy >/dev/null 2>&1; then
+        ${pkgs.rclone}/bin/rclone ${rcloneFlags} sync gcs:${bucketName}/ntfy /var/lib/ntfy
       fi
 
-      if ${pkgs.rclone}/bin/rclone --config /etc/rclone/rclone.conf ls gcs:${bucketName}/n8n >/dev/null 2>&1; then
-        ${pkgs.rclone}/bin/rclone --config /etc/rclone/rclone.conf \
-          sync gcs:${bucketName}/n8n /var/lib/n8n --fast-list --transfers=4 --checkers=8
+      if ${pkgs.rclone}/bin/rclone ${rcloneFlags} ls gcs:${bucketName}/n8n >/dev/null 2>&1; then
+        ${pkgs.rclone}/bin/rclone ${rcloneFlags} sync gcs:${bucketName}/n8n /var/lib/n8n
       fi
     '';
   };
@@ -64,30 +67,17 @@ in
     ];
     wants = [ "network-online.target" ];
 
-    serviceConfig = {
-      Type = "oneshot";
-      User = "root";
-    };
-
-    path = [
-      pkgs.rclone
-      pkgs.coreutils
-      pkgs.bash
-      pkgs.rsync
-    ];
+    serviceConfig = commonServiceConfig;
+    path = commonPath;
 
     script = lib.mkIf (bucketName != "") ''
       set -euo pipefail
 
       echo "Backing up ntfy to gcs:${bucketName}/ntfy ..."
-      ${pkgs.rclone}/bin/rclone --config /etc/rclone/rclone.conf \
-        sync /var/lib/ntfy gcs:${bucketName}/ntfy \
-        --fast-list --transfers=4 --checkers=8 --delete-after
+      ${pkgs.rclone}/bin/rclone ${rcloneFlags} sync /var/lib/ntfy gcs:${bucketName}/ntfy --delete-after
 
       echo "Backing up n8n to gcs:${bucketName}/n8n ..."
-      ${pkgs.rclone}/bin/rclone --config /etc/rclone/rclone.conf \
-        sync /var/lib/n8n gcs:${bucketName}/n8n \
-        --fast-list --transfers=4 --checkers=8 --delete-after
+      ${pkgs.rclone}/bin/rclone ${rcloneFlags} sync /var/lib/n8n gcs:${bucketName}/n8n --delete-after
 
       echo "Backup completed"
     '';
