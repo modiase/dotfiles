@@ -17,5 +17,6 @@
 
   systemd.tmpfiles.rules = [
     "d /var/lib/ntfy 0750 ntfy-sh ntfy-sh -"
+    "d /var/lib/ntfy/attachments 0750 ntfy-sh ntfy-sh -"
   ];
 }

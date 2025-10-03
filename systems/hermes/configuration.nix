@@ -129,6 +129,7 @@ in
     script = ''
             mkdir -p /etc/ssl/private /etc/ssl/certs
             ${pkgs.google-cloud-sdk}/bin/gcloud secrets versions access latest --secret="hermes-cert-private-key" --project="modiase-infra" > /etc/ssl/private/cloudflare-origin.key
+            chown nginx:nginx /etc/ssl/private/cloudflare-origin.key
             chmod 600 /etc/ssl/private/cloudflare-origin.key
 
             cat > /etc/ssl/certs/cloudflare-origin.pem << 'EOF'
