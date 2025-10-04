@@ -36,13 +36,13 @@ in
   ];
 
   environment.systemPackages = with pkgs; [
-    vim
-    git
-    htop
-    rsync
     curl
-    rclone
+    git
     google-cloud-sdk
+    htop
+    rclone
+    rsync
+    vim
   ];
 
   services.openssh = {
