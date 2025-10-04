@@ -75,6 +75,19 @@
           };
         };
 
+      commonNixSettings = {
+        nix.settings = {
+          experimental-features = [
+            "nix-command"
+            "flakes"
+          ];
+          trusted-users = [
+            "root"
+            "moye"
+          ];
+        };
+      };
+
       heraklesBuildServer = hostName: {
         nix.distributedBuilds = true;
         nix.buildMachines = [
@@ -222,6 +235,7 @@
           inherit
             authorizedKeys
             authorizedKeyLists
+            commonNixSettings
             darwinFrontendServices
             heraklesBuildServer
             ;
@@ -246,6 +260,7 @@
           inherit
             authorizedKeys
             authorizedKeyLists
+            commonNixSettings
             darwinFrontendServices
             heraklesBuildServer
             ;
@@ -267,7 +282,7 @@
             ];
           }
         ];
-        specialArgs = { inherit authorizedKeys authorizedKeyLists; };
+        specialArgs = { inherit authorizedKeys authorizedKeyLists commonNixSettings; };
       };
 
       nixosConfigurations."hermes" = nixpkgs.lib.nixosSystem {
@@ -282,7 +297,7 @@
             ];
           }
         ];
-        specialArgs = { inherit authorizedKeys authorizedKeyLists; };
+        specialArgs = { inherit authorizedKeys authorizedKeyLists commonNixSettings; };
       };
     };
 }

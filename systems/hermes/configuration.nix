@@ -3,6 +3,7 @@
   pkgs,
   modulesPath,
   authorizedKeyLists,
+  commonNixSettings,
   ...
 }:
 
@@ -17,6 +18,7 @@ in
     ./services/nginx.nix
     ./services/backups.nix
     (modulesPath + "/virtualisation/google-compute-image.nix")
+    commonNixSettings
   ];
 
   _module.args.rootDomain = rootDomain;
@@ -29,11 +31,6 @@ in
     builtins.elem (pkgs.lib.getName pkg) [
       "n8n"
     ];
-
-  nix.settings.experimental-features = [
-    "nix-command"
-    "flakes"
-  ];
 
   environment.systemPackages = with pkgs; [
     curl

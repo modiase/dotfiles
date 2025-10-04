@@ -3,11 +3,15 @@
   lib,
   pkgs,
   authorizedKeyLists,
+  commonNixSettings,
   ...
 }:
 
 {
-  imports = [ ./hardware-configuration.nix ];
+  imports = [
+    ./hardware-configuration.nix
+    commonNixSettings
+  ];
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -104,10 +108,6 @@
     trusted-public-keys = [
       "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkgKbtJrytuOoQqR5RQY="
       "cuda-maintainers.cachix.org-1:0dq3bujKpuEPMCX6U4WylrUDZ9JyUG0VpVZa7CNfq5E="
-    ];
-    trusted-users = [
-      "moye"
-      "root"
     ];
   };
 
