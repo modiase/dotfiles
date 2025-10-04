@@ -39,6 +39,59 @@
         in
         lib.unique (lib.concatLists (lib.attrValues normalized))
       ) authorizedKeys;
+
+      darwinFrontendServices =
+        { pkgs, ... }:
+        {
+          environment.systemPackages = with pkgs; [
+            yabai
+            skhd
+          ];
+
+          fonts.packages = with pkgs; [
+            nerd-fonts.iosevka
+            space-grotesk
+            lato
+          ];
+
+          launchd.user.agents.yabai = {
+            serviceConfig = {
+              ProgramArguments = [ "${pkgs.yabai}/bin/yabai" ];
+              KeepAlive = true;
+              RunAtLoad = true;
+              StandardOutPath = "/tmp/yabai.out.log";
+              StandardErrorPath = "/tmp/yabai.err.log";
+            };
+          };
+
+          launchd.user.agents.skhd = {
+            serviceConfig = {
+              ProgramArguments = [ "${pkgs.skhd}/bin/skhd" ];
+              KeepAlive = true;
+              RunAtLoad = true;
+              StandardOutPath = "/tmp/skhd.out.log";
+              StandardErrorPath = "/tmp/skhd.err.log";
+            };
+          };
+        };
+
+      heraklesBuildServer = hostName: {
+        nix.distributedBuilds = true;
+        nix.buildMachines = [
+          {
+            hostName = "herakles";
+            system = "x86_64-linux";
+            sshUser = "moye";
+            sshKey = "/var/root/.ssh/${hostName}.pem";
+            maxJobs = 0;
+            speedFactor = 1;
+            supportedFeatures = [
+              "kvm"
+              "big-parallel"
+            ];
+          }
+        ];
+      };
       darwinCommonModules = [
         (
           { pkgs, ... }:
@@ -165,7 +218,14 @@
             })
           ];
         };
-        specialArgs = { inherit authorizedKeys authorizedKeyLists; };
+        specialArgs = {
+          inherit
+            authorizedKeys
+            authorizedKeyLists
+            darwinFrontendServices
+            heraklesBuildServer
+            ;
+        };
         modules = darwinCommonModules ++ [
           ./systems/iris/configuration.nix
         ];
@@ -182,7 +242,14 @@
             })
           ];
         };
-        specialArgs = { inherit authorizedKeys authorizedKeyLists; };
+        specialArgs = {
+          inherit
+            authorizedKeys
+            authorizedKeyLists
+            darwinFrontendServices
+            heraklesBuildServer
+            ;
+        };
         modules = darwinCommonModules ++ [
           ./systems/pallas/configuration.nix
         ];
