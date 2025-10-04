@@ -29,8 +29,6 @@ let
 
   commonVhostConfig = {
     listen = commonListenConfig;
-    enableACME = false;
-    forceSSL = false;
     addSSL = true;
     sslCertificate = "/etc/ssl/certs/cloudflare-origin.pem";
     sslCertificateKey = "/etc/ssl/private/cloudflare-origin.key";
@@ -113,24 +111,7 @@ in
     };
 
     virtualHosts."hermes.${rootDomain}" = commonVhostConfig // {
-      root = pkgs.writeTextDir "index.html" ''
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Hermes</title>
-        </head>
-        <body>
-            <h1>Hermes</h1>
-            <p>Services available:</p>
-            <ul>
-                <li><a href="https://n8n.modiase.dev">n8n Workflow Automation</a></li>
-                <li><a href="https://ntfy.modiase.dev">ntfy Notifications</a></li>
-            </ul>
-        </body>
-        </html>
-      '';
+      root = pkgs.writeTextDir "index.html" (builtins.readFile ./static/index.html);
     };
   };
 }
