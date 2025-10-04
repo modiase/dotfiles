@@ -7,7 +7,7 @@
 }:
 
 let
-  domain = "modiase.dev";
+  rootDomain = "modiase.dev";
 in
 {
   imports = [
@@ -19,7 +19,7 @@ in
     (modulesPath + "/virtualisation/google-compute-image.nix")
   ];
 
-  _module.args.domain = domain;
+  _module.args.rootDomain = rootDomain;
 
   networking.hostName = "hermes";
   time.timeZone = "Europe/London";

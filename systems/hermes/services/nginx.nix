@@ -1,7 +1,7 @@
 {
   config,
   pkgs,
-  domain,
+  rootDomain,
   ...
 }:
 
@@ -92,7 +92,7 @@ in
 
     '';
 
-    virtualHosts."n8n.${domain}" = commonVhostConfig // {
+    virtualHosts."n8n.${rootDomain}" = commonVhostConfig // {
       locations."/" = {
         proxyPass = "http://127.0.0.1:5678/";
         proxyWebsockets = true;
@@ -100,7 +100,7 @@ in
       };
     };
 
-    virtualHosts."ntfy.${domain}" = commonVhostConfig // {
+    virtualHosts."ntfy.${rootDomain}" = commonVhostConfig // {
       locations."/" = {
         proxyPass = "http://127.0.0.1:8080/";
         proxyWebsockets = true;
@@ -112,7 +112,7 @@ in
       };
     };
 
-    virtualHosts."hermes.${domain}" = commonVhostConfig // {
+    virtualHosts."hermes.${rootDomain}" = commonVhostConfig // {
       root = pkgs.writeTextDir "index.html" ''
         <!DOCTYPE html>
         <html lang="en">
