@@ -77,23 +77,6 @@ in
     ];
   };
 
-  systemd.services.clone-dotfiles = {
-    description = "Clone Dotfiles repo for moye";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      User = "moye";
-      WorkingDirectory = "/home/moye";
-    };
-    script = ''
-      if [ ! -d Dotfiles ]; then
-        GIT_TERMINAL_PROMPT=0 ${pkgs.git}/bin/git clone --depth 1 https://github.com/moye/Dotfiles Dotfiles
-      fi
-    '';
-  };
-
   systemd.services.fetch-ssl-key = {
     description = "Fetch SSL private key from Secret Manager";
     wantedBy = [ "nginx.service" ];

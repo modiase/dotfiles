@@ -15,6 +15,7 @@ let
     [gcs]
     type = gcs
     env_auth = true
+    bucket_policy_only = true
   '';
 
   commonServiceConfig = {
