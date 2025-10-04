@@ -86,6 +86,7 @@
     pstree
     ripgrep
     sd
+    terraform-ls
     tldr
     tshark
     uv

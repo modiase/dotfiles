@@ -41,3 +41,9 @@ vim.api.nvim_set_hl(0, "CocInlayHintType", {
 	fg = "#88c0d0", -- Nord light blue for type hints
 	bg = "NONE", -- No background
 })
+
+-- Set filetype for OpenTofu files
+vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
+	pattern = "*.tofu",
+	command = "set filetype=terraform",
+})
