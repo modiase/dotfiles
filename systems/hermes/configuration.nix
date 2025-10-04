@@ -92,7 +92,7 @@ in
     };
     script = ''
       if [ ! -d Dotfiles ]; then
-        ${pkgs.git}/bin/git clone --depth 1 https://github.com/moye/Dotfiles Dotfiles
+        GIT_TERMINAL_PROMPT=0 ${pkgs.git}/bin/git clone --depth 1 https://github.com/moye/Dotfiles Dotfiles
       fi
     '';
   };

@@ -29,7 +29,7 @@ let
     pkgs.rsync
   ];
 
-  rcloneFlags = "--config /etc/rclone/rclone.conf --fast-list --transfers=4 --checkers=8";
+  rcloneFlags = "--config /etc/rclone/rclone.conf --fast-list --transfers=4 --checkers=8 --gcs-no-check-bucket";
 in
 {
   environment.etc."rclone/rclone.conf".text = rcloneConf;
