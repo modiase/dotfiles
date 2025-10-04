@@ -27,7 +27,7 @@
       "docker"
     ];
     createHome = true;
-    openssh.authorizedKeys.keys = authorizedKeyLists.moye or [ ];
+    openssh.authorizedKeys.keys = authorizedKeyLists.moye;
   };
 
   security.sudo.extraRules = [

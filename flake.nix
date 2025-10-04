@@ -215,6 +215,7 @@
             ];
           }
         ];
+        specialArgs = { inherit authorizedKeys authorizedKeyLists; };
       };
     };
 }

@@ -5,9 +5,6 @@
   ...
 }:
 
-let
-  defaultKeys = authorizedKeyLists.moye or [ ];
-in
 {
   nixpkgs.hostPlatform = "aarch64-darwin";
   nix.settings = {
@@ -45,7 +42,7 @@ in
   users.users.moye = {
     name = "moye";
     home = "/Users/moye";
-    openssh.authorizedKeys.keys = defaultKeys;
+    openssh.authorizedKeys.keys = authorizedKeyLists.moye;
   };
 
   system.primaryUser = "moye";

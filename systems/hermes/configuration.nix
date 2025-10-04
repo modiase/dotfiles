@@ -2,12 +2,12 @@
   config,
   pkgs,
   modulesPath,
+  authorizedKeyLists,
   ...
 }:
 
 let
   domain = "modiase.dev";
-  authorizedKeys = import ../authorized-keys.nix;
 in
 {
   imports = [
@@ -58,7 +58,7 @@ in
     createHome = true;
     extraGroups = [ "wheel" ];
     shell = pkgs.bashInteractive;
-    openssh.authorizedKeys.keys = builtins.attrValues authorizedKeys.moye;
+    openssh.authorizedKeys.keys = authorizedKeyLists.moye;
   };
 
   security.sudo = {
