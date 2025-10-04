@@ -55,10 +55,6 @@
     xorg.xauth
   ];
 
-  fonts.packages = with pkgs; [
-    nerd-fonts.iosevka
-  ];
-
   services.openssh = {
     enable = true;
     settings = {
