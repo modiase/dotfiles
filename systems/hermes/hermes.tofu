@@ -16,6 +16,19 @@ resource "google_storage_bucket" "hermes" {
   location                    = var.bucket_location
   storage_class               = "STANDARD"
   uniform_bucket_level_access = true
+
+  lifecycle_rule {
+    condition {
+      age = 14
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  versioning {
+    enabled = true
+  }
 }
 
 resource "google_storage_bucket_iam_member" "hermes_sa_object_admin" {

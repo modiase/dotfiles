@@ -40,7 +40,7 @@ let
             implementation = "AuthRequest";
             authn_strategies = [
               {
-                name = "HeaderAuthRequestProxyAuthorization";
+                name = "HeaderAuthorization";
                 schemes = [
                   "Basic"
                   "Bearer"

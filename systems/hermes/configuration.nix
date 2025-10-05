@@ -17,7 +17,6 @@ in
     ./services/ntfy.nix
     ./services/n8n.nix
     ./services/nginx.nix
-    ./services/backups.nix
     (modulesPath + "/virtualisation/google-compute-image.nix")
     commonNixSettings
   ];

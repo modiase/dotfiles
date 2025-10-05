@@ -50,6 +50,7 @@ let
     proxy_set_header Remote-Groups $groups;
     proxy_set_header Remote-Name $name;
     proxy_set_header Remote-Email $email;
+    proxy_set_header Authorization "";
 
     error_page 401 =302 $redirection_url;
   '';
@@ -66,6 +67,7 @@ let
       proxy_set_header X-Original-Method $request_method;
       proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
       proxy_set_header X-Forwarded-For $remote_addr;
+      proxy_set_header Authorization $http_authorization;
       proxy_next_upstream error timeout invalid_header http_500 http_502 http_503;
       proxy_redirect http:// $scheme://;
       proxy_http_version 1.1;
@@ -159,40 +161,13 @@ in
       locations."/" = {
         proxyPass = "http://127.0.0.1:${toString ports.ntfy}/";
         proxyWebsockets = true;
-        extraConfig = commonProxyConfig + ''
-          set $auth_required "on";
-          if ($http_authorization ~ "^Bearer ") {
-            set $auth_required "off";
-          }
-
-          auth_request /internal/authelia/authz-conditional;
-          auth_request_set $user $upstream_http_remote_user;
-          auth_request_set $groups $upstream_http_remote_groups;
-          auth_request_set $name $upstream_http_remote_name;
-          auth_request_set $email $upstream_http_remote_email;
-          auth_request_set $redirection_url $upstream_http_location;
-
-          proxy_set_header Remote-User $user;
-          proxy_set_header Remote-Groups $groups;
-          proxy_set_header Remote-Name $name;
-          proxy_set_header Remote-Email $email;
-
-          error_page 401 =302 $redirection_url;
-
+        extraConfig = protectedProxyConfig + ''
           proxy_buffering off;
           proxy_request_buffering off;
           proxy_read_timeout 300;
-          proxy_pass_header Authorization;
         '';
       };
       locations."/internal/authelia/authz" = autheliaEndpointConfig;
-      locations."/internal/authelia/authz-conditional" = autheliaEndpointConfig // {
-        extraConfig = autheliaEndpointConfig.extraConfig + ''
-          if ($auth_required = "off") {
-            return 200;
-          }
-        '';
-      };
     };
 
     virtualHosts."hermes.${rootDomain}" = commonVhostConfig // {
