@@ -3,19 +3,20 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: build-and-deploy-hermes.sh [-v LEVEL] [-h]
+Usage: build-and-deploy-hermes.sh [-v|--verbose LEVEL] [-b|--build-only] [-h|--help]
 
 Build hermes NixOS image and deploy to GCE via OpenTofu.
 
 Options:
-  -v LEVEL    Verbosity level: 1 (debug logs), 2 (bash tracing + terraform trace)
-  -h, --help  Show this help message
+  -v, --verbose LEVEL   Verbosity level: 1 (debug logs), 2 (bash tracing + terraform trace)
+  -b, --build-only      Only build the image, skip deployment
+  -h, --help            Show this help message
 
 Environment variables:
   PROJECT_ID  GCP project ID (default: modiase-infra)
 
 Example:
-  PROJECT_ID=modiase-infra ./bin/build-and-deploy-hermes.sh -v 1
+  PROJECT_ID=modiase-infra ./bin/build-and-deploy-hermes.sh --verbose 1 --build-only
 USAGE
 }
 
@@ -38,14 +39,29 @@ IMAGE_ATTR="nixosConfigurations.hermes.config.system.build.googleComputeImage"
 REMOTE_HOST="herakles"
 TF_VAR_FILE="$REPO_ROOT/infra/tofu.tfvars"
 VERBOSE_LEVEL=0
+BUILD_ONLY=false
 
-while [[ $# -gt 0 ]]; do
+TEMP=$(getopt -o v:bh --long verbose:,build-only,help -n "$0" -- "$@")
+if [[ $? != 0 ]]; then
+  usage
+  exit 1
+fi
+
+eval set -- "$TEMP"
+
+while true; do
   case "$1" in
-    -v)
+    -v|--verbose)
       VERBOSE_LEVEL="$2"; shift 2;
+      ;;
+    -b|--build-only)
+      BUILD_ONLY=true; shift;
       ;;
     -h|--help)
       usage; exit 0;
+      ;;
+    --)
+      shift; break;
       ;;
     *)
       echo "Unknown argument: $1" >&2
@@ -75,6 +91,11 @@ fi
 run_logged "build-image" "$COLOR_WHITE" \
   env PROJECT_ID="$PROJECT_ID" LOGGING_NO_PREFIX=1 "$SCRIPT_DIR/build-gce-nixos-image.sh" \
     "${BUILD_ARGS[@]}"
+
+if [[ "$BUILD_ONLY" == "true" ]]; then
+  log_success "Hermes image build complete (skipping deployment)."
+  exit 0
+fi
 
 pushd "$REPO_ROOT/infra" >/dev/null
 

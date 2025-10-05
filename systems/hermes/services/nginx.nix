@@ -6,29 +6,28 @@
 }:
 
 let
-  commonListenConfig = [
-    {
-      addr = "0.0.0.0";
-      port = 80;
-    }
-    {
-      addr = "[::]";
-      port = 80;
-    }
-    {
-      addr = "0.0.0.0";
-      port = 443;
-      ssl = true;
-    }
-    {
-      addr = "[::]";
-      port = 443;
-      ssl = true;
-    }
-  ];
-
+  ports = import ../ports.nix;
   commonVhostConfig = {
-    listen = commonListenConfig;
+    listen = [
+      {
+        addr = "0.0.0.0";
+        port = 80;
+      }
+      {
+        addr = "[::]";
+        port = 80;
+      }
+      {
+        addr = "0.0.0.0";
+        port = 443;
+        ssl = true;
+      }
+      {
+        addr = "[::]";
+        port = 443;
+        ssl = true;
+      }
+    ];
     addSSL = true;
     sslCertificate = "/etc/ssl/certs/cloudflare-origin.pem";
     sslCertificateKey = "/etc/ssl/private/cloudflare-origin.key";
@@ -38,6 +37,48 @@ let
     proxy_set_header X-Forwarded-Host $host;
     proxy_set_header X-Forwarded-Port $server_port;
   '';
+
+  autheliaAuthConfig = ''
+    auth_request /internal/authelia/authz;
+    auth_request_set $user $upstream_http_remote_user;
+    auth_request_set $groups $upstream_http_remote_groups;
+    auth_request_set $name $upstream_http_remote_name;
+    auth_request_set $email $upstream_http_remote_email;
+    auth_request_set $redirection_url $upstream_http_location;
+
+    proxy_set_header Remote-User $user;
+    proxy_set_header Remote-Groups $groups;
+    proxy_set_header Remote-Name $name;
+    proxy_set_header Remote-Email $email;
+
+    error_page 401 =302 $redirection_url;
+  '';
+
+  protectedProxyConfig = commonProxyConfig + autheliaAuthConfig;
+
+  autheliaEndpointConfig = {
+    proxyPass = "http://127.0.0.1:${toString ports.authelia}/api/authz/auth-request";
+    extraConfig = ''
+      internal;
+      proxy_pass_request_body off;
+      proxy_set_header Content-Length "";
+      proxy_set_header Connection "";
+      proxy_set_header X-Original-Method $request_method;
+      proxy_set_header X-Original-URL $scheme://$http_host$request_uri;
+      proxy_set_header X-Forwarded-For $remote_addr;
+      proxy_next_upstream error timeout invalid_header http_500 http_502 http_503;
+      proxy_redirect http:// $scheme://;
+      proxy_http_version 1.1;
+      proxy_cache_bypass $cookie_session;
+      proxy_no_cache $cookie_session;
+      proxy_buffers 4 32k;
+      client_body_buffer_size 128k;
+      send_timeout 5m;
+      proxy_read_timeout 240;
+      proxy_send_timeout 240;
+      proxy_connect_timeout 240;
+    '';
+  };
 
   cloudflareIPv4 = [
     "103.21.244.0/22"
@@ -84,28 +125,71 @@ in
         ''' close;
       }
 
+      proxy_headers_hash_max_size 1024;
+      proxy_headers_hash_bucket_size 128;
+
       ${setRealIpLines}
       real_ip_header CF-Connecting-IP;
       real_ip_recursive on;
 
     '';
 
-    virtualHosts."n8n.${rootDomain}" = commonVhostConfig // {
+    virtualHosts."auth.${rootDomain}" = commonVhostConfig // {
       locations."/" = {
-        proxyPass = "http://127.0.0.1:5678/";
+        proxyPass = "http://127.0.0.1:${toString ports.authelia}/";
         proxyWebsockets = true;
         extraConfig = commonProxyConfig;
       };
+      locations."/internal/authelia/authz" = autheliaEndpointConfig;
+    };
+
+    virtualHosts."n8n.${rootDomain}" = commonVhostConfig // {
+      locations."/" = {
+        proxyPass = "http://127.0.0.1:${toString ports.n8n}/";
+        proxyWebsockets = true;
+        extraConfig = protectedProxyConfig + ''
+          proxy_set_header Remote-User $email;
+        '';
+      };
+      locations."/internal/authelia/authz" = autheliaEndpointConfig;
     };
 
     virtualHosts."ntfy.${rootDomain}" = commonVhostConfig // {
       locations."/" = {
-        proxyPass = "http://127.0.0.1:8080/";
+        proxyPass = "http://127.0.0.1:${toString ports.ntfy}/";
         proxyWebsockets = true;
         extraConfig = commonProxyConfig + ''
+          set $auth_required "on";
+          if ($http_authorization ~ "^Bearer ") {
+            set $auth_required "off";
+          }
+
+          auth_request /internal/authelia/authz-conditional;
+          auth_request_set $user $upstream_http_remote_user;
+          auth_request_set $groups $upstream_http_remote_groups;
+          auth_request_set $name $upstream_http_remote_name;
+          auth_request_set $email $upstream_http_remote_email;
+          auth_request_set $redirection_url $upstream_http_location;
+
+          proxy_set_header Remote-User $user;
+          proxy_set_header Remote-Groups $groups;
+          proxy_set_header Remote-Name $name;
+          proxy_set_header Remote-Email $email;
+
+          error_page 401 =302 $redirection_url;
+
           proxy_buffering off;
           proxy_request_buffering off;
           proxy_read_timeout 300;
+          proxy_pass_header Authorization;
+        '';
+      };
+      locations."/internal/authelia/authz" = autheliaEndpointConfig;
+      locations."/internal/authelia/authz-conditional" = autheliaEndpointConfig // {
+        extraConfig = autheliaEndpointConfig.extraConfig + ''
+          if ($auth_required = "off") {
+            return 200;
+          }
         '';
       };
     };
@@ -115,6 +199,10 @@ in
         mkdir -p $out
         cp ${../static}/* $out/
       '';
+      locations."/internal/authelia/authz" = autheliaEndpointConfig;
+      locations."/" = {
+        extraConfig = autheliaAuthConfig;
+      };
     };
   };
 }

@@ -13,6 +13,7 @@ in
 {
   imports = [
     ./hardware-configuration.nix
+    ./services/authelia.nix
     ./services/ntfy.nix
     ./services/n8n.nix
     ./services/nginx.nix
