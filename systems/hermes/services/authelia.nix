@@ -174,6 +174,12 @@ let
         groups:
           - admins
           - dev
+      ntfy:
+        displayname: "NTFY API User"
+        password: "$argon2id$v=19$m=65536,t=3,p=4$Nk3L9gUjI3iaYDMCSfaMYQ$OaXcPI04D18bwSGM1I13HbSv4nhMvXCtPM7IBCt124o"
+        email: ntfy@modiase.dev
+        groups:
+          - api
   '';
 
 in
