@@ -1,5 +1,19 @@
 # Agent Guidelines for Effective System Configuration
 
+## **MANDATORY REQUIREMENTS**
+
+**CRITICAL: These instructions are MANDATORY and must be followed without exception:**
+
+1. **Read AGENTS.md after EVERY round of changes** - You MUST re-read this file after completing any set of modifications to ensure continued compliance
+2. **Apply guidelines before finalizing** - Every change must be reviewed against these guidelines before completion
+3. **No exceptions permitted** - These are not suggestions but requirements that must be enforced
+
+**When compacting or refactoring code, you MUST:**
+
+- Re-read AGENTS.md completely before making any changes
+- Apply ALL guidelines during the compacting process
+- Verify compliance after completion
+
 ## Existing Workflow Notes
 
 - Use `bin/activate` to apply configuration changes. It automatically selects the right rebuild tool (e.g. `darwin-rebuild`, `nixos-rebuild`, `home-manager`) with the correct flags.
@@ -36,3 +50,20 @@
 - **Be Precise**: State facts from documentation, not assumptions
 - **Be Thorough**: Research complete solution before acting
 - **Be Efficient**: Learn patterns to anticipate issues rather than discover through trial-and-error
+
+## **COMPLIANCE VERIFICATION**
+
+After reading AGENTS.md, you MUST emit this exact statement:
+
+```
+Cleaning up per code quality guidelines...
+```
+
+You MUST follow the guidlines for code quality and make additional clean up changes.
+This MUST be followed for every and all instructions unless no code changes have been made since the last clean up.
+
+When compacting code, you MUST emit this statement:
+
+```
+🔄 Re-reading AGENTS.md before compacting to ensure guideline compliance.
+```
