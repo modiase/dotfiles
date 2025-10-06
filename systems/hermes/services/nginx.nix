@@ -161,13 +161,15 @@ in
       locations."/" = {
         proxyPass = "http://127.0.0.1:${toString ports.ntfy}/";
         proxyWebsockets = true;
-        extraConfig = protectedProxyConfig + ''
+        extraConfig = commonProxyConfig + ''
           proxy_buffering off;
           proxy_request_buffering off;
           proxy_read_timeout 300;
+
+          proxy_set_header Upgrade $http_upgrade;
+          proxy_set_header Connection $connection_upgrade;
         '';
       };
-      locations."/internal/authelia/authz" = autheliaEndpointConfig;
     };
 
     virtualHosts."hermes.${rootDomain}" = commonVhostConfig // {

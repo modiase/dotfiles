@@ -46,48 +46,15 @@ in
     };
   };
 
-  systemd.services.n8n-fetch-password = {
-    description = "Fetch n8n password from GCP Secret Manager";
-    wantedBy = [ "n8n.service" ];
-    before = [ "n8n.service" ];
-    after = [ "network-online.target" ];
-    wants = [ "network-online.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-      User = "root";
-    };
-    script = ''
-      ${pkgs.google-cloud-sdk}/bin/gcloud secrets versions access latest --secret="n8n-password" --project="modiase-infra" > /tmp/n8n-password
-      chmod 644 /tmp/n8n-password
-    '';
-  };
-
   systemd.services.n8n = {
     serviceConfig = {
       ReadOnlyPaths = [ "/etc/n8n" ];
       TimeoutStartSec = "10min";
     };
-    requires = [ "n8n-fetch-password.service" ];
-    after = [ "n8n-fetch-password.service" ];
     preStart = ''
       if [ -f /var/lib/n8n/.n8n/config ]; then
         chmod 600 /var/lib/n8n/.n8n/config
       fi
-    '';
-    postStart = ''
-      ${pkgs.coreutils}/bin/timeout 300 ${pkgs.bash}/bin/bash -c '
-        while [ ! -f /var/lib/private/n8n/.n8n/database.sqlite ] || ! ${pkgs.curl}/bin/curl -s http://127.0.0.1:${toString ports.n8n}/ > /dev/null 2>&1; do
-          sleep 2
-        done
-      '
-      if [ ! -f /tmp/n8n-password ]; then
-        exit 0
-      fi
-      ${
-        pkgs.python3.withPackages (ps: with ps; [ bcrypt ])
-      }/bin/python /etc/n8n/setup.py "$(cat /tmp/n8n-password)"
-      rm -f /tmp/n8n-password
     '';
   };
 

@@ -30,6 +30,11 @@ in
       base-url = "https://ntfy.${rootDomain}";
       listen-http = ":${toString ports.ntfy}";
       behind-proxy = true;
+      # Required for iOS push notifications to work with self-hosted instances
+      upstream-base-url = "https://ntfy.sh";
+
+      auth-file = "/var/lib/ntfy-sh/user.db";
+      auth-default-access = "deny-all";
     };
   };
 
@@ -52,9 +57,10 @@ in
 
     script = ''
       set -euo pipefail
-      if ${pkgs.rclone}/bin/rclone ${rcloneFlags} ls gcs:${bucketName}/ntfy-sh >/dev/null 2>&1; then
+      ${pkgs.rclone}/bin/rclone ${rcloneFlags} ls gcs:${bucketName}/ntfy-sh >/dev/null 2>&1 && {
         ${pkgs.rclone}/bin/rclone ${rcloneFlags} sync gcs:${bucketName}/ntfy-sh /var/lib/ntfy-sh
-      fi
+        chown -R ntfy-sh:ntfy-sh /var/lib/ntfy-sh
+      } || true
     '';
   };
 
