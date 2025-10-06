@@ -1,9 +1,19 @@
-argparse v/verbose -- $argv
+argparse v/verbose r/revalidate 'max-tries=' 'max-wait=' -- $argv
 or return
 
 if test (count $argv) -eq 0
-    echo "Usage: ping-me [-v|--verbose] <message>"
+    echo "Usage: ping-me [-v|--verbose] [-r|--revalidate] [--max-tries=N] [--max-wait=S] <message>"
     return 1
+end
+
+set -l max_tries $_flag_max_tries
+if test -z "$max_tries"
+    set max_tries 3
+end
+
+set -l max_wait $_flag_max_wait
+if test -z "$max_wait"
+    set max_wait 300
 end
 
 set message (string join " " $argv)
@@ -15,7 +25,7 @@ if not test -d "$token_dir"
 end
 
 set access_token ""
-if test -f "$token_file"
+if test -f "$token_file" -a -z "$_flag_revalidate"
     set token_data (cat "$token_file" 2>/dev/null)
     if test -n "$token_data"
         set access_token (echo "$token_data" | jq -r '.access_token // empty' 2>/dev/null)
@@ -32,7 +42,7 @@ if test -f "$token_file"
     end
 end
 
-if test -z "$access_token"
+if test -z "$access_token" -o -n "$_flag_revalidate"
     if set -q _flag_verbose
         echo "Fetching new OAuth2 token..."
     end
@@ -62,19 +72,36 @@ if test -z "$access_token"
     chmod 600 "$token_file"
 end
 
-set response (curl -s -L -w "%{http_code}" \
-    -H "Authorization: Bearer $access_token" \
-    -H "Content-Type: text/plain" \
-    -d "$message" \
-    "https://ntfy.modiase.dev/general")
+set -l attempt 1
+set -l wait_time 1
 
-set http_code (string sub -s -3 "$response")
+while test $attempt -le $max_tries
+    set response (curl -s -L -w "%{http_code}" \
+        -H "Authorization: Bearer $access_token" \
+        -H "Content-Type: text/plain" \
+        -d "$message" \
+        "https://ntfy.modiase.dev/general")
 
-if test "$http_code" = 200
-    if set -q _flag_verbose
-        echo "Message sent successfully!"
+    set http_code (string sub -s -3 "$response")
+
+    if test "$http_code" = 200
+        if set -q _flag_verbose
+            echo "Message sent successfully!"
+        end
+        return 0
     end
-else
-    echo "Failed to send message (HTTP $http_code)"
-    return 1
+
+    if test $attempt -eq $max_tries
+        echo "Failed to send message after $max_tries attempts (HTTP $http_code)"
+        return 1
+    end
+
+    set wait_time (math "min($wait_time * 2, $max_wait)")
+
+    if set -q _flag_verbose
+        echo "Attempt $attempt failed (HTTP $http_code), retrying in $wait_time seconds..."
+    end
+
+    sleep $wait_time
+    set attempt (math $attempt + 1)
 end
