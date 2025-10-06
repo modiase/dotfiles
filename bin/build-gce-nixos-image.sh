@@ -5,30 +5,26 @@ set -euo pipefail
 
 usage() {
   cat <<'USAGE'
-Usage: build-gce-nixos-image.sh --attr ATTR [--dest gs://bucket/path.tar.gz]
-                                [--flake FLAKE-URI]
-                                [--keep-build] [--remote-host HOST] [-v] [-vv]
+Usage: build-gce-nixos-image.sh --attr ATTR [--flake FLAKE-URI]
+                                [--keep-build] [--remote-host HOST] [-v LEVEL]
 
-Environment variables:
-  PROJECT_ID      Optional (default: modiase-infra). Passed to gsutil via GSUtil:default_project_id.
+Builds a NixOS GCE image and outputs the path to the built tarball.
 
 Required:
   --attr ATTR        Nix attribute to build (e.g. nixosConfigurations.hermes.config.system.build.googleComputeImage)
 
 Optional:
-  --dest URI         Destination gs:// path for the tarball (default: gs://modiase-infra/images/base-nixos-latest-x86_64.tar.gz)
   --flake FLAKE      Flake URI to build (default: repo root)
   --keep-build       Leave the temporary build directory on disk
   --remote-host HOST Optional log hint that a remote builder HOST will execute the build
-  -v LEVEL           Verbosity level: 1 (print build logs), 2 (bash tracing + gsutil debug)
+  -v LEVEL           Verbosity level: 1 (print build logs), 2 (bash tracing)
 
-Example (Hermes):
-  PROJECT_ID=modiase-infra ./bin/build-gce-nixos-image.sh \\
+Example:
+  ./bin/build-gce-nixos-image.sh \\
     --attr nixosConfigurations.hermes.config.system.build.googleComputeImage \\
-    --dest gs://modiase-infra/images/hermes-nixos-latest.tar.gz \\
     --remote-host herakles -v 1
 
-Without --dest the helper uploads a generic base image to gs://modiase-infra/images/base-nixos-latest-x86_64.tar.gz.
+Outputs the path to the built tarball on stdout.
 USAGE
 }
 
@@ -39,8 +35,6 @@ LOG_LEVEL=${LOG_LEVEL:-2}
 COLOR_ENABLED=${COLOR_ENABLED:-true}
 source "$SCRIPT_DIR/lib.sh"
 
-DEST_URI="gs://modiase-infra/images/base-nixos-latest_x86_64.tar.gz"
-PROJECT_ID="${PROJECT_ID:-modiase-infra}"
 FLAKE_URI="$REPO_ROOT"
 IMAGE_ATTR=""
 KEEP_BUILD=0
@@ -49,9 +43,6 @@ VERBOSE_LEVEL=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --dest)
-      DEST_URI="$2"; shift 2;
-      ;;
     --flake)
       FLAKE_URI="$2"; shift 2;
       ;;
@@ -126,55 +117,12 @@ if [[ -z "$TARBALL_PATH" || ! -f "$TARBALL_PATH" ]]; then
   exit 1
 fi
 
-BASENAME="$(basename "$DEST_URI")"
-LOCAL_COPY="$TMPDIR/$BASENAME"
-cp "$TARBALL_PATH" "$LOCAL_COPY"
-
-cat > "$TMPDIR/image-metadata.json" <<JSON
-{
-  "flake": "${FLAKE_URI}",
-  "attribute": "${IMAGE_ATTR}",
-  "gitRevision": "$(cd "$REPO_ROOT" && git rev-parse HEAD 2>/dev/null || echo unknown)",
-  "createdAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-}
-JSON
-
-log_info "Prepared metadata for ${IMAGE_ATTR} (revision $(cd "$REPO_ROOT" && git rev-parse --short HEAD 2>/dev/null || echo unknown))"
-
-GSUTIL=(gsutil)
-if [[ -n "${PROJECT_ID:-}" ]]; then
-  GSUTIL+=( -o "GSUtil:default_project_id=${PROJECT_ID}" )
-fi
-
-if [[ $VERBOSE_LEVEL -ge 2 ]]; then
-  GSUTIL+=(-D)
-fi
-
-BOTO_CONFIG="$TMPDIR/.boto"
-cat > "$BOTO_CONFIG" << 'EOF'
-[GSUtil]
-parallel_composite_upload_threshold = 150M
-EOF
-
-GSUTIL_ENV=(env BOTO_CONFIG="$BOTO_CONFIG")
-if [[ $VERBOSE_LEVEL -ge 1 ]]; then
-  log_info "Uploading $(du -h "$LOCAL_COPY" | cut -f1) tarball to $DEST_URI"
-fi
-
-run_logged "upload-tar" "$COLOR_WHITE" "${GSUTIL_ENV[@]}" "${GSUTIL[@]}" cp "$LOCAL_COPY" "$DEST_URI"
-
-METADATA_URI="${DEST_URI%.tar.gz}.json"
-if [[ $VERBOSE_LEVEL -ge 1 ]]; then
-  log_info "Uploading metadata to $METADATA_URI"
-fi
-
-if ! run_logged "upload-metadata" "$COLOR_WHITE" "${GSUTIL_ENV[@]}" "${GSUTIL[@]}" cp "$TMPDIR/image-metadata.json" "$METADATA_URI"; then
-  log_error "Failed to upload metadata to $METADATA_URI"
-  exit 1
-fi
+echo "<TARBALL_PATH>$TARBALL_PATH</TARBALL_PATH>"
 
 if [[ $KEEP_BUILD -eq 1 ]]; then
-  log_info "Build artifacts remain in $TMPDIR"
+  log_info "Build artifacts remain in $TMPDIR" >&2
 fi
 
-log_success "Image available at ${DEST_URI}"
+if [[ $VERBOSE_LEVEL -ge 1 ]]; then
+  log_success "Image built successfully: $TARBALL_PATH" >&2
+fi
