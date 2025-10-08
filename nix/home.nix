@@ -60,6 +60,7 @@
     nix-prefetch-git
     nix-tree
     nixfmt-rfc-style
+    nmap
     nodePackages.pnpm
     nodePackages.ts-node
     nodePackages.typescript
