@@ -299,5 +299,19 @@
         ];
         specialArgs = { inherit authorizedKeys authorizedKeyLists commonNixSettings; };
       };
+
+      nixosConfigurations."hekate" = nixpkgs.lib.nixosSystem {
+        system = "aarch64-linux";
+        modules = [
+          ./systems/hekate/configuration.nix
+          {
+            nix.settings.experimental-features = [
+              "nix-command"
+              "flakes"
+            ];
+          }
+        ];
+        specialArgs = { inherit authorizedKeys authorizedKeyLists commonNixSettings; };
+      };
     };
 }

@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage: build-hekate [-v|--verbose LEVEL] [-h|--help]
+
+Build hekate NixOS SD card image with embedded WireGuard key.
+
+Options:
+  -v, --verbose LEVEL   Verbosity level: 1 (debug logs), 2 (bash tracing)
+  -h, --help            Show this help message
+
+Environment variables:
+  PROJECT_ID  GCP project ID (default: modiase-infra)
+
+Example:
+  PROJECT_ID=modiase-infra ./bin/build-hekate --verbose 1
+USAGE
+}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+export CI=1
+export TERM=dumb
+export NO_COLOR=${NO_COLOR:-false}
+
+LOG_LEVEL=${LOG_LEVEL:-2}
+COLOR_ENABLED=${COLOR_ENABLED:-true}
+LOGGING_NO_PREFIX=${LOGGING_NO_PREFIX:-0}
+source "$SCRIPT_DIR/lib.sh"
+
+PROJECT_ID="${PROJECT_ID:-modiase-infra}"
+VERBOSE_LEVEL=0
+
+TEMP=$(getopt -o v:h --long verbose:,help -n "$0" -- "$@")
+if [[ $? != 0 ]]; then
+  usage
+  exit 1
+fi
+
+eval set -- "$TEMP"
+
+while true; do
+  case "$1" in
+    -v|--verbose)
+      VERBOSE_LEVEL="$2"; shift 2;
+      ;;
+    -h|--help)
+      usage; exit 0;
+      ;;
+    --)
+      shift; break;
+      ;;
+    *)
+      echo "Unknown argument: $1" >&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+if [[ $VERBOSE_LEVEL -ge 2 ]]; then
+  set -x
+fi
+
+TMPDIR="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR"' EXIT
+
+[[ $VERBOSE_LEVEL -ge 1 ]] && log_info "Fetching WireGuard private key from Google Secret Manager"
+
+export HEKATE_WG_KEY=$(run_logged "fetch-wireguard-key" "$COLOR_WHITE" \
+  gcloud secrets versions access latest \
+    --secret="hekate-wireguard-private-key" \
+    --project="$PROJECT_ID")
+
+[[ $VERBOSE_LEVEL -ge 1 ]] && log_info "Building hekate SD card image with remote builder: ${REMOTE_HOST:-herakles}"
+
+NIX_CMD=(
+  nix build "${FLAKE_URI:-$REPO_ROOT}#nixosConfigurations.hekate.config.system.build.sdImage"
+  --out-link "$TMPDIR/result"
+  --builders "ssh://moye@${REMOTE_HOST:-herakles} aarch64-linux - - -"
+  --system aarch64-linux
+  --max-jobs 0
+  --cores 0
+  --log-format raw
+)
+
+[[ $VERBOSE_LEVEL -ge 2 ]] && NIX_CMD+=(--verbose)
+
+if ! run_logged "build-sd-image" "$COLOR_WHITE" "${NIX_CMD[@]}"; then
+  log_error "Failed to build hekate SD card image"
+  exit 1
+fi
+
+IMAGE_FILE="$TMPDIR/result"
+if [[ ! -e "$IMAGE_FILE" ]]; then
+  log_error "Build result not found: $IMAGE_FILE"
+  exit 1
+fi
+
+REAL_IMAGE_PATH=$(readlink -f "$IMAGE_FILE")
+ACTUAL_IMAGE_FILE=$(find "$REAL_IMAGE_PATH" -type f -name "*.img.zst" | head -1)
+IMAGE_SIZE=$(du -h "$ACTUAL_IMAGE_FILE" | cut -f1)
+log_success "Hekate SD card image built successfully"
+log_info "Image location: $ACTUAL_IMAGE_FILE"
+log_info "Image size: $IMAGE_SIZE"
+log_info "Flash with: zstd -d -c $ACTUAL_IMAGE_FILE | sudo dd of=/dev/sdX bs=4M status=progress"
