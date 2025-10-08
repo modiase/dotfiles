@@ -15,6 +15,7 @@
     (pkgs.callPackage ../nixpkgs/apple-containers.nix { })
     xquartz
     xorg.xauth
+    zstd
   ];
 
   home.file.".local/bin/bash" = {
