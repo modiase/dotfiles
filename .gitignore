@@ -33,3 +33,6 @@ worktrees/
 
 # Agents
 INSTRUCT.md
+
+*.pyc
+**/__pycache__/

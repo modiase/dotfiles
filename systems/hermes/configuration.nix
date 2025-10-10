@@ -16,6 +16,7 @@ in
     ./services/authelia.nix
     ./services/ntfy.nix
     ./services/n8n.nix
+    ./services/mongodb.nix
     ./services/nginx.nix
     (modulesPath + "/virtualisation/google-compute-image.nix")
     commonNixSettings
@@ -30,6 +31,7 @@ in
     pkg:
     builtins.elem (pkgs.lib.getName pkg) [
       "n8n"
+      "mongodb"
     ];
 
   environment.systemPackages = with pkgs; [

@@ -295,6 +295,7 @@
               "nix-command"
               "flakes"
             ];
+            nixpkgs.overlays = [ ];
           }
         ];
         specialArgs = { inherit authorizedKeys authorizedKeyLists commonNixSettings; };
@@ -313,5 +314,67 @@
         ];
         specialArgs = { inherit authorizedKeys authorizedKeyLists commonNixSettings; };
       };
-    };
+    }
+    // flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+
+        # Python environment for deployment tools
+        deployPythonEnv = pkgs.python312.withPackages (
+          ps: with ps; [
+            click
+            loguru
+            inquirer
+            google-cloud-secret-manager
+            google-cloud-storage
+            crc32c
+          ]
+        );
+
+        # Build hekate app
+        build-hekate = pkgs.writeShellApplication {
+          name = "build-hekate";
+          runtimeInputs = [
+            deployPythonEnv
+            pkgs.google-cloud-sdk
+          ];
+          text = ''
+            export PYTHONPATH="${./lib}:''${PYTHONPATH:-}"
+            export REPO_ROOT="${./.}"
+            exec ${deployPythonEnv}/bin/python ${./lib/build-hekate.py} "$@"
+          '';
+        };
+
+        # Build hermes app
+        build-hermes = pkgs.writeShellApplication {
+          name = "build-hermes";
+          runtimeInputs = [
+            deployPythonEnv
+            pkgs.google-cloud-sdk
+          ];
+          text = ''
+            export PYTHONPATH="${./lib}:''${PYTHONPATH:-}"
+            export REPO_ROOT="${./.}"
+            exec ${deployPythonEnv}/bin/python ${./lib/build-hermes.py} "$@"
+          '';
+        };
+      in
+      {
+        packages = {
+          inherit build-hekate build-hermes;
+        };
+
+        apps = {
+          build-hekate = {
+            type = "app";
+            program = "${build-hekate}/bin/build-hekate";
+          };
+          build-hermes = {
+            type = "app";
+            program = "${build-hermes}/bin/build-hermes";
+          };
+        };
+      }
+    );
 }

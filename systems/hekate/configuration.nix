@@ -39,7 +39,10 @@ in
 
   boot.loader.grub.enable = false;
   boot.loader.generic-extlinux-compatible.enable = true;
-  boot.kernelParams = [ "quiet" ];
+  boot.kernelParams = [
+    "console=tty0" # HDMI output
+    "console=ttyAMA0,115200" # Serial as backup
+  ];
 
   # !!! KEY SECURITY: Embed WireGuard key in initrd, NOT the Nix store !!!
   boot.initrd.secrets = lib.mkIf (wireguardKey != "") {
@@ -59,19 +62,23 @@ in
   documentation.info.enable = false;
   documentation.doc.enable = false;
 
-  services.udisks2.enable = false;
   services.thermald.enable = false;
   programs.command-not-found.enable = false;
   programs.nano.enable = false;
-  services.xserver.enable = false;
-  fonts.fontconfig.enable = false;
 
   environment.defaultPackages = [ ];
-  environment.systemPackages = [ pkgs.vim ];
+  environment.systemPackages = with pkgs; [
+    vim
+    htop
+    util-linux
+  ];
 
   networking.hostName = "hekate";
   networking.domain = "home";
-  networking.wireguard.interfaces.wg0 = {
+  networking.extraHosts = "127.0.0.1 hekate.home hekate";
+  networking.useDHCP = true;
+  networking.firewall.checkReversePath = "loose";
+  networking.wireguard.interfaces.wg0 = lib.mkIf (wireguardKey != "") {
     ips = [ "10.0.0.1/24" ];
     listenPort = 51820;
     privateKeyFile = "/etc/wireguard/private.key";
@@ -102,8 +109,9 @@ in
       domain = "home";
       address = [
         "/router.home/10.0.100.1"
-        "/pallas.home/10.0.100.204"
+        "/herakles.home/10.0.100.97"
         "/hekate.home/10.0.100.110"
+        "/pallas.home/10.0.100.204"
       ];
       interface = [
         "wg0"
@@ -111,7 +119,6 @@ in
       ];
       listen-address = [
         "10.0.0.1"
-        "192.168.1.110"
       ];
     };
   };
@@ -121,6 +128,7 @@ in
     allowedUDPPorts = [
       51820
       53
+      5353
     ];
     allowedTCPPorts = [
       53
@@ -133,6 +141,23 @@ in
     settings = {
       PermitRootLogin = "no";
       PasswordAuthentication = false;
+    };
+  };
+
+  systemd.services."getty@tty1" = {
+    enable = true;
+    wantedBy = [ "multi-user.target" ];
+  };
+
+  systemd.services.systemd-networkd-wait-online.enable = false;
+
+  services.avahi = {
+    enable = true;
+    nssmdns4 = true;
+    publish = {
+      enable = true;
+      addresses = true;
+      domain = true;
     };
   };
 

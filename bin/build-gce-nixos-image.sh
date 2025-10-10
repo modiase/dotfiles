@@ -28,12 +28,11 @@ Outputs the path to the built tarball on stdout.
 USAGE
 }
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 LOG_LEVEL=${LOG_LEVEL:-2}
 COLOR_ENABLED=${COLOR_ENABLED:-true}
-source "$SCRIPT_DIR/lib.sh"
+source "$REPO_ROOT/lib/lib.sh"
 
 FLAKE_URI="$REPO_ROOT"
 IMAGE_ATTR=""
@@ -117,7 +116,7 @@ if [[ -z "$TARBALL_PATH" || ! -f "$TARBALL_PATH" ]]; then
   exit 1
 fi
 
-echo "<TARBALL_PATH>$TARBALL_PATH</TARBALL_PATH>"
+echo "BUILD_RESULT: $TARBALL_PATH"
 
 if [[ $KEEP_BUILD -eq 1 ]]; then
   log_info "Build artifacts remain in $TMPDIR" >&2

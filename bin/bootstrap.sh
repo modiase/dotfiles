@@ -20,7 +20,8 @@ else
 	exit $EXIT_FAILURE
 fi
 
-source "${SCRIPT_DIR}/lib.sh"
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+source "${REPO_ROOT}/lib/lib.sh"
 
 ensure_xz(){
 	if ! command -v xz &>/dev/null; then

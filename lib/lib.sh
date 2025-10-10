@@ -60,7 +60,7 @@ timestamp_prefix(){
 	if [[ "$LOGGING_NO_PREFIX" == "1" ]]; then
 		printf ""
 	else
-		printf "[%s] " "$(date '+%H:%M:%S')"
+		printf "%s | " "$(date '+%H:%M:%S')"
 	fi
 }
 
@@ -89,7 +89,7 @@ process_output(){
 		fi
 		local prefix=""
 		if [[ "$LOGGING_NO_PREFIX" != "1" ]]; then
-			prefix="[$(date '+%H:%M:%S')] [$label] "
+			prefix="$(date '+%H:%M:%S') | $label | "
 		fi
 		local formatted="${prefix}${line}"
 		if [[ "$is_stderr" = "true" ]]; then

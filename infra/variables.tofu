@@ -63,5 +63,5 @@ variable "nixos_image_source" {
 variable "machine_type" {
   description = "GCE machine type for the instance"
   type        = string
-  default     = "e2-micro"
+  default     = "e2-small"
 }

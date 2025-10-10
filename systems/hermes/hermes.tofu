@@ -43,6 +43,7 @@ resource "google_project_iam_member" "hermes_sa_secret_accessor" {
   member  = "serviceAccount:${google_service_account.hermes_storage.email}"
 }
 
+
 resource "google_compute_address" "hermes_static_ip" {
   name = var.static_ip_name
 }

@@ -154,6 +154,10 @@ in
           proxy_set_header Remote-User $email;
         '';
       };
+      locations."/webhook/rest/oauth2-credential/callback" = {
+        proxyPass = "http://127.0.0.1:${toString ports.n8n}/webhook/rest/oauth2-credential/callback";
+        extraConfig = commonProxyConfig;
+      };
       locations."/internal/authelia/authz" = autheliaEndpointConfig;
     };
 
