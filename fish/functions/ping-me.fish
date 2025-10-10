@@ -24,12 +24,10 @@ end
 set message (string join " " $argv)
 set auth_file "$HOME/.ping-me.json"
 
-# Try to load existing password (conditional assignment)
 set password ""
 test -f "$auth_file" -a -z "$_flag_revalidate"; and set password (cat "$auth_file" 2>/dev/null | jq -r '.password // empty' 2>/dev/null)
 test "$password" = "null"; and set password ""
 
-# Verbose logging for auth file status
 set -q _flag_verbose; and begin
     test -f "$auth_file"; and echo "Found existing auth file: $auth_file"; or echo "No auth file found at: $auth_file"
     test -n "$password"; and echo "Using stored password for basic auth"; or echo "Will fetch new password from Google Secrets"
@@ -50,7 +48,6 @@ if test -z "$password" -o -n "$_flag_revalidate"
         return 1
     end
 
-    # Save password for future use
     echo "{\"password\":\"$password\"}" >"$auth_file"
     chmod 600 "$auth_file"
 
@@ -63,7 +60,6 @@ end
 set -l attempt 1
 set -l wait_time 1
 
-# Verbose intro (conditional)
 set -q _flag_verbose; and begin
     echo "Starting message send attempts (max: $max_tries)"
     echo "Message: $message"
@@ -73,7 +69,6 @@ set -q _flag_verbose; and begin
 end
 
 while test $attempt -le $max_tries
-    # Verbose request details (conditional)
     set -q _flag_verbose; and begin
         echo "--- Attempt $attempt ---"
         echo "Making POST request to ntfy..."
@@ -81,21 +76,18 @@ while test $attempt -le $max_tries
         echo "Body length: "(string length "$message")" characters"
     end
 
-    # Make request
     set response (curl -s -L -w "|%{http_code}|%{time_total}|%{size_download}|" \
         -u "ntfy:$password" \
         -H "Content-Type: text/plain" \
         -d "$message" \
         "https://ntfy.modiase.dev/$topic")
 
-    # Parse response
     set response_parts (string split "|" "$response")
     set response_body "$response_parts[1]"
     set http_code "$response_parts[2]"
     set time_total "$response_parts[3]"
     set size_download "$response_parts[4]"
 
-    # Verbose response details (conditional)
     set -q _flag_verbose; and begin
         echo "HTTP Status Code: $http_code"
         echo "Response time: $time_total seconds"
@@ -103,7 +95,6 @@ while test $attempt -le $max_tries
         echo "Response body: $response_body"
     end
 
-    # Success case
     test "$http_code" = "200"; and begin
         set -q _flag_verbose; and begin
             echo "✓ Message sent successfully!"
@@ -112,7 +103,6 @@ while test $attempt -le $max_tries
         return 0
     end
 
-    # Final attempt failure
     test $attempt -eq $max_tries; and begin
         echo "Failed to send message after $max_tries attempts (HTTP $http_code)"
         set -q _flag_verbose; and begin
@@ -122,10 +112,8 @@ while test $attempt -le $max_tries
         return 1
     end
 
-    # Retry logic
     set wait_time (math "min($wait_time * 2, $max_wait)")
 
-    # Conditional retry messages
     set -q _flag_verbose; and begin
         echo "✗ Attempt $attempt failed (HTTP $http_code)"
         echo "Response body: $response_body"
