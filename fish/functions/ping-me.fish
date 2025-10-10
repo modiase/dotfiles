@@ -18,7 +18,7 @@ end
 
 set -l topic $_flag_topic
 if test -z "$topic"
-    set topic "general"
+    set topic general
 end
 
 set message (string join " " $argv)
@@ -26,7 +26,7 @@ set auth_file "$HOME/.ping-me.json"
 
 set password ""
 test -f "$auth_file" -a -z "$_flag_revalidate"; and set password (cat "$auth_file" 2>/dev/null | jq -r '.password // empty' 2>/dev/null)
-test "$password" = "null"; and set password ""
+test "$password" = null; and set password ""
 
 set -q _flag_verbose; and begin
     test -f "$auth_file"; and echo "Found existing auth file: $auth_file"; or echo "No auth file found at: $auth_file"
