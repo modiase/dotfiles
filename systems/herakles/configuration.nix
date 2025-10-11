@@ -40,7 +40,7 @@
       users = [ "moye" ];
       commands = [
         {
-          command = "/run/current-system/sw/bin/nixos-rebuild";
+          command = "ALL";
           options = [
             "NOPASSWD"
             "SETENV"
