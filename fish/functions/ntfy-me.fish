@@ -1,28 +1,48 @@
-argparse v/verbose r/revalidate 't/topic=' 'max-tries=' 'max-wait=' -- $argv
+argparse v/verbose r/revalidate 't/topic=' 'max-tries=' 'max-wait=' 'c/command=' -- $argv
 or return
 
-if test (count $argv) -eq 0
-    echo "Usage: ping-me [-v|--verbose] [-r|--revalidate] [-t|--topic=TOPIC] [--max-tries=N] [--max-wait=S] <message>"
+if test -z "$_flag_command" -a (count $argv) -eq 0
+    echo "Usage: ntfy-me [-v|--verbose] [-r|--revalidate] [-t|--topic=TOPIC] [--max-tries=N] [--max-wait=S] [--command 'cmd'] <message>"
     return 1
 end
 
-set -l max_tries $_flag_max_tries
-if test -z "$max_tries"
-    set max_tries 3
-end
+set -l max_tries 3
+test -n "$_flag_max_tries"; and set max_tries "$_flag_max_tries"
 
-set -l max_wait $_flag_max_wait
-if test -z "$max_wait"
-    set max_wait 300
-end
+set -l max_wait 300
+test -n "$_flag_max_wait"; and set max_wait "$_flag_max_wait"
 
-set -l topic $_flag_topic
-if test -z "$topic"
-    set topic general
-end
+set -l topic general
+test -n "$_flag_topic"; and set topic "$_flag_topic"
 
-set message (string join " " $argv)
-set auth_file "$HOME/.ping-me.json"
+if test -n "$_flag_command"
+    set start_time (date "+%Y-%m-%d %H:%M:%S %Z")
+
+    fish -c "$_flag_command"
+    set command_exit_code $status
+
+    set end_time (date "+%Y-%m-%d %H:%M:%S %Z")
+    set _hostname (hostname)
+
+    if test $command_exit_code -eq 0
+        set message "## ✅ $_flag_command
+
+**Host:** $_hostname
+**Started:** $start_time
+**Finished:** $end_time"
+        set use_markdown true
+    else
+        set message "## ❌ $_flag_command
+
+**Host:** $_hostname
+**Started:** $start_time
+**Finished:** $end_time"
+        set use_markdown true
+    end
+else
+    set message (string join " " $argv)
+end
+set auth_file "$HOME/.ntfy-me.json"
 
 set password ""
 test -f "$auth_file" -a -z "$_flag_revalidate"; and set password (cat "$auth_file" 2>/dev/null | jq -r '.password // empty' 2>/dev/null)
@@ -76,11 +96,19 @@ while test $attempt -le $max_tries
         echo "Body length: "(string length "$message")" characters"
     end
 
-    set response (curl -s -L -w "|%{http_code}|%{time_total}|%{size_download}|" \
-        -u "ntfy:$password" \
-        -H "Content-Type: text/plain" \
-        -d "$message" \
-        "https://ntfy.modiase.dev/$topic")
+    if test -n "$use_markdown"
+        set response (curl -s -L -w "|%{http_code}|%{time_total}|%{size_download}|" \
+            -u "ntfy:$password" \
+            -H "Markdown: yes" \
+            -d "$message" \
+            "https://ntfy.modiase.dev/$topic")
+    else
+        set response (curl -s -L -w "|%{http_code}|%{time_total}|%{size_download}|" \
+            -u "ntfy:$password" \
+            -H "Content-Type: text/plain" \
+            -d "$message" \
+            "https://ntfy.modiase.dev/$topic")
+    end
 
     set response_parts (string split "|" "$response")
     set response_body "$response_parts[1]"
@@ -95,7 +123,7 @@ while test $attempt -le $max_tries
         echo "Response body: $response_body"
     end
 
-    test "$http_code" = "200"; and begin
+    test "$http_code" = 200; and begin
         set -q _flag_verbose; and begin
             echo "✓ Message sent successfully!"
             echo "Total time: $time_total seconds"
