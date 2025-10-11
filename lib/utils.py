@@ -76,12 +76,18 @@ def run_command(
     check: bool = True,
     cwd: Path | str | None = None,
     stream_output: bool = True,
+    env: Mapping[str, str] | None = None,
 ) -> tuple[str, int]:
     """Run a command with logging."""
     logger.debug(f"Running: {' '.join(cmd)}")
 
     context_env = _run_command_env.get({})
-    env = {**os.environ, **context_env} if context_env else None
+    merged_env = {**os.environ}
+    if context_env:
+        merged_env.update(context_env)
+    if env:
+        merged_env.update(env)
+    final_env = merged_env if (context_env or env) else None
 
     try:
         if stream_output:
@@ -92,9 +98,7 @@ def run_command(
                     else:
                         cmd_str = str(cmd)
 
-                    spawn_env = dict(os.environ)
-                    if env:
-                        spawn_env.update(env)
+                    spawn_env = final_env or dict(os.environ)
 
                     child = pexpect.spawn(cmd_str, cwd=cwd, env=spawn_env, encoding='utf-8')
 
@@ -136,7 +140,7 @@ def run_command(
                 text=True,
                 bufsize=1,
                 cwd=cwd,
-                env=env,
+                env=final_env,
             ) as process:
                 output_lines = []
 
@@ -155,11 +159,11 @@ def run_command(
                 return "\n".join(output_lines), process.returncode
         elif capture_output:
             result = subprocess.run(
-                cmd, capture_output=True, text=True, check=check, cwd=cwd, env=env
+                cmd, capture_output=True, text=True, check=check, cwd=cwd, env=final_env
             )
             return result.stdout.strip(), result.returncode
         else:
-            result = subprocess.run(cmd, check=check, cwd=cwd, env=env)
+            result = subprocess.run(cmd, check=check, cwd=cwd, env=final_env)
             return "", result.returncode
     except subprocess.CalledProcessError as e:
         logger.error(f"Command failed: {description}")
@@ -422,6 +426,7 @@ def build_nix_image(
     system: str,
     remote_host: str | None = None,
     extra_args: Sequence[str] | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> str:
     """Build a Nix image using nix build and return the result path."""
     logger.info(f"Building {nix_attr}")
@@ -459,7 +464,7 @@ def build_nix_image(
         if extra_args:
             nix_cmd.extend(extra_args)
 
-        run_command(nix_cmd, f"build {nix_attr}")
+        run_command(nix_cmd, f"build {nix_attr}", env=env)
 
         if not result_link.exists():
             logger.error(f"Build result not found: {result_link}")

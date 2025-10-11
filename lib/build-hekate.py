@@ -6,13 +6,11 @@ from pathlib import Path
 
 import click
 import inquirer
-from google.cloud import secretmanager
 from loguru import logger
 
 sys.path.insert(0, str(Path(__file__).parent))
 from utils import (
     build_nix_image,
-    check_gcloud_config,
     check_nix,
     check_ssh_access,
     run_command,
@@ -21,40 +19,15 @@ from utils import (
 )
 
 
-def _get_secret_with_fallback(project_id: str, secret_name: str, action: str) -> str:
-    secret_path = f"projects/{project_id}/secrets/{secret_name}/versions/latest"
-
-    try:
-        client = secretmanager.SecretManagerServiceClient()
-        logger.debug(f"Fetching secret: {secret_path}")
-        response = client.access_secret_version(request={"name": secret_path})
-        return response.payload.data.decode("UTF-8")
-    except Exception as e:
-        logger.error(f"Failed to {action} from Secret Manager: {e}")
-        logger.info("Falling back to gcloud command...")
-
-        output, returncode = run_command(
-            ["gcloud", "secrets", "versions", "access", "latest", f"--secret={secret_name}", f"--project={project_id}"],
-            action, capture_output=True, stream_output=False, check=False
-        )
-
-        if returncode != 0:
-            logger.error(f"Failed to {action}")
-            sys.exit(1)
-
-        return output
-
-
-def get_wireguard_key(project_id: str, secret_name: str = "hekate-wireguard-private-key") -> str:
-    return _get_secret_with_fallback(project_id, secret_name, "fetch WireGuard key")
-
 
 def get_flash_instructions(image_file: Path) -> str:
     return f"zstd -d -c {image_file} | sudo dd of=/dev/sdX bs=4M status=progress"
 
 
 def _check_removable_darwin(device_path: str) -> bool:
-    result = subprocess.run(["diskutil", "list", device_path], capture_output=True, text=True, check=False)
+    result = subprocess.run(
+        ["diskutil", "list", device_path], capture_output=True, text=True, check=False
+    )
     return result.returncode == 0 and "(external, physical)" in result.stdout
 
 
@@ -121,7 +94,9 @@ def flash_image_to_device(image_file: Path, device_path: str) -> bool:
             _run_disk_command(["sudo", "umount", f"{device_path}*"], "Unmount")
 
         logger.info("Starting flash process...")
-        flash_cmd = f"zstd -d -c {image_file} | sudo dd of={device_path} bs=4M status=progress"
+        flash_cmd = (
+            f"zstd -d -c {image_file} | sudo dd of={device_path} bs=4M status=progress"
+        )
         result = subprocess.run(flash_cmd, shell=True, check=False, text=True)
 
         if result.returncode == 0:
@@ -143,20 +118,7 @@ def flash_image_to_device(image_file: Path, device_path: str) -> bool:
         return False
 
 
-def check_secret_access(project_id: str, secret_name: str) -> bool:
-    logger.info(f"Checking access to secret: {secret_name}")
-    try:
-        _get_secret_with_fallback(project_id, secret_name, "test secret access")
-        logger.info(f"✓ Secret {secret_name} is accessible")
-        return True
-    except SystemExit:
-        logger.error(f"Cannot access secret {secret_name}")
-        return False
-
-
-def perform_hekate_dry_run(
-    repo_root: Path, project_id: str, remote_host: str, secret_name: str
-) -> bool:
+def perform_hekate_dry_run(repo_root: Path, remote_host: str) -> bool:
     logger.info("🔍 Performing hekate dry run checks...")
 
     checks = [
@@ -166,8 +128,6 @@ def perform_hekate_dry_run(
                 repo_root, "nixosConfigurations.hekate.config.system.build.sdImage"
             ),
         ),
-        ("Secret access", lambda: check_secret_access(project_id, secret_name)),
-        ("gcloud config", lambda: check_gcloud_config(project_id)),
         ("SSH access", lambda: check_ssh_access(remote_host)),
     ]
 
@@ -200,11 +160,6 @@ def perform_hekate_dry_run(
     "--remote-host", default="herakles", envvar="REMOTE_HOST", help="Remote build host"
 )
 @click.option("--interactive", is_flag=True, help="Interactive mode with prompts")
-@click.option(
-    "--secret-name",
-    default="hekate-wireguard-private-key",
-    help="Name of the WireGuard key secret",
-)
 @click.option("--verify", is_flag=True, help="Check all prerequisites without building")
 @click.option(
     "-d",
@@ -216,7 +171,6 @@ def cli(
     project_id: str,
     remote_host: str,
     interactive: bool,
-    secret_name: str,
     verify: bool,
     device: str,
 ):
@@ -240,13 +194,7 @@ def cli(
         if verify:
             with logger.contextualize(task="checking-prerequisites"):
                 logger.info("🔍 Running hekate dry run checks")
-                sys.exit(
-                    0
-                    if perform_hekate_dry_run(
-                        repo_root, project_id, remote_host, secret_name
-                    )
-                    else 1
-                )
+                sys.exit(0 if perform_hekate_dry_run(repo_root, remote_host) else 1)
 
     action = "build"
     copy_command = False
@@ -281,28 +229,14 @@ def cli(
 
     if action == "verify":
         with logger.contextualize(task="checking-prerequisites"):
-            sys.exit(
-                0
-                if perform_hekate_dry_run(
-                    repo_root, project_id, remote_host, secret_name
-                )
-                else 1
-            )
+            sys.exit(0 if perform_hekate_dry_run(repo_root, remote_host) else 1)
 
     if action != "build":
         logger.info("Build cancelled")
         return
 
-    with logger.contextualize(task="fetching-secrets"):
-        if "HEKATE_WG_KEY" not in os.environ or not os.environ["HEKATE_WG_KEY"]:
-            logger.info("Fetching WireGuard private key from Google Secret Manager")
-            os.environ["HEKATE_WG_KEY"] = get_wireguard_key(project_id, secret_name)
-        else:
-            logger.info("Using existing WireGuard key from environment")
-    logger.debug("WireGuard key set in environment")
-
-    with logger.contextualize(task="building-sd-image"):
-        logger.info("Building hekate NixOS SD card image")
+    with logger.contextualize(task="building-image"):
+        logger.info("Building hekate image")
         image_file = Path(
             build_nix_image(
                 repo_root,
@@ -319,7 +253,7 @@ def cli(
             ["du", "-h", str(image_file)], capture_output=True, text=True
         ).stdout.split()[0]
 
-        logger.success("Hekate SD card image built successfully")
+        logger.success("Hekate image built successfully")
         logger.info(f"Image location: {image_file}")
         logger.info(f"Image size: {image_size}")
 
@@ -372,4 +306,3 @@ def cli(
 
 if __name__ == "__main__":
     cli()
-
