@@ -14,37 +14,32 @@ in
 {
   imports = [
     (modulesPath + "/installer/sd-card/sd-image-aarch64.nix")
+    "${
+      fetchTarball {
+        url = "https://github.com/NixOS/nixos-hardware/tarball/master";
+        sha256 = "19cld3jnzxjw92b91hra3qxx41yhxwl635478rqp0k4nl9ak2snq";
+      }
+    }/raspberry-pi/4"
   ];
 
-  fileSystems."/" = lib.mkForce {
-    device = "none";
-    fsType = "tmpfs";
-    options = [
-      "size=256M"
-      "mode=755"
-    ];
-  };
+  nixpkgs.hostPlatform = "aarch64-linux";
 
-  fileSystems."/nix" = {
-    device = "/dev/disk/by-label/nixos";
-    fsType = "ext4";
-    options = [
-      "ro"
-      "noatime"
-    ];
-  };
-
-  nix.enable = false;
-  systemd.services.nix-daemon.enable = false;
+  boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.initrd.availableKernelModules = [
+    "xhci_pci"
+    "usbhid"
+    "usb_storage"
+  ];
 
   boot.loader.grub.enable = false;
   boot.loader.generic-extlinux-compatible.enable = true;
   boot.kernelParams = [
-    "console=tty0" # HDMI output
-    "console=ttyAMA0,115200" # Serial as backup
+    "8250.nr_uarts=1"
+    "console=ttyAMA0,115200"
+    "console=tty1"
+    "cma=128M"
   ];
 
-  # !!! KEY SECURITY: Embed WireGuard key in initrd, NOT the Nix store !!!
   boot.initrd.secrets = lib.mkIf (wireguardKey != "") {
     "/etc/wireguard/private.key" = pkgs.writeText "wg-key" wireguardKey;
   };
@@ -72,6 +67,10 @@ in
     htop
     util-linux
   ];
+
+  hardware.enableRedistributableFirmware = true;
+
+  nixpkgs.config.allowUnfree = true;
 
   networking.hostName = "hekate";
   networking.domain = "home";
