@@ -31,6 +31,10 @@
 
   system.primaryUser = "moye";
 
+  security.sudo.extraConfig = ''
+    moye ALL=(ALL) NOPASSWD: ALL
+  '';
+
   environment.systemPackages = with pkgs; [
     vim
     git
