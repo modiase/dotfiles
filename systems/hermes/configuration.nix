@@ -14,6 +14,7 @@ in
   imports = [
     ./hardware-configuration.nix
     ./services/authelia.nix
+    ./services/fail2ban.nix
     ./services/ntfy.nix
     ./services/n8n.nix
     ./services/mongodb.nix
