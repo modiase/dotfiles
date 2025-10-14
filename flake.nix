@@ -314,6 +314,27 @@
         ];
         specialArgs = { inherit authorizedKeys authorizedKeyLists commonNixSettings; };
       };
+
+      nixosConfigurations."hestia" = nixpkgs.lib.nixosSystem {
+        system = "aarch64-linux";
+        modules = [
+          ./systems/hestia/configuration.nix
+          {
+            nix.settings.experimental-features = [
+              "nix-command"
+              "flakes"
+            ];
+          }
+        ];
+        specialArgs = {
+          inherit
+            authorizedKeys
+            authorizedKeyLists
+            commonNixSettings
+            heraklesBuildServer
+            ;
+        };
+      };
     }
     // flake-utils.lib.eachDefaultSystem (
       system:
@@ -359,10 +380,23 @@
             exec ${deployPythonEnv}/bin/python ${./lib/build-hermes.py} "$@"
           '';
         };
+
+        build-hestia = pkgs.writeShellApplication {
+          name = "build-hestia";
+          runtimeInputs = [
+            deployPythonEnv
+            pkgs.google-cloud-sdk
+          ];
+          text = ''
+            export PYTHONPATH="${./lib}:''${PYTHONPATH:-}"
+            export REPO_ROOT="${./.}"
+            exec ${deployPythonEnv}/bin/python ${./lib/build-hestia.py} "$@"
+          '';
+        };
       in
       {
         packages = {
-          inherit build-hekate build-hermes;
+          inherit build-hekate build-hermes build-hestia;
         };
 
         apps = {
@@ -373,6 +407,10 @@
           build-hermes = {
             type = "app";
             program = "${build-hermes}/bin/build-hermes";
+          };
+          build-hestia = {
+            type = "app";
+            program = "${build-hestia}/bin/build-hestia";
           };
         };
       }

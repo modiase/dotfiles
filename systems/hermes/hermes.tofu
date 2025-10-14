@@ -19,7 +19,7 @@ resource "google_storage_bucket" "hermes" {
 
   lifecycle_rule {
     condition {
-      age = 14
+      age = var.bucket_lifecycle_days
     }
     action {
       type = "Delete"

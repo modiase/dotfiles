@@ -28,3 +28,23 @@ module "hermes" {
   static_ip_name        = var.static_ip_name
   zone                  = var.zone
 }
+
+resource "google_storage_bucket" "backups" {
+  name                        = var.backup_bucket_name
+  location                    = var.backup_bucket_location
+  storage_class               = "STANDARD"
+  uniform_bucket_level_access = true
+
+  lifecycle_rule {
+    condition {
+      age = var.backup_retention_days
+    }
+    action {
+      type = "Delete"
+    }
+  }
+
+  versioning {
+    enabled = true
+  }
+}

@@ -65,3 +65,18 @@ variable "machine_type" {
   type        = string
   default     = "e2-small"
 }
+
+variable "backup_bucket_name" {
+  type    = string
+  default = "modiase-backups"
+}
+
+variable "backup_bucket_location" {
+  type    = string
+  default = "EUROPE-WEST2"
+}
+
+variable "backup_retention_days" {
+  type    = number
+  default = 90
+}
