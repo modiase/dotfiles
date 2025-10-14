@@ -1,4 +1,3 @@
-
 import os
 import sys
 from pathlib import Path
@@ -101,10 +100,18 @@ def build(ctx):
             )
 
         with logger.contextualize(task="uploading-image"):
-            if image_up_to_date(tarball_path, "gs://modiase-infra/images/hermes-nixos-latest.tar.gz", project_id):
+            if image_up_to_date(
+                tarball_path,
+                "gs://modiase-infra/images/hermes-nixos-latest.tar.gz",
+                project_id,
+            ):
                 logger.info("Skipping upload (image is up to date)")
             else:
-                upload_to_gcs(tarball_path, "gs://modiase-infra/images/hermes-nixos-latest.tar.gz", project_id)
+                upload_to_gcs(
+                    tarball_path,
+                    "gs://modiase-infra/images/hermes-nixos-latest.tar.gz",
+                    project_id,
+                )
 
         logger.success("Hermes image build and upload complete.")
 
@@ -139,10 +146,18 @@ def deploy(ctx, no_build: bool):
                 )
 
             with logger.contextualize(task="uploading-image"):
-                if image_up_to_date(tarball_path, "gs://modiase-infra/images/hermes-nixos-latest.tar.gz", project_id):
+                if image_up_to_date(
+                    tarball_path,
+                    "gs://modiase-infra/images/hermes-nixos-latest.tar.gz",
+                    project_id,
+                ):
                     logger.info("Skipping upload (image is up to date)")
                 else:
-                    upload_to_gcs(tarball_path, "gs://modiase-infra/images/hermes-nixos-latest.tar.gz", project_id)
+                    upload_to_gcs(
+                        tarball_path,
+                        "gs://modiase-infra/images/hermes-nixos-latest.tar.gz",
+                        project_id,
+                    )
 
         with logger.contextualize(task="deploying-terraform"):
             logger.info("Deploying with Terraform")

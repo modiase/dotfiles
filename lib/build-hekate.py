@@ -13,11 +13,9 @@ from utils import (
     build_nix_image,
     check_nix,
     check_ssh_access,
-    run_command,
     run_command_env_context,
     setup_logging,
 )
-
 
 
 def get_flash_instructions(image_file: Path) -> str:

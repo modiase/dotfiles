@@ -10,6 +10,24 @@ repos:
         args:
           - -c
           - "nix-shell -p fd nixfmt-rfc-style stylua fish --run 'fd -e nix -x nixfmt && stylua . && fd -e fish -x fish_indent -w'"
+      - id: ruff-check
+        name: ruff check
+        entry: bash
+        language: system
+        files: \.py$
+        pass_filenames: false
+        args:
+          - -c
+          - "nix-shell -p ruff --run 'ruff check --fix .'"
+      - id: ruff-format
+        name: ruff format
+        entry: bash
+        language: system
+        files: \.py$
+        pass_filenames: false
+        args:
+          - -c
+          - "nix-shell -p ruff --run 'ruff format .'"
       - id: remove-trailing-whitespace
         name: remove trailing whitespace
         entry: bash

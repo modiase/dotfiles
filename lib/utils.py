@@ -2,7 +2,6 @@
 # vim: set filetype=python:
 
 import os
-import re
 import shlex
 import subprocess
 import sys
@@ -18,6 +17,7 @@ from loguru import logger
 
 try:
     import pexpect
+
     HAS_PEXPECT = True
 except ImportError:
     HAS_PEXPECT = False
@@ -48,17 +48,29 @@ def setup_logging(verbose: int) -> None:
 
         if verbose >= 2:
             if task:
-                formatted = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <yellow>" + task + "</yellow> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+                formatted = (
+                    "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <yellow>"
+                    + task
+                    + "</yellow> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+                )
             else:
                 formatted = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
         elif verbose >= 1:
             if task:
-                formatted = "<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <yellow>" + task + "</yellow> | <level>{message}</level>"
+                formatted = (
+                    "<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <yellow>"
+                    + task
+                    + "</yellow> | <level>{message}</level>"
+                )
             else:
                 formatted = "<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
         else:
             if task:
-                formatted = "<green>{time:HH:mm:ss}</green> | <yellow>" + task + "</yellow> | <level>{message}</level>"
+                formatted = (
+                    "<green>{time:HH:mm:ss}</green> | <yellow>"
+                    + task
+                    + "</yellow> | <level>{message}</level>"
+                )
             else:
                 formatted = "<green>{time:HH:mm:ss}</green> | <level>{message}</level>"
 
@@ -100,7 +112,9 @@ def run_command(
 
                     spawn_env = final_env or dict(os.environ)
 
-                    child = pexpect.spawn(cmd_str, cwd=cwd, env=spawn_env, encoding='utf-8')
+                    child = pexpect.spawn(
+                        cmd_str, cwd=cwd, env=spawn_env, encoding="utf-8"
+                    )
 
                     output_lines = []
 
@@ -112,7 +126,9 @@ def run_command(
 
                             line = line.rstrip()
                             if line:
-                                escaped_line = line.replace("{", "{{").replace("}", "}}")
+                                escaped_line = line.replace("{", "{{").replace(
+                                    "}", "}}"
+                                )
                                 logger.debug(f"  {escaped_line}")
                                 output_lines.append(line)
 
@@ -144,7 +160,7 @@ def run_command(
             ) as process:
                 output_lines = []
 
-                for line in iter(process.stdout.readline, ''):
+                for line in iter(process.stdout.readline, ""):
                     if line:
                         line = line.rstrip()
                         if line:
@@ -196,7 +212,11 @@ def get_local_hash(file_path: str) -> str:
 
     cmd = ["gsutil", "hash", "-c", file_path]
     output, returncode = run_command(
-        cmd, f"get local hash for {file_path}", capture_output=True, stream_output=False, check=False
+        cmd,
+        f"get local hash for {file_path}",
+        capture_output=True,
+        stream_output=False,
+        check=False,
     )
 
     if returncode != 0:
@@ -270,7 +290,11 @@ def check_nix(repo_root: Path, nix_attr: str | None = None) -> bool:
         return False
 
     _, returncode = run_command(
-        ["nix", "--version"], "check nix version", capture_output=True, stream_output=False, check=False
+        ["nix", "--version"],
+        "check nix version",
+        capture_output=True,
+        stream_output=False,
+        check=False,
     )
     if returncode != 0:
         logger.error("Nix not found in PATH")
@@ -511,7 +535,9 @@ def build_gce_image(
                 logger.info(f"Built GCE image: {tarball_path}")
                 return tarball_path
             else:
-                logger.error(f"Build script returned invalid tarball path: {tarball_path}")
+                logger.error(
+                    f"Build script returned invalid tarball path: {tarball_path}"
+                )
                 sys.exit(1)
 
     logger.error("Build script did not return a tarball path")
@@ -534,7 +560,11 @@ def check_terraform(repo_root: Path) -> bool:
         return False
 
     _, returncode = run_command(
-        ["tofu", "--version"], "check tofu version", capture_output=True, stream_output=False, check=False
+        ["tofu", "--version"],
+        "check tofu version",
+        capture_output=True,
+        stream_output=False,
+        check=False,
     )
     if returncode != 0:
         logger.error("OpenTofu (tofu) not found in PATH")
