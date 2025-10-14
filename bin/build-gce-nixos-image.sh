@@ -1,10 +1,11 @@
 #!/usr/bin/env nix-shell
 #!nix-shell -i bash -p git google-cloud-sdk coreutils cacert
+# shellcheck shell=bash
 
 set -euo pipefail
 
 usage() {
-  cat <<'USAGE'
+    cat <<'USAGE'
 Usage: build-gce-nixos-image.sh --attr ATTR [--flake FLAKE-URI]
                                 [--keep-build] [--remote-host HOST] [-v LEVEL]
 
@@ -41,53 +42,59 @@ REMOTE_HOST=""
 VERBOSE_LEVEL=0
 
 while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --flake)
-      FLAKE_URI="$2"; shift 2;
-      ;;
-    --attr)
-      IMAGE_ATTR="$2"; shift 2;
-      ;;
-    --keep-build)
-      KEEP_BUILD=1; shift 1;
-      ;;
-    --remote-host)
-      REMOTE_HOST="$2"; shift 2;
-      ;;
-    -v)
-      VERBOSE_LEVEL="$2"; shift 2;
-      ;;
-    -h|--help)
-      usage; exit 0;
-      ;;
-    *)
-      echo "Unknown argument: $1" >&2
-      usage
-      exit 1
-      ;;
-  esac
+    case "$1" in
+        --flake)
+            FLAKE_URI="$2"
+            shift 2
+            ;;
+        --attr)
+            IMAGE_ATTR="$2"
+            shift 2
+            ;;
+        --keep-build)
+            KEEP_BUILD=1
+            shift 1
+            ;;
+        --remote-host)
+            REMOTE_HOST="$2"
+            shift 2
+            ;;
+        -v)
+            VERBOSE_LEVEL="$2"
+            shift 2
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            usage
+            exit 1
+            ;;
+    esac
 done
 
 if [[ -z "$IMAGE_ATTR" ]]; then
-  echo "Error: --attr is required" >&2
-  usage
-  exit 1
+    echo "Error: --attr is required" >&2
+    usage
+    exit 1
 fi
 
 if [[ $VERBOSE_LEVEL -ge 2 ]]; then
-  set -x
+    set -x
 fi
 
 TMPDIR="$(mktemp -d)"
 if [[ $KEEP_BUILD -eq 0 ]]; then
-  trap 'rm -rf "$TMPDIR"' EXIT
+    trap 'rm -rf "$TMPDIR"' EXIT
 else
-  trap 'echo "Temporary build directory left at $TMPDIR"' EXIT
+    trap 'echo "Temporary build directory left at $TMPDIR"' EXIT
 fi
 
 export NIX_CONFIG="experimental-features = nix-command flakes"
 if [[ -n "$REMOTE_HOST" ]]; then
-  log_info "Remote builder: $REMOTE_HOST"
+    log_info "Remote builder: $REMOTE_HOST"
 fi
 
 pushd "$TMPDIR" >/dev/null
@@ -95,10 +102,10 @@ OUT_LINK="result-image"
 
 NIX_CMD=(nix build "${FLAKE_URI}#${IMAGE_ATTR}" --out-link "$OUT_LINK" --max-jobs 0 --cores 0 --log-format raw)
 if [[ -n "$REMOTE_HOST" ]]; then
-  NIX_CMD+=(--builders "ssh://moye@${REMOTE_HOST} x86_64-linux - - - kvm" --system x86_64-linux)
+    NIX_CMD+=(--builders "ssh://moye@${REMOTE_HOST} x86_64-linux - - - kvm" --system x86_64-linux)
 fi
 if [[ $VERBOSE_LEVEL -ge 1 ]]; then
-  NIX_CMD+=(--print-build-logs)
+    NIX_CMD+=(--print-build-logs)
 fi
 
 run_logged "nix-build" "$COLOR_WHITE" "${NIX_CMD[@]}"
@@ -106,22 +113,22 @@ popd >/dev/null
 
 OUT_PATH="$(realpath "$TMPDIR/$OUT_LINK")"
 if [[ -d "$OUT_PATH" ]]; then
-  TARBALL_PATH="$(find "$OUT_PATH" -maxdepth 1 -type f -name '*.tar.gz' | head -n1)"
+    TARBALL_PATH="$(find "$OUT_PATH" -maxdepth 1 -type f -name '*.tar.gz' | head -n1)"
 else
-  TARBALL_PATH="$OUT_PATH"
+    TARBALL_PATH="$OUT_PATH"
 fi
 
 if [[ -z "$TARBALL_PATH" || ! -f "$TARBALL_PATH" ]]; then
-  echo "Expected tarball not found inside $OUT_PATH" >&2
-  exit 1
+    echo "Expected tarball not found inside $OUT_PATH" >&2
+    exit 1
 fi
 
 echo "BUILD_RESULT: $TARBALL_PATH"
 
 if [[ $KEEP_BUILD -eq 1 ]]; then
-  log_info "Build artifacts remain in $TMPDIR" >&2
+    log_info "Build artifacts remain in $TMPDIR" >&2
 fi
 
 if [[ $VERBOSE_LEVEL -ge 1 ]]; then
-  log_success "Image built successfully: $TARBALL_PATH" >&2
+    log_success "Image built successfully: $TARBALL_PATH" >&2
 fi

@@ -1,19 +1,19 @@
 #!/usr/bin/env -S bash -eu
 
-LOG_LEVEL=1
+LOG_LEVEL=2
 MAX_CORES=$(($(nproc) - 1))
 COLOR_ENABLED=true
 
 show_usage() {
     local exit_code=${1:-0}
-    cat << EOF
+    cat <<EOF
 Usage: $0 [-h] [-l LEVEL] [-c CORES]
 
 Activate dotfiles configuration for Darwin or NixOS systems.
 
 Options:
     -h           Show this help message
-    -l LEVEL     Set log level (default: 1)
+    -l LEVEL     Set log level (default: 2)
                 1 = minimal output (errors and completion only)
                 2 = show stdout from rebuild processes
                 3+ = enable debug mode (set -x)
@@ -33,7 +33,7 @@ The script will:
 
 All output is timestamped and colorized when possible.
 EOF
-    exit $exit_code
+    exit "$exit_code"
 }
 
 while getopts "hl:c:" opt; do
@@ -63,14 +63,14 @@ while getopts "hl:c:" opt; do
     esac
 done
 
-shift $((OPTIND-1))
+shift $((OPTIND - 1))
 
 if [ $# -ne 0 ]; then
     echo "Unknown arguments: $*" >&2
     show_usage 1
 fi
 
-if [ $LOG_LEVEL -ge 3 ]; then
+if [ "$LOG_LEVEL" -ge 3 ]; then
     set -x
 fi
 
@@ -113,7 +113,7 @@ case "$OS" in
             log_info "Updating nix-darwin configuration..."
             REBUILD_CMD="darwin-rebuild"
         fi
-        if ! run_logged "darwin-rebuild" "$COLOR_WHITE" sudo NIX_CONFIG="experimental-features = nix-command flakes" $REBUILD_CMD switch --flake . --max-jobs $MAX_CORES --cores $MAX_CORES; then
+        if ! run_logged "darwin-rebuild" "$COLOR_WHITE" sudo NIX_CONFIG="experimental-features = nix-command flakes" "$REBUILD_CMD" switch --flake . --max-jobs "$MAX_CORES" --cores "$MAX_CORES"; then
             exit 1
         fi
         HOME_MANAGER_TARGET="moye-aarch64-darwin"
@@ -121,18 +121,24 @@ case "$OS" in
     "Linux")
         if [ -f /etc/NIXOS ]; then
             log_info "Updating NixOS configuration..."
-            if ! run_logged "nixos-rebuild" "$COLOR_WHITE" sudo nixos-rebuild switch --flake . --max-jobs $MAX_CORES --cores $MAX_CORES; then
+            if ! run_logged "nixos-rebuild" "$COLOR_WHITE" sudo nixos-rebuild switch --flake . --max-jobs "$MAX_CORES" --cores "$MAX_CORES"; then
                 exit 1
             fi
         fi
 
         case "$ARCH" in
-            "aarch64"|"arm64") HOME_MANAGER_TARGET="moye-aarch64-linux" ;;
+            "aarch64" | "arm64") HOME_MANAGER_TARGET="moye-aarch64-linux" ;;
             "x86_64") HOME_MANAGER_TARGET="moye-x86_64-linux" ;;
-            *) log_error "Unsupported Linux architecture '$ARCH'"; exit 1 ;;
+            *)
+                log_error "Unsupported Linux architecture '$ARCH'"
+                exit 1
+                ;;
         esac
         ;;
-    *) log_error "Unsupported operating system '$OS'"; exit 1 ;;
+    *)
+        log_error "Unsupported operating system '$OS'"
+        exit 1
+        ;;
 esac
 
 if ! run_logged "home-manager" "$COLOR_WHITE" nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake .#$HOME_MANAGER_TARGET; then

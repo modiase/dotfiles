@@ -1,0 +1,76 @@
+#!/bin/sh -eu
+
+on_exit() {
+    if [ $? != 0 ]; then
+        printf "bootstrap failed\n" >&2
+    else
+        printf "bootstrap complete\n"
+    fi
+}
+trap on_exit EXIT
+
+platform="$(uname)"
+case "$platform" in
+    Linux | Darwin) ;;
+    *)
+        printf "ERROR: Unsupported platform: %s\n" "$platform" >&2
+        exit 1
+        ;;
+esac
+
+if command -v nix >/dev/null 2>&1; then
+    [ "${DEBUG:-0}" -gt 0 ] && printf "nix is already installed\n"
+    exit 0
+fi
+
+pkg_manager=""
+for mgr in apt yum apk; do
+    if command -v "$mgr" >/dev/null 2>&1; then
+        pkg_manager="$mgr"
+        break
+    fi
+done
+
+update_cmd="update"
+install_cmd="install -y"
+deps="xz tar"
+
+case "$pkg_manager" in
+    apk) install_cmd="add" ;;
+    apt) deps="xz-utils tar" ;;
+esac
+
+for dep in $deps; do
+    dep_name="$(echo "$dep" | cut -d' ' -f1)"
+    if ! command -v "$dep_name" >/dev/null 2>&1 && ! command -v "$(echo "$dep_name" | sed 's/-utils$//')" >/dev/null 2>&1; then
+        if [ "$platform" = "Linux" ]; then
+            if [ -n "$pkg_manager" ]; then
+                [ "${DEBUG:-0}" -gt 0 ] && printf "Installing %s using %s\n" "$dep" "$pkg_manager"
+                eval "sudo $pkg_manager $update_cmd && sudo $pkg_manager $install_cmd $dep"
+            elif command -v nix >/dev/null 2>&1; then
+                nix_dep="$(echo "$dep" | sed 's/-utils$//')"
+                [ "${DEBUG:-0}" -gt 0 ] && printf "Installing %s using nix\n" "$nix_dep"
+                nix-env -iA "nixpkgs.$nix_dep"
+            else
+                printf "ERROR: Could not determine package manager to install '%s'\n" "$dep" >&2
+                exit 1
+            fi
+        else
+            printf "ERROR: Please install '%s' manually\n" "$dep" >&2
+            exit 1
+        fi
+    fi
+done
+
+[ "${DEBUG:-0}" -gt 0 ] && printf "Installing nix\n"
+
+case "$platform" in
+    Darwin) install_args="" ;;
+    Linux) install_args="--no-daemon" ;;
+esac
+
+eval "$(command -v sh) <(curl -L https://nixos.org/nix/install) $install_args"
+
+if [ -f "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
+    . "$HOME/.nix-profile/etc/profile.d/nix.sh"
+fi

@@ -28,6 +28,24 @@ repos:
         args:
           - -c
           - "nix-shell -p ruff --run 'ruff format .'"
+      - id: shellcheck
+        name: shellcheck
+        entry: bash
+        language: system
+        files: \.(sh|bash)$
+        pass_filenames: false
+        args:
+          - -c
+          - "nix-shell -p shellcheck --run 'find . -name \"*.sh\" -o -name \"*.bash\" | xargs shellcheck'"
+      - id: shfmt
+        name: shfmt
+        entry: bash
+        language: system
+        files: \.(sh|bash)$
+        pass_filenames: false
+        args:
+          - -c
+          - "nix-shell -p shfmt --run 'shfmt -w -i 4 -ci .'"
       - id: remove-trailing-whitespace
         name: remove trailing whitespace
         entry: bash
