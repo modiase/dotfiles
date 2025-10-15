@@ -37,6 +37,7 @@
     coreutils
     direnv
     docker
+    duf
     dust
     eza
     fd
