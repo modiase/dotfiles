@@ -25,7 +25,7 @@
   nixpkgs.hostPlatform = "aarch64-linux";
   nixpkgs.config.allowUnfree = true;
 
-  boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.kernelPackages = pkgs.linuxPackages;
   boot.initrd.availableKernelModules = [
     "xhci_pci"
     "usbhid"
@@ -79,6 +79,13 @@
 
   services.home-assistant = {
     enable = true;
+    extraComponents = [
+      "apple_tv"
+      "hue"
+      "tado"
+      "todoist"
+    ];
+    customComponents = [ ];
     config = {
       default_config = { };
       homeassistant = {
@@ -97,6 +104,19 @@
         default = "info";
       };
     };
+  };
+
+  systemd.services.home-assistant.serviceConfig = {
+    AmbientCapabilities = lib.mkForce [
+      "CAP_NET_ADMIN"
+      "CAP_NET_RAW"
+      "CAP_NET_BIND_SERVICE"
+    ];
+    CapabilityBoundingSet = lib.mkForce [
+      "CAP_NET_ADMIN"
+      "CAP_NET_RAW"
+      "CAP_NET_BIND_SERVICE"
+    ];
   };
 
   users.users.moye = {
@@ -126,83 +146,6 @@
   ];
 
   systemd.services.systemd-networkd-wait-online.enable = false;
-
-  environment.etc."backup-hass.sh" = {
-    text = ''
-      #!/bin/bash
-      set -euo pipefail
-
-      if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q .; then
-        echo "Error: No active gcloud authentication found. Run 'gcloud auth login'" >&2
-        exit 1
-      fi
-
-      backup_dir="/tmp/hass-backup-$(date +%Y%m%d-%H%M%S)"
-      backup_file="hestia-hass-$(date +%Y%m%d-%H%M%S).tar.gz"
-
-      rsync -av /var/lib/hass/ "$backup_dir/"
-      tar -czf "/tmp/$backup_file" -C "$backup_dir" .
-      gsutil cp "/tmp/$backup_file" "gs://modiase-backups/hestia/"
-
-      rm -rf "$backup_dir" "/tmp/$backup_file"
-      echo "Backup completed: gs://modiase-backups/hestia/$backup_file"
-    '';
-    mode = "0755";
-  };
-
-  environment.etc."restore-hass.sh" = {
-    text = ''
-      #!/bin/bash
-      set -euo pipefail
-
-      if ! gcloud auth list --filter=status:ACTIVE --format="value(account)" | grep -q .; then
-        echo "Error: No active gcloud authentication found. Run 'gcloud auth login'" >&2
-        exit 1
-      fi
-
-      backup_file="''${1:-$(gsutil ls gs://modiase-backups/hestia/ | sort | tail -1 | sed 's|.*/||')}"
-      restore_dir="/tmp/hass-restore-$(date +%Y%m%d-%H%M%S)"
-
-      echo "Restoring from: $backup_file"
-      gsutil cp "gs://modiase-backups/hestia/$backup_file" "/tmp/$backup_file"
-      mkdir -p "$restore_dir"
-      tar -xzf "/tmp/$backup_file" -C "$restore_dir"
-
-      systemctl stop home-assistant
-      rsync -av --delete "$restore_dir/" /var/lib/hass/
-      systemctl start home-assistant
-
-      rm -rf "$restore_dir" "/tmp/$backup_file"
-      echo "Restore completed from: $backup_file"
-    '';
-    mode = "0755";
-  };
-
-  systemd.services.home-assistant-backup = {
-    description = "Home Assistant Configuration Backup";
-    serviceConfig = {
-      ExecStart = "/etc/backup-hass.sh";
-      Type = "oneshot";
-      User = "root";
-    };
-  };
-
-  systemd.timers.home-assistant-backup = {
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnCalendar = "daily";
-      Persistent = true;
-    };
-  };
-
-  systemd.services.home-assistant-restore = {
-    description = "Home Assistant Configuration Restore";
-    serviceConfig = {
-      ExecStart = "/etc/restore-hass.sh";
-      Type = "oneshot";
-      User = "root";
-    };
-  };
 
   system.stateVersion = "24.11";
 }
