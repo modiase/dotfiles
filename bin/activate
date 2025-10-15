@@ -113,7 +113,7 @@ case "$OS" in
             log_info "Updating nix-darwin configuration..."
             REBUILD_CMD="darwin-rebuild"
         fi
-        if ! run_logged "darwin-rebuild" "$COLOR_WHITE" sudo NIX_CONFIG="experimental-features = nix-command flakes" "$REBUILD_CMD" switch --flake . --max-jobs "$MAX_CORES" --cores "$MAX_CORES"; then
+        if ! run_logged "darwin-rebuild" "$COLOR_WHITE" sudo NIX_CONFIG="$NIX_CONFIG" "$REBUILD_CMD" switch --flake . --max-jobs "$MAX_CORES" --cores "$MAX_CORES"; then
             exit 1
         fi
         HOME_MANAGER_TARGET="moye-aarch64-darwin"

@@ -138,7 +138,7 @@
   };
 
   nix.settings = {
-    max-jobs = 2;
+    max-jobs = 0;
     cores = 0;
   };
 
@@ -150,6 +150,7 @@
     git
     gnupg
     google-cloud-sdk
+    pinentry
     rsync
     util-linux
   ];
