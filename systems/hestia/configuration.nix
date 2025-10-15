@@ -137,9 +137,18 @@
     wheelNeedsPassword = false;
   };
 
+  nix.settings = {
+    max-jobs = 2;
+    cores = 0;
+  };
+
+  nix.daemonCPUSchedPolicy = "idle";
+  nix.daemonIOSchedPriority = 7;
+
   environment.systemPackages = with pkgs; [
     curl
     git
+    gnupg
     google-cloud-sdk
     rsync
     util-linux

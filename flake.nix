@@ -102,8 +102,8 @@
                 "x86_64-linux"
                 "aarch64-linux"
               ];
-              maxJobs = 0;
-              speedFactor = 1;
+              maxJobs = 8;
+              speedFactor = 2;
               supportedFeatures = [
                 "kvm"
                 "big-parallel"

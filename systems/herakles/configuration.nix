@@ -102,6 +102,7 @@
   hardware.nvidia-container-toolkit.enable = true;
 
   nix.settings = {
+    max-jobs = 16;
     substituters = [
       "https://cache.nixos.org"
       "https://cuda-maintainers.cachix.org"
