@@ -93,10 +93,15 @@
         { pkgs, ... }:
         {
           nix.distributedBuilds = true;
+          nix.settings.builders-use-substitutes = true;
           nix.buildMachines = [
             {
               hostName = "herakles";
-              system = "x86_64-linux,aarch64-linux";
+              sshUser = "moye";
+              systems = [
+                "x86_64-linux"
+                "aarch64-linux"
+              ];
               maxJobs = 0;
               speedFactor = 1;
               supportedFeatures = [
