@@ -88,23 +88,24 @@
         };
       };
 
-      heraklesBuildServer = hostName: {
-        nix.distributedBuilds = true;
-        nix.buildMachines = [
-          {
-            hostName = "herakles";
-            system = "x86_64-linux";
-            sshUser = "moye";
-            sshKey = "/var/root/.ssh/${hostName}.pem";
-            maxJobs = 0;
-            speedFactor = 1;
-            supportedFeatures = [
-              "kvm"
-              "big-parallel"
-            ];
-          }
-        ];
-      };
+      heraklesBuildServer =
+        hostName:
+        { pkgs, ... }:
+        {
+          nix.distributedBuilds = true;
+          nix.buildMachines = [
+            {
+              hostName = "herakles";
+              system = "x86_64-linux,aarch64-linux";
+              maxJobs = 0;
+              speedFactor = 1;
+              supportedFeatures = [
+                "kvm"
+                "big-parallel"
+              ];
+            }
+          ];
+        };
       darwinCommonModules = [
         (
           { pkgs, ... }:
