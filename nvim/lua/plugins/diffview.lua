@@ -8,6 +8,7 @@ return {
 		config = function()
 			require("diffview").setup({
 				enhanced_diff_hl = true, -- See ':h diffview-config-enhanced_diff_hl'
+				watch_index = true,
 				keymaps = {
 					view = {
 						-- Keybinds in diff view
@@ -19,10 +20,18 @@ return {
 			})
 		end,
 		keys = {
-			{ "<leader>gd", "<cmd>DiffviewOpen main<CR>", desc = "Open Diffview" },
+			{
+				"<leader>gd",
+				function()
+					if next(require("diffview.lib").views) == nil then
+						vim.cmd("DiffviewOpen main")
+					else
+						vim.cmd("DiffviewClose")
+					end
+				end,
+				desc = "Toggle Diffview",
+			},
 			{ "<leader>gh", "<cmd>DiffviewFileHistory<CR>", desc = "Open File History" },
-			{ "<leader>gc", "<cmd>DiffviewClose<CR>", desc = "Close Diffview" },
-			{ "<leader>gr", "<cmd>DiffviewRefresh<CR>", desc = "DiffviewRefresh" },
 		},
 	},
 }
