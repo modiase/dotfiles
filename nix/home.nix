@@ -88,6 +88,7 @@
     pstree
     ripgrep
     sd
+    nodePackages.svelte-language-server
     terraform-ls
     tldr
     tshark

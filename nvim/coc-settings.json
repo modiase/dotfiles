@@ -1,26 +1,16 @@
 {
-  "languageserver": {
-    "terraform": {
-      "command": "terraform-ls",
-      "args": ["serve"],
-      "filetypes": ["terraform", "tf", "tofu"],
-      "initializationOptions": {},
-      "settings": {}
-    }
-  },
-  "coc.preferences.formatOnSave": true,
   "clangd.arguments": ["-Wall", "-Wpedantic", "-Werror", "-std=c++20"],
   "clangd.path": "~/.config/coc/extensions/coc-clangd-data/install/18.1.3/clangd_18.1.3/bin/clangd",
+  "coc.preferences.formatOnSave": true,
   "diagnostic.virtualText": false,
   "diagnostic.virtualTextCurrentLineOnly": false,
-  "explorer.width": 40,
-  "explorer.icon.enableNerdfont": true,
+  "explorer.buffer.root.template": "[icon & 1] OPEN EDITORS",
+  "explorer.file.child.template": "[git | 2] [selection | clip | 1] [indent][icon | 1] [diagnosticError & 1][filename omitCenter 1][modified][readonly] [linkIcon & 1][link growRight 1 omitCenter 5]",
   "explorer.file.hiddenRules": {
     "patternMatches": [".git/*"]
   },
-  "explorer.buffer.root.template": "[icon & 1] OPEN EDITORS",
   "explorer.file.root.template": "[icon & 1] PROJECT ([root])",
-  "explorer.file.child.template": "[git | 2] [selection | clip | 1] [indent][icon | 1] [diagnosticError & 1][filename omitCenter 1][modified][readonly] [linkIcon & 1][link growRight 1 omitCenter 5]",
+  "explorer.icon.enableNerdfont": true,
   "explorer.keyMappings.global": {
     "<cr>": ["expandable?", ["expanded?", "collapse", "expand"], "open"],
     "s": "open:vsplit",
@@ -32,8 +22,34 @@
     "ma": "addFile",
     "mA": "addDirectory"
   },
+  "explorer.width": 40,
+  "languageserver": {
+    "svelte": {
+      "command": "svelteserver",
+      "args": ["--stdio"],
+      "filetypes": ["svelte"],
+      "initializationOptions": {
+        "configuration": {
+          "svelte": {
+            "plugin": {
+              "typescript": {
+                "enable": true
+              }
+            }
+          }
+        }
+      }
+    },
+    "terraform": {
+      "command": "terraform-ls",
+      "args": ["serve"],
+      "filetypes": ["terraform", "tf", "tofu"],
+      "initializationOptions": {},
+      "settings": {}
+    }
+  },
   "python.linting.enabled": true,
   "snippets.ultisnips.enable": false,
-  "tsserver.maxTsServerMemory": 8192,
-  "tsserver.log": "normal"
+  "tsserver.log": "normal",
+  "tsserver.maxTsServerMemory": 8192
 }

@@ -20,7 +20,13 @@ vim.api.nvim_set_hl(0, "DiffAdd", {
 })
 
 vim.api.nvim_set_hl(0, "DiffChange", {
-	bg = "#4c566a",
+	bg = "#4a4a00",
+	fg = "NONE",
+})
+
+vim.api.nvim_set_hl(0, "DiffText", {
+	bg = "#6b6b00",
+	fg = "NONE",
 })
 
 vim.api.nvim_set_hl(0, "DiffDelete", {
