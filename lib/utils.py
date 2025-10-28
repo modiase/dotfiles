@@ -2,6 +2,7 @@
 # vim: set filetype=python:
 
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -27,6 +28,12 @@ _run_command_env: ContextVar[Mapping[str, str]] = ContextVar(
     "run_command_env", default={}
 )
 
+_STRUCTURED_LOG_RE = re.compile(r"^\d{2}:\d{2}:\d{2} \| .+ \| .+ \| .+")
+
+
+def _looks_like_structured_log(line: str) -> bool:
+    return bool(_STRUCTURED_LOG_RE.match(line))
+
 
 @contextmanager
 def run_command_env_context(**env_vars: str) -> Iterator[None]:
@@ -45,36 +52,36 @@ def setup_logging(verbose: int) -> None:
 
     def format_with_task(record) -> str:
         task = record["extra"].get("task", "")
+        level_name = record["level"].name.lower()
+        time_full = record["time"].strftime("%Y-%m-%d %H:%M:%S")
+        time_short = record["time"].strftime("%H:%M:%S")
+        name = record["name"]
+        function = record["function"]
+        line_no = record["line"]
+        message = record["message"]
 
         if verbose >= 2:
+            base = f"<green>{time_full}</green> | <level>{level_name:<8}</level>"
+            location = (
+                f"<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line_no}</cyan>"
+            )
             if task:
-                formatted = (
-                    "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <yellow>"
-                    + task
-                    + "</yellow> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+                return (
+                    f"{base} | <yellow>{task}</yellow> | {location} - "
+                    f"<level>{message}</level>\n"
                 )
-            else:
-                formatted = "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
-        elif verbose >= 1:
-            if task:
-                formatted = (
-                    "<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <yellow>"
-                    + task
-                    + "</yellow> | <level>{message}</level>"
-                )
-            else:
-                formatted = "<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>"
-        else:
-            if task:
-                formatted = (
-                    "<green>{time:HH:mm:ss}</green> | <yellow>"
-                    + task
-                    + "</yellow> | <level>{message}</level>"
-                )
-            else:
-                formatted = "<green>{time:HH:mm:ss}</green> | <level>{message}</level>"
+            return f"{base} | {location} - <level>{message}</level>\n"
 
-        return formatted.format_map(record) + "\n"
+        if verbose >= 1:
+            base = f"<green>{time_short}</green> | <level>{level_name:<8}</level>"
+            if task:
+                return f"{base} | <yellow>{task}</yellow> | <level>{message}</level>\n"
+            return f"{base} | <level>{message}</level>\n"
+
+        time_part = f"<green>{time_short}</green>"
+        if task:
+            return f"{time_part} | <yellow>{task}</yellow> | <level>{message}</level>\n"
+        return f"{time_part} | <level>{message}</level>\n"
 
     level = "TRACE" if verbose >= 2 else "DEBUG" if verbose >= 1 else "INFO"
 
@@ -126,10 +133,13 @@ def run_command(
 
                             line = line.rstrip()
                             if line:
-                                escaped_line = line.replace("{", "{{").replace(
-                                    "}", "}}"
-                                )
-                                logger.debug(f"  {escaped_line}")
+                                if _looks_like_structured_log(line):
+                                    logger.opt(raw=True).log("DEBUG", f"{line}\n")
+                                else:
+                                    escaped_line = line.replace("{", "{{").replace(
+                                        "}", "}}"
+                                    )
+                                    logger.debug(f"  {escaped_line}")
                                 output_lines.append(line)
 
                         except pexpect.EOF:
@@ -164,8 +174,13 @@ def run_command(
                     if line:
                         line = line.rstrip()
                         if line:
-                            escaped_line = line.replace("{", "{{").replace("}", "}}")
-                            logger.debug(f"  {escaped_line}")
+                            if _looks_like_structured_log(line):
+                                logger.opt(raw=True).log("DEBUG", f"{line}\n")
+                            else:
+                                escaped_line = line.replace("{", "{{").replace(
+                                    "}", "}}"
+                                )
+                                logger.debug(f"  {escaped_line}")
                             output_lines.append(line)
 
                 process.wait()
