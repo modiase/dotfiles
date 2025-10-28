@@ -47,6 +47,15 @@
 - **Batch related changes** into single deployments
 - **Trace root causes** - symptoms mislead; find actual problems
 
+## Pre-commit Checks
+
+- Default: run `pre-commit run` (checks only staged files). Stage your edits before running to lint exactly what will be committed.
+- If you need to lint without staging: run `pre-commit run --files $(git diff --name-only)` to check only your working changes.
+- When `.pre-commit-config.yaml` changes or after adding new hooks: run `pre-commit run --all-files` (aka `-a`) once to baseline the repo, then revert to the default flow above.
+- Address all issues reported by hooks, then re-run the relevant `pre-commit run` until clean.
+- Run checks inside the activate shell when applicable to ensure the correct environment.
+- Do not bypass or disable hooks; fix code to satisfy them unless explicitly instructed otherwise.
+
 ## Core Principles
 
 - **Be Precise**: State facts from documentation, not assumptions
