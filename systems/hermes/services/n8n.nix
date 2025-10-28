@@ -47,6 +47,7 @@ in
   };
 
   systemd.services.n8n = {
+    environment.GENERIC_TIMEZONE = "Europe/London";
     serviceConfig = {
       ReadOnlyPaths = [ "/etc/n8n" ];
       TimeoutStartSec = "10min";
