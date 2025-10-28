@@ -8,6 +8,10 @@
 }:
 
 let
+  hardwareRepo = fetchTarball {
+    url = "https://github.com/NixOS/nixos-hardware/archive/9c0ee5dfa186e10efe9b53505b65d22c81860fde.tar.gz";
+    sha256 = "092yc6rp7xj4rygldv5i693xnhz7nqnrwrz1ky1kq9rxy2f5kl10";
+  };
   encryptedKey = ''
     -----BEGIN PGP MESSAGE-----
 
@@ -22,12 +26,7 @@ in
 {
   imports = [
     (modulesPath + "/installer/sd-card/sd-image-aarch64.nix")
-    "${
-      fetchTarball {
-        url = "https://github.com/NixOS/nixos-hardware/tarball/master";
-        sha256 = "19cld3jnzxjw92b91hra3qxx41yhxwl635478rqp0k4nl9ak2snq";
-      }
-    }/raspberry-pi/4"
+    "${hardwareRepo}/raspberry-pi/4"
   ];
 
   nixpkgs.hostPlatform = "aarch64-linux";
