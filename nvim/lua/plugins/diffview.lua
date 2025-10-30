@@ -32,6 +32,7 @@ return {
 				desc = "Toggle Diffview",
 			},
 			{ "<leader>gh", "<cmd>DiffviewFileHistory<CR>", desc = "Open File History" },
+			{ "<leader>gr", "<cmd>DiffviewRefresh<CR>", desc = "Refresh Diffview" },
 		},
 	},
 }
