@@ -158,7 +158,7 @@ _print_log_line() {
     local normalized_label="$label"
 
     if [[ -z "$normalized_label" ]]; then
-        normalized_label="root"
+        normalized_label="main"
     fi
 
     if ((${#normalized_label} > 20)); then
