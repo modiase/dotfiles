@@ -1,5 +1,5 @@
 {
-  description = "llama.cpp with Qwen2.5-7B model for macOS";
+  description = "llama.cpp with configurable model (default: Qwen2.5-7B) for macOS";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -23,11 +23,14 @@
         serverPort = "11434";
 
         modelInfo = {
-          name = "Qwen2.5-7B-Instruct";
-          repo = "bartowski/Qwen2.5-7B-Instruct-GGUF";
-          file = "Qwen2.5-7B-Instruct-Q4_K_M.gguf";
-          size = "4.68GB";
-          sha256 = "65b8fcd92af6b4fefa935c625d1ac27ea29dcb6ee14589c55a8f115ceaaa1423";
+          # Default model. Override at runtime with env vars:
+          # LLM_NAME, LLM_REPO, LLM_FILE, LLM_SIZE, LLM_SHA256
+          # Granite-4.0 micro (GGUF via bartowski), quant: Q6_K_L
+          name = "granite-4.0-micro";
+          repo = "bartowski/ibm-granite_granite-4.0-micro-GGUF";
+          file = "ibm-granite_granite-4.0-micro-Q6_K_L.gguf";
+          size = "2.86GB";
+          sha256 = "7827723a49ab2c000ee269a96b2592730470dceaa39269ec733a7a698db7b25e";
         };
 
         modelDownloader = pkgs.writeShellScript "download-model" ''
@@ -35,9 +38,9 @@
           set -euo pipefail
 
           MODEL_DIR="$1"
-          MODEL_NAME="${modelInfo.name}"
-          MODEL_FILE="${modelInfo.file}"
-          HF_REPO="${modelInfo.repo}"
+          MODEL_NAME="''${LLM_NAME:-${modelInfo.name}}"
+          MODEL_FILE="''${LLM_FILE:-${modelInfo.file}}"
+          HF_REPO="''${LLM_REPO:-${modelInfo.repo}}"
 
           echo "=== llama.cpp Model Downloader ==="
           echo "Target: $MODEL_DIR/$MODEL_FILE"
@@ -46,19 +49,23 @@
           cd "$MODEL_DIR"
 
           if [[ -f "$MODEL_FILE" ]]; then
-            echo "Model exists. Verifying SHA256 hash..."
-            ACTUAL_HASH=$(${pkgs.coreutils}/bin/sha256sum "$MODEL_FILE" | cut -d' ' -f1)
-            EXPECTED_HASH="${modelInfo.sha256}"
-
-            if [[ "$ACTUAL_HASH" == "$EXPECTED_HASH" ]]; then
-              echo "✓ Hash verification passed. Using existing model."
-              exit 0
+            EXPECTED_HASH="''${LLM_SHA256:-${modelInfo.sha256}}"
+            if [[ -n "$EXPECTED_HASH" ]]; then
+              echo "Model exists. Verifying SHA256 hash..."
+              ACTUAL_HASH=$(${pkgs.coreutils}/bin/sha256sum "$MODEL_FILE" | cut -d' ' -f1)
+              if [[ "$ACTUAL_HASH" == "$EXPECTED_HASH" ]]; then
+                echo "✓ Hash verification passed. Using existing model."
+                exit 0
+              else
+                echo "✗ Hash verification failed!"
+                echo "Expected: $EXPECTED_HASH"
+                echo "Actual:   $ACTUAL_HASH"
+                echo "Please manually verify the file integrity and source."
+                exit 1
+              fi
             else
-              echo "✗ Hash verification failed!"
-              echo "Expected: $EXPECTED_HASH"
-              echo "Actual:   $ACTUAL_HASH"
-              echo "Please manually verify the file integrity and source."
-              exit 1
+              echo "Model exists. No SHA256 configured; skipping verification."
+              exit 0
             fi
           fi
 
@@ -83,24 +90,28 @@
 
           echo "Downloading $MODEL_NAME from Hugging Face..."
           echo "URL: $HF_URL"
-          echo "Size: ${modelInfo.size}"
+          echo "Size: ''${LLM_SIZE:-${modelInfo.size}}"
 
           if download_model "$HF_URL" "$MODEL_FILE"; then
             echo "Model download completed successfully!"
 
-            echo "Verifying SHA256 hash..."
-            ACTUAL_HASH=$(${pkgs.coreutils}/bin/sha256sum "$MODEL_FILE" | cut -d' ' -f1)
-            EXPECTED_HASH="${modelInfo.sha256}"
-
-            if [[ "$ACTUAL_HASH" == "$EXPECTED_HASH" ]]; then
-              echo "✓ Hash verification passed"
-              echo "Model ready: $MODEL_DIR/$MODEL_FILE"
+            EXPECTED_HASH="''${LLM_SHA256:-${modelInfo.sha256}}"
+            if [[ -n "$EXPECTED_HASH" ]]; then
+              echo "Verifying SHA256 hash..."
+              ACTUAL_HASH=$(${pkgs.coreutils}/bin/sha256sum "$MODEL_FILE" | cut -d' ' -f1)
+              if [[ "$ACTUAL_HASH" == "$EXPECTED_HASH" ]]; then
+                echo "✓ Hash verification passed"
+                echo "Model ready: $MODEL_DIR/$MODEL_FILE"
+              else
+                echo "✗ Hash verification failed!"
+                echo "Expected: $EXPECTED_HASH"
+                echo "Actual:   $ACTUAL_HASH"
+                echo "Please manually verify the download source and file integrity."
+                exit 1
+              fi
             else
-              echo "✗ Hash verification failed!"
-              echo "Expected: $EXPECTED_HASH"
-              echo "Actual:   $ACTUAL_HASH"
-              echo "Please manually verify the download source and file integrity."
-              exit 1
+              echo "⚠ Skipping SHA256 verification (LLM_SHA256 not provided)."
+              echo "For integrity, set LLM_SHA256 to the expected hash."
             fi
           else
             echo "ERROR: Failed to download model"
@@ -207,8 +218,10 @@
           CONFIG_DIR="''${XDG_CONFIG_HOME:-$HOME/.config}/$APP_NAME"
           DATA_DIR="''${XDG_DATA_HOME:-$HOME/.local/share}/$APP_NAME"
           MODEL_DIR="$DATA_DIR/models"
-          MODEL_FILE="${modelInfo.file}"
+          MODEL_FILE="''${LLM_FILE:-${modelInfo.file}}"
           DEFAULT_MODEL="$MODEL_DIR/$MODEL_FILE"
+          MODEL_NAME="''${LLM_NAME:-${modelInfo.name}}"
+          MODEL_SIZE="''${LLM_SIZE:-${modelInfo.size}}"
 
           mkdir -p "$CONFIG_DIR" "$MODEL_DIR"
 
@@ -248,8 +261,8 @@
 
           ensure_model() {
             if [[ ! -f "$DEFAULT_MODEL" ]]; then
-              log "Model not found. Downloading ${modelInfo.name}..."
-              log "This may take a while (${modelInfo.size})..."
+              log "Model not found. Downloading ''${MODEL_NAME}..."
+              log "This may take a while (''${MODEL_SIZE})..."
 
               if ${modelDownloader} "$MODEL_DIR"; then
                 log "Model downloaded successfully!"
@@ -298,7 +311,7 @@
           System Info:
           • Device: $DEVICE
           • Threads: $THREADS
-          • Model: ${modelInfo.name} (${modelInfo.size})
+          • Model: ''${MODEL_NAME} (''${MODEL_SIZE})
 
           EOF
           }
@@ -331,7 +344,7 @@
             $0 server --port 8080
             $0 health
 
-          Model: ${modelInfo.name} (${modelInfo.size})
+          Model: ''${MODEL_NAME} (''${MODEL_SIZE})
           Config: $CONFIG_DIR
           Cache: $CACHE_DIR
           EOF
@@ -447,7 +460,7 @@
           DATA_DIR="''${XDG_DATA_HOME:-$HOME/.local/share}/llama-cpp"
           MODEL_DIR="$DATA_DIR/models"
           LOG_DIR="$DATA_DIR/logs"
-          MODEL_FILE="${modelInfo.file}"
+          MODEL_FILE="''${LLM_FILE:-${modelInfo.file}}"
           DEFAULT_MODEL="$MODEL_DIR/$MODEL_FILE"
 
           mkdir -p "$MODEL_DIR" "$LOG_DIR"
@@ -483,6 +496,16 @@
             <dict>
               <key>NIX_CONFIG</key>
               <string>experimental-features = nix-command flakes</string>
+              <key>LLM_NAME</key>
+              <string>${builtins.getEnv "LLM_NAME"}</string>
+              <key>LLM_REPO</key>
+              <string>${builtins.getEnv "LLM_REPO"}</string>
+              <key>LLM_FILE</key>
+              <string>${builtins.getEnv "LLM_FILE"}</string>
+              <key>LLM_SIZE</key>
+              <string>${builtins.getEnv "LLM_SIZE"}</string>
+              <key>LLM_SHA256</key>
+              <string>${builtins.getEnv "LLM_SHA256"}</string>
             </dict>
 
             <key>RunAtLoad</key>
@@ -786,7 +809,7 @@
             '';
 
             meta = with pkgs.lib; {
-              description = "Complete llama.cpp solution with Qwen2.5-7B model for macOS";
+              description = "Complete llama.cpp solution with configurable model (default: Qwen2.5-7B) for macOS";
               platforms = [
                 "aarch64-darwin"
                 "x86_64-darwin"
