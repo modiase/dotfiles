@@ -14,9 +14,9 @@ let
       name: builtins.readFile (dotfiles + /fish/functions + "/${name}.fish")
     )
     // {
-      ls = "eza --icons=always --color=always --git $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
-      ll = "eza --icons=always --color=always -l --git $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
-      lt = "eza --icons=always --color=always --tree  $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
+      ls = "eza --icons=always --color=always --git $argv | moor --no-linenumbers --no-statusbar --quit-if-one-screen";
+      ll = "eza --icons=always --color=always -l --git $argv | moor --no-linenumbers --no-statusbar --quit-if-one-screen";
+      lt = "eza --icons=always --color=always --tree  $argv | moor --no-linenumbers --no-statusbar --quit-if-one-screen";
     };
 in
 {
@@ -27,9 +27,9 @@ in
         builtins.attrNames (builtins.readDir (dotfiles + /fish/functions))
       )) (name: builtins.readFile (dotfiles + /fish/functions + "/${name}.fish"))
       // {
-        ls = "eza --icons=always --color=always --git $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
-        ll = "eza --icons=always --color=always -l --git $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
-        lt = "eza --icons=always --color=always --tree  $argv | moar --no-linenumbers --no-statusbar --quit-if-one-screen";
+        ls = "eza --icons=always --color=always --git $argv | moor --no-linenumbers --no-statusbar --quit-if-one-screen";
+        ll = "eza --icons=always --color=always -l --git $argv | moor --no-linenumbers --no-statusbar --quit-if-one-screen";
+        lt = "eza --icons=always --color=always --tree  $argv | moor --no-linenumbers --no-statusbar --quit-if-one-screen";
       };
     shellAliases = {
       cat = "bat";

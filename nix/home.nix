@@ -55,7 +55,7 @@
     jwt-cli
     kubectl
     lsof
-    moar
+    moor
     ncdu
     ngrok
     nix-prefetch-git
