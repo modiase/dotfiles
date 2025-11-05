@@ -37,12 +37,12 @@ in
 
   services.n8n = {
     enable = true;
-    webhookUrl = "https://n8n.${rootDomain}/webhook/";
-    settings = {
-      port = ports.n8n;
-      editorBaseUrl = "https://n8n.${rootDomain}/";
-      nodes_include = "['n8n-nodes-*']";
-      external_hook_files = "/etc/n8n/hooks.js";
+    environment = {
+      WEBHOOK_URL = "https://n8n.${rootDomain}/webhook/";
+      N8N_PORT = toString ports.n8n;
+      N8N_EDITOR_BASE_URL = "https://n8n.${rootDomain}/";
+      NODES_INCLUDE = "['n8n-nodes-*']";
+      EXTERNAL_HOOK_FILES = "/etc/n8n/hooks.js";
     };
   };
 

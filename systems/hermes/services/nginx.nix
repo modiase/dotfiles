@@ -176,6 +176,15 @@ in
       };
     };
 
+    virtualHosts."tmp.${rootDomain}" = commonVhostConfig // {
+      locations."/" = {
+        proxyPass = "http://127.0.0.1:8888/";
+        proxyWebsockets = true;
+        extraConfig = protectedProxyConfig;
+      };
+      locations."/internal/authelia/authz" = autheliaEndpointConfig;
+    };
+
     virtualHosts."hermes.${rootDomain}" = commonVhostConfig // {
       root = pkgs.runCommand "hermes-static" { } ''
         mkdir -p $out

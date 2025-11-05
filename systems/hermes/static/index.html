@@ -1,55 +1,292 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Hermes Dashboard</title>
     <script src="tailwind.min.js"></script>
-</head>
-<body class="bg-gray-50 min-h-screen">
+  </head>
+  <body class="bg-gray-50 min-h-screen">
     <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
-        <header class="text-center mb-12">
-            <h1 class="text-4xl font-bold text-gray-800 mb-2">Hermes</h1>
-            <p class="text-gray-600">Server Dashboard</p>
-        </header>
+      <!-- Header -->
+      <header class="text-center mb-12">
+        <h1 class="text-4xl font-bold text-gray-800 mb-2">Hermes</h1>
+        <p class="text-gray-600">Server Dashboard</p>
+      </header>
 
-        <!-- Services Grid -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            <!-- Authelia Service -->
-            <a href="https://auth.modiase.dev"
-               class="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-8 border hover:border-purple-300">
-                <div class="text-center">
-                    <div class="w-16 h-16 bg-purple-100 rounded-full mx-auto mb-4 flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" viewBox="0 0 512 512" class="w-8 h-8"><linearGradient id="a" x1="-7.464" x2="485.846" y1="259.217" y2="256.579" gradientTransform="matrix(1 0 0 -1 0 514)" gradientUnits="userSpaceOnUse"><stop offset="0" style="stop-color:#8b5cf6"/><stop offset="1" style="stop-color:#6d28d9"/></linearGradient><path d="M256.7 128c67.4-1.9 128.3 52.3 128.6 127.9.3 72.7-58.1 128.6-129.3 128.5-70.2-.1-128.5-58.2-128-128.5.4-74.2 61.9-130.2 128.7-127.9m33.3 77.4c0-16.3-9.6-29.3-24.7-33.2-14.8-3.8-30.2 2.8-37.7 16-7.8 13.9-5.6 29.4 6.8 40.6 5.7 5.1 6.7 9.9 4.8 16.9-5.7 21.9-10.9 43.9-16.2 65.9-2 8.4.3 15.4 7.1 20.6 13.3 10.3 34.4 11.4 48.9 2.8 10.7-6.4 13.9-12.9 11.1-25-5.2-22.6-10.7-45.1-16.3-67.5-1.3-5.1-.7-8.4 3.8-11.9 7.9-6.3 13-14.5 12.4-25.2" style="fill:url(#a)"/><linearGradient id="b" x1="-7.511" x2="485.799" y1="250.455" y2="247.817" gradientTransform="matrix(1 0 0 -1 0 514)" gradientUnits="userSpaceOnUse"><stop offset="0" style="stop-color:#8b5cf6"/><stop offset="1" style="stop-color:#6d28d9"/></linearGradient><path d="M254.9 447.7C163.1 450.2 76.7 380.2 65 279.1c-7.6-65.8 12.4-122.5 62-167.3 11.8-10.7 26.3-18.7 40.1-27 9.8-5.9 18.6-3 23.9 5.9 5.4 9.3 3.1 17.8-6.7 24.5-9.7 6.7-20.1 12.6-29.1 20.2-32.7 27.4-50.9 62.7-54.9 105.1-3.6 38.7 5 74.9 28.2 106.3C158.8 387.9 200 410 251.3 412c45.7 1.7 85.1-14.5 116.6-46.9 12.8-13.2 21.7-30.3 31.8-46.1 5.4-8.5 12.7-13 20.8-10.9 11.2 3 17.2 12.7 11.9 23.9-7.2 15.2-15.2 30.6-25.6 43.7-33.4 42.1-78 65-131.1 71.7-.8.1-1.5.2-2.3.2-6.2.1-12.4.1-18.5.1" style="fill:url(#b)"/><linearGradient id="c" x1="-7.285" x2="486.025" y1="292.737" y2="290.099" gradientTransform="matrix(1 0 0 -1 0 514)" gradientUnits="userSpaceOnUse"><stop offset="0" style="stop-color:#8b5cf6"/><stop offset="1" style="stop-color:#6d28d9"/></linearGradient><path d="M226.6 4.5c4.1 0 8.2.1 12.3 0 7.4-.1 13.2 2 15 10.2 1.7 7.7-1.7 16.9-8.5 19.7-5.3 2.2-11.3 3.2-17.1 4-41.8 5.5-79.6 20.8-112 47.8C71 124 43.4 172 36.9 231.2c-6.4 58.4 8.9 111 43.5 158.1 5.6 7.6 12.4 14.4 18.2 22 6.8 8.8 5.7 17-2.6 24.5-6.9 6.3-16.4 6.1-23.5-1.2-42-43.2-66.3-94.5-71.4-154.9-2.2-26.1-1.2-51.8 4.1-77.4 8.1-39 25.1-73.9 49.8-104.9 39-48.8 89.4-79.6 150.9-91.7 6.7-1.3 13.8-1.1 20.7-1.6z" style="fill:url(#c)"/><linearGradient id="d" x1="-7.857" x2="485.453" y1="185.72" y2="183.082" gradientTransform="matrix(1 0 0 -1 0 514)" gradientUnits="userSpaceOnUse"><stop offset="0" style="stop-color:#8b5cf6"/><stop offset="1" style="stop-color:#6d28d9"/></linearGradient><path d="M282.8 507.8c-2.8 0-5.7.2-8.5 0-9.2-.8-15.5-6.5-16.4-14.6-1-8.7 4.4-16.6 13.7-18.8 7.2-1.7 14.7-2.4 22-3.7 68.3-12.6 120-48.6 154.5-109.2C466 330 475.4 295.9 476.3 260c.7-27.3-3.7-54.3-13.8-80.1-1.6-4-2.5-9.2-1.4-13.2 2.1-7.5 7.2-13.1 15.8-13.8 8-.6 14.9 3 17.9 11.8 4.9 14.3 9.7 28.8 12.5 43.7 10 53.6 4.1 105.5-19.3 155-19.1 40.2-46.7 73.6-83.1 99.5-32.4 23-68.1 38.1-107.5 44.1-1.8.3-3.5.8-5.3.9-3.1 0-6.2-.1-9.3-.1" style="fill:url(#d)"/><linearGradient id="e" x1="-6.927" x2="486.383" y1="359.57" y2="356.932" gradientTransform="matrix(1 0 0 -1 0 514)" gradientUnits="userSpaceOnUse"><stop offset="0" style="stop-color:#8b5cf6"/><stop offset="1" style="stop-color:#6d28d9"/></linearGradient><path d="M444.5 215.5c0 11.9-5.2 18.6-14.3 20.3-8.8 1.6-16.2-2.9-19.6-12.3-4.5-12.3-8.1-25-13.6-36.8-14.9-32.2-39.1-55.6-70.8-71.3-2.8-1.4-5.6-2.6-8.2-4.2-8.4-5.2-11.6-14.9-7.8-23.4 4-9 12.9-13.8 22.3-9.2 14.5 7 29 14.6 41.8 24.3 34.8 26.3 57.1 61.4 68.5 103.4.9 3.7 1.4 7.5 1.7 9.2" style="fill:url(#e)"/></svg>
-                    </div>
-                    <h2 class="text-xl font-semibold text-gray-800">Authelia</h2>
-                </div>
-            </a>
+      <!-- Services Grid -->
+      <div
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto"
+      >
+        <!-- Authelia Service -->
+        <a
+          href="https://auth.modiase.dev"
+          class="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-8 border hover:border-purple-300"
+        >
+          <div class="text-center">
+            <div
+              class="w-16 h-16 bg-purple-100 rounded-full mx-auto mb-4 flex items-center justify-center group-hover:bg-purple-200 transition-colors"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                xml:space="preserve"
+                viewBox="0 0 512 512"
+                class="w-8 h-8"
+              >
+                <linearGradient
+                  id="a"
+                  x1="-7.464"
+                  x2="485.846"
+                  y1="259.217"
+                  y2="256.579"
+                  gradientTransform="matrix(1 0 0 -1 0 514)"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop offset="0" style="stop-color: #8b5cf6" />
+                  <stop offset="1" style="stop-color: #6d28d9" />
+                </linearGradient>
+                <path
+                  d="M256.7 128c67.4-1.9 128.3 52.3 128.6 127.9.3 72.7-58.1 128.6-129.3 128.5-70.2-.1-128.5-58.2-128-128.5.4-74.2 61.9-130.2 128.7-127.9m33.3 77.4c0-16.3-9.6-29.3-24.7-33.2-14.8-3.8-30.2 2.8-37.7 16-7.8 13.9-5.6 29.4 6.8 40.6 5.7 5.1 6.7 9.9 4.8 16.9-5.7 21.9-10.9 43.9-16.2 65.9-2 8.4.3 15.4 7.1 20.6 13.3 10.3 34.4 11.4 48.9 2.8 10.7-6.4 13.9-12.9 11.1-25-5.2-22.6-10.7-45.1-16.3-67.5-1.3-5.1-.7-8.4 3.8-11.9 7.9-6.3 13-14.5 12.4-25.2"
+                  style="fill: url(#a)"
+                />
+                <linearGradient
+                  id="b"
+                  x1="-7.511"
+                  x2="485.799"
+                  y1="250.455"
+                  y2="247.817"
+                  gradientTransform="matrix(1 0 0 -1 0 514)"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop offset="0" style="stop-color: #8b5cf6" />
+                  <stop offset="1" style="stop-color: #6d28d9" />
+                </linearGradient>
+                <path
+                  d="M254.9 447.7C163.1 450.2 76.7 380.2 65 279.1c-7.6-65.8 12.4-122.5 62-167.3 11.8-10.7 26.3-18.7 40.1-27 9.8-5.9 18.6-3 23.9 5.9 5.4 9.3 3.1 17.8-6.7 24.5-9.7 6.7-20.1 12.6-29.1 20.2-32.7 27.4-50.9 62.7-54.9 105.1-3.6 38.7 5 74.9 28.2 106.3C158.8 387.9 200 410 251.3 412c45.7 1.7 85.1-14.5 116.6-46.9 12.8-13.2 21.7-30.3 31.8-46.1 5.4-8.5 12.7-13 20.8-10.9 11.2 3 17.2 12.7 11.9 23.9-7.2 15.2-15.2 30.6-25.6 43.7-33.4 42.1-78 65-131.1 71.7-.8.1-1.5.2-2.3.2-6.2.1-12.4.1-18.5.1"
+                  style="fill: url(#b)"
+                />
+                <linearGradient
+                  id="c"
+                  x1="-7.285"
+                  x2="486.025"
+                  y1="292.737"
+                  y2="290.099"
+                  gradientTransform="matrix(1 0 0 -1 0 514)"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop offset="0" style="stop-color: #8b5cf6" />
+                  <stop offset="1" style="stop-color: #6d28d9" />
+                </linearGradient>
+                <path
+                  d="M226.6 4.5c4.1 0 8.2.1 12.3 0 7.4-.1 13.2 2 15 10.2 1.7 7.7-1.7 16.9-8.5 19.7-5.3 2.2-11.3 3.2-17.1 4-41.8 5.5-79.6 20.8-112 47.8C71 124 43.4 172 36.9 231.2c-6.4 58.4 8.9 111 43.5 158.1 5.6 7.6 12.4 14.4 18.2 22 6.8 8.8 5.7 17-2.6 24.5-6.9 6.3-16.4 6.1-23.5-1.2-42-43.2-66.3-94.5-71.4-154.9-2.2-26.1-1.2-51.8 4.1-77.4 8.1-39 25.1-73.9 49.8-104.9 39-48.8 89.4-79.6 150.9-91.7 6.7-1.3 13.8-1.1 20.7-1.6z"
+                  style="fill: url(#c)"
+                />
+                <linearGradient
+                  id="d"
+                  x1="-7.857"
+                  x2="485.453"
+                  y1="185.72"
+                  y2="183.082"
+                  gradientTransform="matrix(1 0 0 -1 0 514)"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop offset="0" style="stop-color: #8b5cf6" />
+                  <stop offset="1" style="stop-color: #6d28d9" />
+                </linearGradient>
+                <path
+                  d="M282.8 507.8c-2.8 0-5.7.2-8.5 0-9.2-.8-15.5-6.5-16.4-14.6-1-8.7 4.4-16.6 13.7-18.8 7.2-1.7 14.7-2.4 22-3.7 68.3-12.6 120-48.6 154.5-109.2C466 330 475.4 295.9 476.3 260c.7-27.3-3.7-54.3-13.8-80.1-1.6-4-2.5-9.2-1.4-13.2 2.1-7.5 7.2-13.1 15.8-13.8 8-.6 14.9 3 17.9 11.8 4.9 14.3 9.7 28.8 12.5 43.7 10 53.6 4.1 105.5-19.3 155-19.1 40.2-46.7 73.6-83.1 99.5-32.4 23-68.1 38.1-107.5 44.1-1.8.3-3.5.8-5.3.9-3.1 0-6.2-.1-9.3-.1"
+                  style="fill: url(#d)"
+                />
+                <linearGradient
+                  id="e"
+                  x1="-6.927"
+                  x2="486.383"
+                  y1="359.57"
+                  y2="356.932"
+                  gradientTransform="matrix(1 0 0 -1 0 514)"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop offset="0" style="stop-color: #8b5cf6" />
+                  <stop offset="1" style="stop-color: #6d28d9" />
+                </linearGradient>
+                <path
+                  d="M444.5 215.5c0 11.9-5.2 18.6-14.3 20.3-8.8 1.6-16.2-2.9-19.6-12.3-4.5-12.3-8.1-25-13.6-36.8-14.9-32.2-39.1-55.6-70.8-71.3-2.8-1.4-5.6-2.6-8.2-4.2-8.4-5.2-11.6-14.9-7.8-23.4 4-9 12.9-13.8 22.3-9.2 14.5 7 29 14.6 41.8 24.3 34.8 26.3 57.1 61.4 68.5 103.4.9 3.7 1.4 7.5 1.7 9.2"
+                  style="fill: url(#e)"
+                />
+              </svg>
+            </div>
+            <h2 class="text-xl font-semibold text-gray-800">Authelia</h2>
+          </div>
+        </a>
 
-            <!-- n8n Service -->
-            <a href="https://n8n.modiase.dev"
-               class="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-8 border hover:border-red-300">
-                <div class="text-center">
-                    <div class="w-16 h-16 bg-red-100 rounded-full mx-auto mb-4 flex items-center justify-center group-hover:bg-red-200 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" viewBox="0 121.3 512.1 269.6" class="w-8 h-8"><path d="M458.1 229.1c-25.1 0-46.2-17.2-52.2-40.4h-61.8c-13.2 0-24.4 9.5-26.6 22.5l-2.2 13.3c-2 12.2-8.2 23.4-17.5 31.6 9.3 8.2 15.5 19.3 17.5 31.6l2.2 13.3c2.2 13 13.4 22.5 26.6 22.5h7.9c6-23.2 27.1-40.4 52.2-40.4 29.8 0 53.9 24.1 53.9 53.9s-24.1 53.9-53.9 53.9c-25.1 0-46.2-17.2-52.2-40.4h-7.9c-26.3 0-48.8-19-53.2-45l-2.2-13.3c-2.2-13-13.4-22.5-26.6-22.5h-21.4c-6 23.2-27.1 40.4-52.2 40.4s-46.2-17.2-52.2-40.4H106c-6 23.2-27.1 40.4-52.2 40.4C24.1 309.9 0 285.8 0 256s24.1-53.9 53.9-53.9c25.1 0 46.2 17.2 52.2 40.4h30.3c6-23.2 27.1-40.4 52.2-40.4s46.2 17.2 52.2 40.4h21.4c13.2 0 24.4-9.5 26.6-22.5l2.2-13.3c4.3-26 26.8-45 53.2-45H406c6-23.2 27.1-40.4 52.2-40.4 29.8 0 53.9 24.1 53.9 53.9s-24.2 53.9-54 53.9m0-27c14.9 0 26.9-12.1 26.9-26.9s-12.1-26.9-26.9-26.9-26.9 12.1-26.9 26.9 12 26.9 26.9 26.9M53.9 282.9c14.9 0 26.9-12.1 26.9-26.9s-12.1-26.9-26.9-26.9-27 12-27 26.9 12.1 26.9 27 26.9M215.6 256c0 14.9-12.1 26.9-26.9 26.9s-26.9-12.1-26.9-26.9 12.1-26.9 26.9-26.9 26.9 12 26.9 26.9m215.6 80.8c0 14.9-12.1 26.9-26.9 26.9-14.9 0-26.9-12.1-26.9-26.9s12.1-26.9 26.9-26.9 26.9 12.1 26.9 26.9" style="fill-rule:evenodd;clip-rule:evenodd;fill:#ea4b71"/></svg>
-                    </div>
-                    <h2 class="text-xl font-semibold text-gray-800">n8n</h2>
-                </div>
-            </a>
+        <!-- n8n Service -->
+        <a
+          href="https://n8n.modiase.dev"
+          class="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-8 border hover:border-red-300"
+        >
+          <div class="text-center">
+            <div
+              class="w-16 h-16 bg-red-100 rounded-full mx-auto mb-4 flex items-center justify-center group-hover:bg-red-200 transition-colors"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                xml:space="preserve"
+                viewBox="0 121.3 512.1 269.6"
+                class="w-8 h-8"
+              >
+                <path
+                  d="M458.1 229.1c-25.1 0-46.2-17.2-52.2-40.4h-61.8c-13.2 0-24.4 9.5-26.6 22.5l-2.2 13.3c-2 12.2-8.2 23.4-17.5 31.6 9.3 8.2 15.5 19.3 17.5 31.6l2.2 13.3c2.2 13 13.4 22.5 26.6 22.5h7.9c6-23.2 27.1-40.4 52.2-40.4 29.8 0 53.9 24.1 53.9 53.9s-24.1 53.9-53.9 53.9c-25.1 0-46.2-17.2-52.2-40.4h-7.9c-26.3 0-48.8-19-53.2-45l-2.2-13.3c-2.2-13-13.4-22.5-26.6-22.5h-21.4c-6 23.2-27.1 40.4-52.2 40.4s-46.2-17.2-52.2-40.4H106c-6 23.2-27.1 40.4-52.2 40.4C24.1 309.9 0 285.8 0 256s24.1-53.9 53.9-53.9c25.1 0 46.2 17.2 52.2 40.4h30.3c6-23.2 27.1-40.4 52.2-40.4s46.2 17.2 52.2 40.4h21.4c13.2 0 24.4-9.5 26.6-22.5l2.2-13.3c4.3-26 26.8-45 53.2-45H406c6-23.2 27.1-40.4 52.2-40.4 29.8 0 53.9 24.1 53.9 53.9s-24.2 53.9-54 53.9m0-27c14.9 0 26.9-12.1 26.9-26.9s-12.1-26.9-26.9-26.9-26.9 12.1-26.9 26.9 12 26.9 26.9 26.9M53.9 282.9c14.9 0 26.9-12.1 26.9-26.9s-12.1-26.9-26.9-26.9-27 12-27 26.9 12.1 26.9 27 26.9M215.6 256c0 14.9-12.1 26.9-26.9 26.9s-26.9-12.1-26.9-26.9 12.1-26.9 26.9-26.9 26.9 12 26.9 26.9m215.6 80.8c0 14.9-12.1 26.9-26.9 26.9-14.9 0-26.9-12.1-26.9-26.9s12.1-26.9 26.9-26.9 26.9 12.1 26.9 26.9"
+                  style="fill-rule: evenodd; clip-rule: evenodd; fill: #ea4b71"
+                />
+              </svg>
+            </div>
+            <h2 class="text-xl font-semibold text-gray-800">n8n</h2>
+          </div>
+        </a>
 
-            <!-- ntfy Service -->
-            <a href="https://ntfy.modiase.dev"
-               class="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-8 border hover:border-green-300">
-                <div class="text-center">
-                    <div class="w-16 h-16 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center group-hover:bg-green-200 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" id="Layer_1" x="0" y="0" version="1.1" viewBox="0 0 512 512" class="w-8 h-8"><style>.st1{fill:#fff}</style><linearGradient id="SVGID_1_" x1="115.045" x2="142.93" y1="512.747" y2="491.741" gradientTransform="matrix(15.8584 0 0 -15.8584 -1816.246 8200.18)" gradientUnits="userSpaceOnUse"><stop offset="0" style="stop-color:#348878"/><stop offset="1" style="stop-color:#56bda8"/></linearGradient><path d="M441.8 64.8H84.7c-24.5 0-44.6 19-44.6 42.1l.3 285.3-6.7 38.4 95.6-28.8h312.4c24.5 0 44.6-19 44.6-42.1V106.9c.1-23.2-20-42.1-44.5-42.1" style="fill:url(#SVGID_1_)"/><path d="M78.1 32.7C40.9 32.7 9 62 9 99.2l.4 311.2-9.4 69 127.1-33.8H443c37.2 0 69.1-29.3 69.1-66.5V99.2c0-37.2-31.9-66.5-69-66.5zm0 46.9H443c13.1 0 22.1 9.5 22.1 19.6V379c0 10-9 19.8-22.1 19.6H120.2l-64.6 19.5.7-3.8-.4-315.1c0-10.1 9.1-19.6 22.2-19.6" class="st1"/><path d="M116.4 310.9v-34.8l73.1-38.7c2.4-1.2 4.6-2.1 6.8-2.7 2.3-.8 4.5-1.4 6.3-1.8l6-.6V230q-3-.3-6-1.2-2.85-.6-6.3-1.5c-2.2-.8-4.5-1.8-6.8-3l-73.1-38.7v-35.1l113 61.5v37.4z" class="st1"/><path d="M110.5 139.7v50.4l76.6 40.6.5.2-.5.2-76.6 40.6v50.1l8.2-4.5L235.1 254v-46.4zm11.8 21.7 101.2 55.1V245l-101.2 55.1v-19.4l69.6-36.8.1-.1c1.9-1 3.8-1.7 5.8-2.3h.1l.2-.1c2.1-.7 3.9-1.2 5.5-1.6l11.1-1.1v-15.2l-5.4-.5c-1.7-.2-3.5-.5-5.1-1.1h-.2l-.2-.1c-2-.4-3.9-.9-5.9-1.4-2-.7-4-1.6-5.9-2.6l-.1-.1-69.6-36.7zm152.3 137.4h120.7v32.6H274.6z" class="st1"/><path d="M268.7 292.1v46h132.4v-46zm11.7 13.4h109v19.2h-109z" class="st1"/></svg>
-                    </div>
-                    <h2 class="text-xl font-semibold text-gray-800">ntfy</h2>
-                </div>
-            </a>
+        <!-- ntfy Service -->
+        <a
+          href="https://ntfy.modiase.dev"
+          class="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-8 border hover:border-green-300"
+        >
+          <div class="text-center">
+            <div
+              class="w-16 h-16 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center group-hover:bg-green-200 transition-colors"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                xml:space="preserve"
+                id="Layer_1"
+                x="0"
+                y="0"
+                version="1.1"
+                viewBox="0 0 512 512"
+                class="w-8 h-8"
+              >
+                <style>
+                  .st1 {
+                    fill: #fff;
+                  }
+                </style>
+                <linearGradient
+                  id="SVGID_1_"
+                  x1="115.045"
+                  x2="142.93"
+                  y1="512.747"
+                  y2="491.741"
+                  gradientTransform="matrix(15.8584 0 0 -15.8584 -1816.246 8200.18)"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop offset="0" style="stop-color: #348878" />
+                  <stop offset="1" style="stop-color: #56bda8" />
+                </linearGradient>
+                <path
+                  d="M441.8 64.8H84.7c-24.5 0-44.6 19-44.6 42.1l.3 285.3-6.7 38.4 95.6-28.8h312.4c24.5 0 44.6-19 44.6-42.1V106.9c.1-23.2-20-42.1-44.5-42.1"
+                  style="fill: url(#SVGID_1_)"
+                />
+                <path
+                  d="M78.1 32.7C40.9 32.7 9 62 9 99.2l.4 311.2-9.4 69 127.1-33.8H443c37.2 0 69.1-29.3 69.1-66.5V99.2c0-37.2-31.9-66.5-69-66.5zm0 46.9H443c13.1 0 22.1 9.5 22.1 19.6V379c0 10-9 19.8-22.1 19.6H120.2l-64.6 19.5.7-3.8-.4-315.1c0-10.1 9.1-19.6 22.2-19.6"
+                  class="st1"
+                />
+                <path
+                  d="M116.4 310.9v-34.8l73.1-38.7c2.4-1.2 4.6-2.1 6.8-2.7 2.3-.8 4.5-1.4 6.3-1.8l6-.6V230q-3-.3-6-1.2-2.85-.6-6.3-1.5c-2.2-.8-4.5-1.8-6.8-3l-73.1-38.7v-35.1l113 61.5v37.4z"
+                  class="st1"
+                />
+                <path
+                  d="M110.5 139.7v50.4l76.6 40.6.5.2-.5.2-76.6 40.6v50.1l8.2-4.5L235.1 254v-46.4zm11.8 21.7 101.2 55.1V245l-101.2 55.1v-19.4l69.6-36.8.1-.1c1.9-1 3.8-1.7 5.8-2.3h.1l.2-.1c2.1-.7 3.9-1.2 5.5-1.6l11.1-1.1v-15.2l-5.4-.5c-1.7-.2-3.5-.5-5.1-1.1h-.2l-.2-.1c-2-.4-3.9-.9-5.9-1.4-2-.7-4-1.6-5.9-2.6l-.1-.1-69.6-36.7zm152.3 137.4h120.7v32.6H274.6z"
+                  class="st1"
+                />
+                <path
+                  d="M268.7 292.1v46h132.4v-46zm11.7 13.4h109v19.2h-109z"
+                  class="st1"
+                />
+              </svg>
+            </div>
+            <h2 class="text-xl font-semibold text-gray-800">ntfy</h2>
+          </div>
+        </a>
 
-        </div>
+        <!-- Temporary Proxy Service -->
+        <a
+          href="https://tmp.modiase.dev"
+          class="group bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-8 border hover:border-blue-300"
+        >
+          <div class="text-center">
+            <div
+              class="w-16 h-16 bg-blue-100 rounded-full mx-auto mb-4 flex items-center justify-center group-hover:bg-blue-200 transition-colors"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 64 64"
+                class="w-8 h-8"
+              >
+                <defs>
+                  <linearGradient
+                    id="proxyGradient"
+                    x1="0%"
+                    y1="0%"
+                    x2="100%"
+                    y2="100%"
+                  >
+                    <stop offset="0%" style="stop-color: #3b82f6" />
+                    <stop offset="100%" style="stop-color: #1d4ed8" />
+                  </linearGradient>
+                </defs>
+                <!-- Left arrow -->
+                <path
+                  d="M2 32 L18 32 M10 24 L2 32 L10 40"
+                  stroke="url(#proxyGradient)"
+                  stroke-width="3"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <!-- Center box (proxy) -->
+                <rect
+                  x="22"
+                  y="18"
+                  width="20"
+                  height="28"
+                  rx="3"
+                  fill="url(#proxyGradient)"
+                  opacity="0.3"
+                />
+                <rect
+                  x="22"
+                  y="18"
+                  width="20"
+                  height="28"
+                  rx="3"
+                  stroke="url(#proxyGradient)"
+                  stroke-width="2"
+                  fill="none"
+                />
+                <!-- Right arrow -->
+                <path
+                  d="M46 32 L62 32 M54 24 L62 32 L54 40"
+                  stroke="url(#proxyGradient)"
+                  stroke-width="3"
+                  fill="none"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                />
+                <!-- Dots in center box -->
+                <circle cx="28" cy="26" r="1.5" fill="url(#proxyGradient)" />
+                <circle cx="32" cy="26" r="1.5" fill="url(#proxyGradient)" />
+                <circle cx="36" cy="26" r="1.5" fill="url(#proxyGradient)" />
+                <circle cx="28" cy="32" r="1.5" fill="url(#proxyGradient)" />
+                <circle cx="32" cy="32" r="1.5" fill="url(#proxyGradient)" />
+                <circle cx="36" cy="32" r="1.5" fill="url(#proxyGradient)" />
+                <circle cx="28" cy="38" r="1.5" fill="url(#proxyGradient)" />
+                <circle cx="32" cy="38" r="1.5" fill="url(#proxyGradient)" />
+                <circle cx="36" cy="38" r="1.5" fill="url(#proxyGradient)" />
+              </svg>
+            </div>
+            <h2 class="text-xl font-semibold text-gray-800">tmp</h2>
+          </div>
+        </a>
+      </div>
     </div>
-</body>
+  </body>
 </html>
+
