@@ -25,16 +25,6 @@ in
 {
   environment.etc."rclone/rclone.conf".text = rcloneConf;
 
-  environment.etc."n8n/hooks.js" = {
-    source = ./n8n-hooks.js;
-    mode = "0644";
-  };
-
-  environment.etc."n8n/setup.py" = {
-    source = ./n8n-setup.py;
-    mode = "0755";
-  };
-
   services.n8n = {
     enable = true;
     environment = {
@@ -42,14 +32,13 @@ in
       N8N_PORT = toString ports.n8n;
       N8N_EDITOR_BASE_URL = "https://n8n.${rootDomain}/";
       NODES_INCLUDE = "['n8n-nodes-*']";
-      EXTERNAL_HOOK_FILES = "/etc/n8n/hooks.js";
+      N8N_USER_MANAGEMENT_DISABLED = "true";
     };
   };
 
   systemd.services.n8n = {
     environment.GENERIC_TIMEZONE = "Europe/London";
     serviceConfig = {
-      ReadOnlyPaths = [ "/etc/n8n" ];
       TimeoutStartSec = "10min";
     };
     preStart = ''

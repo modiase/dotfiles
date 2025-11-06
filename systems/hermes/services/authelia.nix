@@ -122,6 +122,10 @@ let
           policy = "one_factor";
         }
         {
+          domain = [ "tmp.${rootDomain}" ];
+          policy = "one_factor";
+        }
+        {
           domain = [ "n8n.${rootDomain}" ];
           policy = "one_factor";
           subject = [ "oauth2:client:n8n-client" ];

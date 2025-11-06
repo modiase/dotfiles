@@ -1,6 +1,7 @@
 {
   config,
   pkgs,
+  lib,
   modulesPath,
   authorizedKeyLists,
   commonNixSettings,
@@ -45,6 +46,8 @@ in
     vim
   ];
 
+  security.googleOsLogin.enable = lib.mkForce false;
+
   services.openssh = {
     enable = true;
     settings = {
@@ -57,7 +60,7 @@ in
     isNormalUser = true;
     createHome = true;
     extraGroups = [ "wheel" ];
-    shell = pkgs.bashInteractive;
+    shell = pkgs.bash;
     openssh.authorizedKeys.keys = authorizedKeyLists.moye;
   };
 
