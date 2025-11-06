@@ -28,6 +28,7 @@ in
 
   networking.hostName = "hermes";
   time.timeZone = "Europe/London";
+  services.timesyncd.enable = true;
 
   nixpkgs.config.allowUnfreePredicate =
     pkg:
@@ -53,35 +54,51 @@ in
     settings = {
       PermitRootLogin = "no";
       PasswordAuthentication = false;
+      MaxAuthTries = 3;
+      ClientAliveInterval = 300;
+      ClientAliveCountMax = 2;
+      X11Forwarding = false;
+      AllowTcpForwarding = "yes";
+      KbdInteractiveAuthentication = false;
+      Ciphers = [
+        "chacha20-poly1305@openssh.com"
+        "aes256-gcm@openssh.com"
+        "aes128-gcm@openssh.com"
+        "aes256-ctr"
+        "aes192-ctr"
+        "aes128-ctr"
+      ];
+      Macs = [
+        "hmac-sha2-512-etm@openssh.com"
+        "hmac-sha2-256-etm@openssh.com"
+        "hmac-sha2-512"
+        "hmac-sha2-256"
+      ];
+      KexAlgorithms = [
+        "curve25519-sha256"
+        "curve25519-sha256@libssh.org"
+        "diffie-hellman-group-exchange-sha256"
+      ];
     };
   };
 
   users.users.moye = {
     isNormalUser = true;
-    createHome = true;
-    extraGroups = [ "wheel" ];
+    home = "/var/empty";
+    createHome = false;
+    extraGroups = [ ];
     shell = pkgs.bash;
     openssh.authorizedKeys.keys = authorizedKeyLists.moye;
   };
 
-  security.sudo = {
-    enable = true;
-    wheelNeedsPassword = false;
-    extraRules = [
-      {
-        users = [ "moye" ];
-        commands = [
-          {
-            command = "ALL";
-            options = [
-              "NOPASSWD"
-              "SETENV"
-            ];
-          }
-        ];
-      }
-    ];
+  security.sudo.enable = false;
+
+  nix.settings = {
+    allowed-users = [ "root" ];
+    trusted-users = [ ];
   };
+
+  environment.defaultPackages = [ ];
 
   systemd.services.fetch-ssl-key = {
     description = "Fetch SSL private key from Secret Manager";
@@ -136,6 +153,13 @@ in
   environment.variables = {
     HERMES_GCS_BUCKET = "modiase-infra-hermes";
     HERMES_PROJECT_ID = "modiase-infra";
+  };
+
+  system.autoUpgrade = {
+    enable = true;
+    flake = "github:moyeodotdev/Dotfiles#hermes";
+    dates = "04:00";
+    allowReboot = false;
   };
 
   system.stateVersion = "24.05";

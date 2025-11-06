@@ -7,7 +7,7 @@ in
   services.mongodb = {
     enable = true;
     enableAuth = true;
-    bind_ip = "0.0.0.0";
+    bind_ip = "127.0.0.1";
     initialRootPasswordFile = pkgs.writeText "mongodb-password" "mongodb";
     extraConfig = ''
       storage:
