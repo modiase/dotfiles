@@ -9,14 +9,16 @@ let
   functionFiles = builtins.attrNames (builtins.readDir (dotfiles + /fish/functions));
   toFunctionName = file: pkgs.lib.strings.removeSuffix ".fish" file;
   displayResolver = import ./lib/resolve-display.nix { inherit pkgs; };
+  ezaBase = "eza --icons=always --color=always";
+  moorFlags = "moor --no-linenumbers --no-statusbar --quit-if-one-screen -terminal-fg";
   functions =
     pkgs.lib.genAttrs (map toFunctionName functionFiles) (
       name: builtins.readFile (dotfiles + /fish/functions + "/${name}.fish")
     )
     // {
-      ls = "eza --icons=always --color=always --git $argv | moor --no-linenumbers --no-statusbar --quit-if-one-screen";
-      ll = "eza --icons=always --color=always -l --git $argv | moor --no-linenumbers --no-statusbar --quit-if-one-screen";
-      lt = "eza --icons=always --color=always --tree  $argv | moor --no-linenumbers --no-statusbar --quit-if-one-screen";
+      ls = "${ezaBase} --git $argv | ${moorFlags}";
+      ll = "${ezaBase} -l --git $argv | ${moorFlags}";
+      lt = "${ezaBase} --tree  $argv | ${moorFlags}";
     };
 in
 {
@@ -27,9 +29,9 @@ in
         builtins.attrNames (builtins.readDir (dotfiles + /fish/functions))
       )) (name: builtins.readFile (dotfiles + /fish/functions + "/${name}.fish"))
       // {
-        ls = "eza --icons=always --color=always --git $argv | moor --no-linenumbers --no-statusbar --quit-if-one-screen";
-        ll = "eza --icons=always --color=always -l --git $argv | moor --no-linenumbers --no-statusbar --quit-if-one-screen";
-        lt = "eza --icons=always --color=always --tree  $argv | moor --no-linenumbers --no-statusbar --quit-if-one-screen";
+        ls = "${ezaBase} --git $argv | ${moorFlags}";
+        ll = "${ezaBase} -l --git $argv | ${moorFlags}";
+        lt = "${ezaBase} --tree  $argv | ${moorFlags}";
       };
     shellAliases = {
       cat = "bat";
