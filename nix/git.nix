@@ -3,10 +3,11 @@
 {
   programs.git = {
     enable = true;
-    userName = "Moye Odiase";
-    userEmail = "moyeodiase@gmail.com";
-    extraConfig = {
+    settings = {
+      user.name = "Moye Odiase";
+      user.email = "moyeodiase@gmail.com";
       core.editor = "nvim";
+      core.pager = "delta";
       credential.helper =
         if pkgs.stdenv.isDarwin then "osxkeychain" else "${pkgs.pass-git-helper}/bin/pass-git-helper";
       filter.lfs.required = true;
@@ -16,6 +17,11 @@
       push.autoSetupRemote = true;
       pull.rebase = true;
       init.defaultBranch = "main";
+      interactive.diffFilter = "delta --color-only";
+      delta.navigate = true;
+      delta."syntax-theme" = "Nord";
+      merge.conflictstyle = "diff3";
+      diff.colorMoved = "default";
     };
   };
 }

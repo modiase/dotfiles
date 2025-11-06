@@ -35,6 +35,7 @@
     claude-code
     codex-cli
     coreutils
+    delta
     direnv
     docker
     duf
