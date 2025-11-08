@@ -23,5 +23,8 @@
       merge.conflictstyle = "diff3";
       diff.colorMoved = "default";
     };
+    includes = [
+      { path = "~/.config/git/maintenance.config"; }
+    ];
   };
 }

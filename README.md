@@ -38,6 +38,17 @@ PROJECT_ID=modiase-infra ./bin/build-and-deploy-hermes.sh
 3. Terraform creates the image and instance. Hermes boots directly into the NixOS
    configuration (user `moye`, ntfy/n8n services, nginx, backups, dotfiles bootstrap).
 
+## Git Maintenance
+
+Enable background git maintenance (hourly prefetch, commit-graph updates, etc.) in any repo:
+
+```bash
+git config --file ~/.config/git/maintenance.config --add maintenance.repo "$(pwd)"
+git maintenance start --scheduler=auto
+```
+
+The `--file` flag is required because home-manager manages the global git config as read-only. Maintenance settings are stored in `~/.config/git/maintenance.config`, which is included in the global config.
+
 ## Agent Workflow Notes
 
 Automations and CI jobs must:
