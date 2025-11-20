@@ -32,6 +32,10 @@ in
   nixpkgs.hostPlatform = "aarch64-linux";
 
   boot.kernelPackages = pkgs.linuxPackages_latest;
+  boot.supportedFilesystems = lib.mkForce [
+    "vfat"
+    "ext4"
+  ];
   boot.initrd.availableKernelModules = [
     "xhci_pci"
     "usbhid"
@@ -74,9 +78,9 @@ in
   environment.etc."rbash-wrapper".source = pkgs.writeShellScript "rbash-wrapper" ''
     #!/bin/bash
     export PATH="/var/lib/rbash-bin"
-    export PS1="hekate:\w\$ "
+    export PS1='\[\033[1;37m\]hekate\[\033[0m\]> '
     cd /var/log 2>/dev/null || cd /
-    exec ${pkgs.bash}/bin/bash --restricted
+    exec ${pkgs.bash}/bin/bash --restricted --norc --noprofile
   '';
 
   hardware.enableRedistributableFirmware = true;
@@ -165,7 +169,7 @@ in
       LogLevel = "INFO";
     };
     extraConfig = ''
-      Match User moye
+      Match User admin
         ForceCommand /etc/rbash-wrapper
         AllowTcpForwarding no
         AllowAgentForwarding no
@@ -207,9 +211,9 @@ in
     RestrictNamespaces = true;
   };
 
-  users.users.moye = {
+  users.users.admin = {
     isNormalUser = true;
-    home = "/home/moye";
+    home = "/home/admin";
     createHome = false;
     shell = "${pkgs.bash}/bin/bash";
     openssh.authorizedKeys.keys = authorizedKeyLists.moye;
@@ -228,17 +232,6 @@ in
 
   security.sudo.enable = false;
 
-  systemd.services.wireguard-logger = {
-    description = "WireGuard connection logger";
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      Type = "simple";
-      ExecStart = "${pkgs.bash}/bin/bash -c 'journalctl -f -u systemd-networkd | grep -i wireguard >> /var/log/wireguard-access.log'";
-      Restart = "always";
-      RestartSec = "5s";
-    };
-  };
-
   systemd.services.ssh-logger = {
     description = "SSH connection logger";
     wantedBy = [ "multi-user.target" ];
@@ -253,15 +246,6 @@ in
   services.logrotate = {
     enable = true;
     settings = {
-      "/var/log/wireguard-access.log" = {
-        frequency = "daily";
-        rotate = 7;
-        compress = true;
-        delaycompress = true;
-        missingok = true;
-        notifempty = true;
-        postrotate = "systemctl reload rsyslog";
-      };
       "/var/log/ssh-access.log" = {
         frequency = "daily";
         rotate = 7;
@@ -276,9 +260,8 @@ in
 
   systemd.tmpfiles.rules = [
     "d /var/log 0755 root root - -"
-    "f /var/log/wireguard-access.log 0644 root root - -"
     "f /var/log/ssh-access.log 0644 root root - -"
-    "d /home/moye 0555 root root - -"
+    "d /home/admin 0555 root root - -"
     "d /var/lib/rbash-bin 0755 root root - -"
     "L+ /var/lib/rbash-bin/cat - - - - ${pkgs.coreutils}/bin/cat"
     "L+ /var/lib/rbash-bin/ls - - - - ${pkgs.coreutils}/bin/ls"
@@ -289,7 +272,6 @@ in
     "L+ /var/lib/rbash-bin/whoami - - - - ${pkgs.coreutils}/bin/whoami"
     "L+ /var/lib/rbash-bin/echo - - - - ${pkgs.coreutils}/bin/echo"
     "L+ /var/lib/rbash-bin/clear - - - - ${pkgs.ncurses}/bin/clear"
-    "f /home/moye/.bash_profile 0644 root root - PATH=/var/lib/rbash-bin"
     "Z /tmp 0700 root root - -"
     "Z /var/tmp 0700 root root - -"
   ];
