@@ -1,15 +1,42 @@
 repos:
   - repo: local
     hooks:
-      - id: format-files
-        name: format files
+      - id: format-nix
+        name: format nix files
         entry: bash
         language: system
-        files: \.(nix|lua|fish)$
+        files: \.nix$
         pass_filenames: false
         args:
           - -c
-          - "nix-shell -p fd nixfmt-rfc-style stylua fish --run 'fd -e nix -x nixfmt && stylua . && fd -e fish -x fish_indent -w'"
+          - "nix-shell -p fd nixfmt-rfc-style --run 'fd -e nix -x nixfmt'"
+      - id: format-lua
+        name: format lua files
+        entry: bash
+        language: system
+        files: \.lua$
+        pass_filenames: false
+        args:
+          - -c
+          - "nix-shell -p stylua --run 'stylua .'"
+      - id: format-fish
+        name: format fish files
+        entry: bash
+        language: system
+        files: \.fish$
+        pass_filenames: false
+        args:
+          - -c
+          - "nix-shell -p fd fish --run 'fd -e fish -x fish_indent -w'"
+      - id: format-go
+        name: format go files
+        entry: bash
+        language: system
+        files: \.go$
+        pass_filenames: false
+        args:
+          - -c
+          - "nix-shell -p fd go --run 'fd -e go -x gofmt -w'"
       - id: ruff-check
         name: ruff check
         entry: bash
