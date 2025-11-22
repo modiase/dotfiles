@@ -92,9 +92,46 @@ def flash_image_to_device(image_file: Path, device_path: str) -> bool:
             _run_disk_command(["sudo", "umount", f"{device_path}*"], "Unmount")
 
         logger.info("Starting flash process...")
-        flash_cmd = (
-            f"zstd -d -c {image_file} | sudo dd of={device_path} bs=4M status=progress"
-        )
+
+        decompressed_size = None
+        try:
+            zstd_info = subprocess.run(
+                ["zstd", "--list", str(image_file)],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            for line in zstd_info.stdout.splitlines():
+                parts = line.split()
+                if len(parts) >= 6 and parts[0].isdigit():
+                    size_str = parts[4]
+                    unit = parts[5]
+
+                    size_value = float(size_str)
+                    if "GiB" in unit or "GB" in unit:
+                        decompressed_size = int(size_value * 1024**3)
+                    elif "MiB" in unit or "MB" in unit:
+                        decompressed_size = int(size_value * 1024**2)
+                    elif "KiB" in unit or "KB" in unit:
+                        decompressed_size = int(size_value * 1024)
+                    else:
+                        decompressed_size = int(size_value)
+
+                    logger.info(
+                        f"Decompressed size: {decompressed_size / (1024**3):.2f} GB"
+                    )
+                    break
+        except Exception as e:
+            logger.debug(f"Could not get decompressed size: {e}")
+
+        if decompressed_size:
+            flash_cmd = (
+                f"zstd -d -c {image_file} | pv -s {decompressed_size} -p -t -e -r -b | "
+                f"sudo dd of={device_path} bs=4M conv=fsync"
+            )
+        else:
+            flash_cmd = f"zstd -d -c {image_file} | sudo dd of={device_path} bs=4M status=progress"
+
         result = subprocess.run(flash_cmd, shell=True, check=False, text=True)
 
         if result.returncode == 0:

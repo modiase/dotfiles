@@ -365,6 +365,7 @@
           runtimeInputs = [
             deployPythonEnv
             pkgs.google-cloud-sdk
+            pkgs.pv
           ];
           text = ''
             export PYTHONPATH="${./lib}:''${PYTHONPATH:-}"

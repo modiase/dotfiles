@@ -12,6 +12,13 @@ let
     url = "https://github.com/NixOS/nixos-hardware/archive/9c0ee5dfa186e10efe9b53505b65d22c81860fde.tar.gz";
     sha256 = "092yc6rp7xj4rygldv5i693xnhz7nqnrwrz1ky1kq9rxy2f5kl10";
   };
+  wg-status-server = pkgs.writeShellScript "wg-status-server.sh" (
+    builtins.readFile ./wg-status-server.sh
+  );
+  health-status-server = pkgs.writeShellScript "health-status-server.sh" (
+    builtins.readFile ./health-status-server.sh
+  );
+  boot-time-sync = pkgs.writeShellScript "boot-time-sync.sh" (builtins.readFile ./boot-time-sync.sh);
   encryptedKey = ''
     -----BEGIN PGP MESSAGE-----
 
@@ -21,6 +28,7 @@ let
     =GlBK
     -----END PGP MESSAGE-----
   '';
+  hekate-dashboard = pkgs.callPackage ./hekate-dashboard { };
 in
 
 {
@@ -46,7 +54,6 @@ in
   boot.loader.generic-extlinux-compatible.enable = true;
   boot.kernelParams = [
     "8250.nr_uarts=1"
-    "console=ttyAMA0,115200"
     "console=tty1"
     "cma=128M"
     "dyndbg=\"module wireguard +p\""
@@ -66,6 +73,7 @@ in
   documentation.doc.enable = false;
 
   services.thermald.enable = false;
+
   programs.command-not-found.enable = false;
   programs.nano.enable = false;
 
@@ -74,14 +82,6 @@ in
     util-linux
     gnupg
   ];
-
-  environment.etc."rbash-wrapper".source = pkgs.writeShellScript "rbash-wrapper" ''
-    #!/bin/bash
-    export PATH="/var/lib/rbash-bin"
-    export PS1='\[\033[1;37m\]hekate\[\033[0m\]> '
-    cd /var/log 2>/dev/null || cd /
-    exec ${pkgs.bash}/bin/bash --restricted --norc --noprofile
-  '';
 
   hardware.enableRedistributableFirmware = true;
 
@@ -95,6 +95,7 @@ in
   networking.wireguard.interfaces.wg0 = {
     ips = [ "10.0.0.1/24" ];
     listenPort = 51820;
+    mtu = 1280;
     privateKeyFile = "/etc/wireguard/private.key";
     peers = [
       {
@@ -115,11 +116,9 @@ in
     enable = true;
     allowedUDPPorts = [
       51820
-      53
       5353
     ];
     allowedTCPPorts = [
-      53
       22
     ];
     extraCommands = ''
@@ -131,6 +130,7 @@ in
       iptables -A OUTPUT -d 172.16.0.0/12 -j ACCEPT
       iptables -A OUTPUT -o lo -j ACCEPT
       iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
       iptables -A OUTPUT -j DROP
     '';
     extraStopCommands = ''
@@ -170,7 +170,7 @@ in
     };
     extraConfig = ''
       Match User admin
-        ForceCommand /etc/rbash-wrapper
+        ForceCommand ${hekate-dashboard}/bin/hekate-dashboard
         AllowTcpForwarding no
         AllowAgentForwarding no
         X11Forwarding no
@@ -219,6 +219,8 @@ in
     openssh.authorizedKeys.keys = authorizedKeyLists.moye;
   };
 
+  security.sudo.enable = false;
+
   boot.kernel.sysctl = {
     "kernel.dmesg_restrict" = 1;
     "kernel.kptr_restrict" = 2;
@@ -230,13 +232,10 @@ in
 
   nix.settings.allowed-users = [ "root" ];
 
-  security.sudo.enable = false;
-
   systemd.services.ssh-logger = {
     description = "SSH connection logger";
     wantedBy = [ "multi-user.target" ];
     serviceConfig = {
-      Type = "simple";
       ExecStart = "${pkgs.bash}/bin/bash -c 'journalctl -f -u sshd | tee -a /var/log/ssh-access.log'";
       Restart = "always";
       RestartSec = "5s";
@@ -258,20 +257,75 @@ in
     };
   };
 
+  systemd.services.wg-status-server = {
+    description = "WireGuard status server for dashboard";
+    wantedBy = [ "multi-user.target" ];
+    path = [
+      pkgs.wireguard-tools
+      pkgs.coreutils
+      pkgs.gawk
+      pkgs.socat
+    ];
+    serviceConfig = {
+      ExecStart = "${wg-status-server}";
+      Restart = "always";
+      RestartSec = "5s";
+      RuntimeDirectory = "wg-status";
+    };
+  };
+
+  systemd.services.health-status-server = {
+    description = "System health status server for dashboard";
+    wantedBy = [ "multi-user.target" ];
+    path = [
+      pkgs.coreutils
+      pkgs.procps
+      pkgs.gawk
+      pkgs.socat
+    ];
+    serviceConfig = {
+      ExecStart = "${health-status-server}";
+      Restart = "always";
+      RestartSec = "5s";
+      User = "nobody";
+      RuntimeDirectory = "health-status";
+      NoNewPrivileges = true;
+      PrivateTmp = true;
+      ProtectSystem = "strict";
+      ProtectHome = true;
+    };
+  };
+
+  services.timesyncd.enable = true;
+
+  systemd.services.boot-time-sync = {
+    description = "One-time NTP sync before firewall lockdown";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "firewall.service" ];
+    after = [
+      "systemd-timesyncd.service"
+      "network-online.target"
+    ];
+    wants = [ "network-online.target" ];
+    path = [
+      pkgs.systemd
+      pkgs.coreutils
+      pkgs.gnugrep
+    ];
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${boot-time-sync}";
+      TimeoutStartSec = "30s";
+      RemainAfterExit = false;
+    };
+  };
+
+  systemd.services.firewall.after = [ "boot-time-sync.service" ];
+
   systemd.tmpfiles.rules = [
     "d /var/log 0755 root root - -"
     "f /var/log/ssh-access.log 0644 root root - -"
     "d /home/admin 0555 root root - -"
-    "d /var/lib/rbash-bin 0755 root root - -"
-    "L+ /var/lib/rbash-bin/cat - - - - ${pkgs.coreutils}/bin/cat"
-    "L+ /var/lib/rbash-bin/ls - - - - ${pkgs.coreutils}/bin/ls"
-    "L+ /var/lib/rbash-bin/head - - - - ${pkgs.coreutils}/bin/head"
-    "L+ /var/lib/rbash-bin/tail - - - - ${pkgs.coreutils}/bin/tail"
-    "L+ /var/lib/rbash-bin/grep - - - - ${pkgs.gnugrep}/bin/grep"
-    "L+ /var/lib/rbash-bin/pwd - - - - ${pkgs.coreutils}/bin/pwd"
-    "L+ /var/lib/rbash-bin/whoami - - - - ${pkgs.coreutils}/bin/whoami"
-    "L+ /var/lib/rbash-bin/echo - - - - ${pkgs.coreutils}/bin/echo"
-    "L+ /var/lib/rbash-bin/clear - - - - ${pkgs.ncurses}/bin/clear"
     "Z /tmp 0700 root root - -"
     "Z /var/tmp 0700 root root - -"
   ];
