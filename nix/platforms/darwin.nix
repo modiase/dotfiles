@@ -6,6 +6,8 @@
     ../yabai.nix
   ];
 
+  nixpkgs.config.allowUnfree = true;
+
   home.packages = with pkgs; [
     colima
     coreutils-prefixed

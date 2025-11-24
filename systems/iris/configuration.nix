@@ -36,8 +36,4 @@
     git
   ];
 
-  environment.etc."slurm/slurm.conf".text = import ../shared/slurm-client-config.nix {
-    controlAddr = "10.0.100.97";
-  };
-
 }
