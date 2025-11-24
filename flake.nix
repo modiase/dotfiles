@@ -31,7 +31,7 @@
         "aarch64-darwin"
       ];
       lib = nixpkgs.lib;
-      authorizedKeys = import ./systems/authorized-keys.nix;
+      authorizedKeys = import ./systems/shared/authorized-keys.nix;
       authorizedKeyLists = lib.mapAttrs (
         _: hostMap:
         let

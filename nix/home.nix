@@ -88,6 +88,7 @@
     ripgrep
     sd
     nodePackages.svelte-language-server
+    slurm
     terraform-ls
     tldr
     tshark
