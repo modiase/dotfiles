@@ -114,33 +114,4 @@
 
   system.stateVersion = "25.05";
   virtualisation.docker.enable = true;
-
-  services.slurm = (import ../shared/slurm-cluster.nix { }) // {
-    server.enable = true;
-    client.enable = true;
-    controlMachine = "herakles";
-  };
-
-  services.munge = {
-    enable = true;
-    password = "/var/secrets/munge.key";
-  };
-
-  system.activationScripts.setupMungeKey = ''
-    mkdir -p /var/secrets
-    if [ -f /home/moye/Dotfiles/secrets/munge.key ]; then
-      cp /home/moye/Dotfiles/secrets/munge.key /var/secrets/munge.key
-      chown munge:munge /var/secrets/munge.key
-      chmod 0400 /var/secrets/munge.key
-    fi
-  '';
-
-  environment.etc."slurm/gres.conf".text = ''
-    NodeName=herakles Name=gpu File=/dev/nvidia0
-  '';
-
-  system.activationScripts.setupSlurmDirs = ''
-    mkdir -p /var/log/slurm
-    chown slurm:slurm /var/log/slurm
-  '';
 }
