@@ -57,7 +57,6 @@
     nvitop
     vim
     wget
-    xorg.xauth
   ];
 
   services.openssh = {

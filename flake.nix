@@ -111,44 +111,7 @@
             }
           ];
         };
-      darwinCommonModules = [
-        (
-          { pkgs, ... }:
-          {
-            environment.systemPackages = [ pkgs.xquartz ];
-
-            launchd.daemons."org.nixos.xquartz.privileged_startx" = {
-              serviceConfig = {
-                Label = "org.nixos.xquartz.privileged_startx";
-                ProgramArguments = [
-                  "${pkgs.xquartz}/libexec/privileged_startx"
-                  "-d"
-                  "${pkgs.xquartz}/etc/X11/xinit/privileged_startx.d"
-                ];
-                MachServices."org.nixos.xquartz.privileged_startx" = true;
-                TimeOut = 120;
-                EnableTransactions = true;
-              };
-            };
-
-            launchd.user.agents."org.nixos.xquartz.startx" = {
-              serviceConfig = {
-                Label = "org.nixos.xquartz.startx";
-                ProgramArguments = [
-                  "${pkgs.xquartz}/libexec/launchd_startx"
-                  "${pkgs.xquartz}/bin/startx"
-                  "--"
-                  "${pkgs.xquartz}/bin/Xquartz"
-                ];
-                ServiceIPC = true;
-                EnableTransactions = true;
-                Sockets."org.nixos.xquartz:0".SecureSocketWithKey = "DISPLAY";
-                EnvironmentVariables.FONTCONFIG_FILE = "${pkgs.xquartz}/etc/X11/fonts.conf";
-              };
-            };
-          }
-        )
-      ];
+      darwinCommonModules = [ ];
     in
     {
       homeConfigurations."${username}-x86_64-linux" = home-manager.lib.homeManagerConfiguration {
