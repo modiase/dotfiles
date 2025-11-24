@@ -30,7 +30,6 @@
   home.packages = with pkgs; [
     (callPackage ./nixpkgs/ankigen { })
     (callPackage ./nixpkgs/cursor-agent { })
-    awscli2
     cargo
     claude-code
     codex-cli
@@ -64,7 +63,6 @@
     nixfmt-rfc-style
     nmap
     nodePackages.pnpm
-    nodePackages.ts-node
     nodePackages.typescript
     nodejs
     ntfy-sh
