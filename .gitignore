@@ -3,6 +3,9 @@ gpt-cli/history
 .env
 .cache/
 
+# Secrets
+secrets/
+
 # Editor artifacts
 nvim/sessions/*
 
