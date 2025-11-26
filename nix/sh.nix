@@ -1,4 +1,9 @@
-{ pkgs, ... }:
+{
+  pkgs,
+  system,
+  lib,
+  ...
+}:
 
 let
   displayResolver = import ./lib/resolve-display.nix { inherit pkgs; };
@@ -48,6 +53,10 @@ let
     fi
   '';
 
+  setTmuxTmpdir = lib.optionalString (!lib.hasSuffix "darwin" system) ''
+    export TMUX_TMPDIR=/run/user/$(id -u)/tmux-$(id -u)
+  '';
+
 in
 {
   programs = {
@@ -56,6 +65,7 @@ in
       initExtra =
         nixInit
         + setDisplay
+        + setTmuxTmpdir
         + ''
           if [ -f "$HOME/.bashrc.local" ]; then
             source "$HOME/.bashrc.local"
@@ -74,6 +84,7 @@ in
       initContent =
         nixInit
         + setDisplay
+        + setTmuxTmpdir
         + ''
           if [ -f "$HOME/.zshrc.local" ]; then
             source "$HOME/.zshrc.local"
