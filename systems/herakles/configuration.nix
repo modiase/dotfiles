@@ -54,7 +54,15 @@
     git
     jq
     nix-prefetch
-    nvitop
+    (pkgs.symlinkJoin {
+      name = "nvitop-wrapped";
+      paths = [ nvitop ];
+      buildInputs = [ pkgs.makeWrapper ];
+      postBuild = ''
+        wrapProgram $out/bin/nvitop \
+          --prefix LD_LIBRARY_PATH : "${config.hardware.nvidia.package}/lib"
+      '';
+    })
     vim
     wget
   ];
