@@ -310,7 +310,6 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
 
-        # Python environment for deployment tools
         deployPythonEnv = pkgs.python312.withPackages (
           ps: with ps; [
             click
@@ -322,7 +321,6 @@
           ]
         );
 
-        # Build hekate app
         build-hekate = pkgs.writeShellApplication {
           name = "build-hekate";
           runtimeInputs = [
@@ -337,7 +335,6 @@
           '';
         };
 
-        # Build hermes app
         build-hermes = pkgs.writeShellApplication {
           name = "build-hermes";
           runtimeInputs = [
