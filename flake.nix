@@ -52,6 +52,7 @@
             nerd-fonts.iosevka
             space-grotesk
             lato
+            aleo
           ];
 
           launchd.user.agents.yabai = {
@@ -124,6 +125,7 @@
               codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
               space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
               lato = super.callPackage ./nix/nixpkgs/lato { };
+              aleo = super.callPackage ./nix/nixpkgs/aleo { };
             })
           ];
         };
@@ -149,6 +151,7 @@
               codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
               space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
               lato = super.callPackage ./nix/nixpkgs/lato { };
+              aleo = super.callPackage ./nix/nixpkgs/aleo { };
             })
           ];
         };
@@ -174,6 +177,7 @@
               codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
               space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
               lato = super.callPackage ./nix/nixpkgs/lato { };
+              aleo = super.callPackage ./nix/nixpkgs/aleo { };
             })
           ];
         };
@@ -197,6 +201,7 @@
             (self: super: {
               space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
               lato = super.callPackage ./nix/nixpkgs/lato { };
+              aleo = super.callPackage ./nix/nixpkgs/aleo { };
             })
           ];
         };
@@ -222,6 +227,7 @@
             (self: super: {
               space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
               lato = super.callPackage ./nix/nixpkgs/lato { };
+              aleo = super.callPackage ./nix/nixpkgs/aleo { };
             })
           ];
         };
