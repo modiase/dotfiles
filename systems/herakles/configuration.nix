@@ -67,12 +67,7 @@
     wget
   ];
 
-  services.openssh = {
-    enable = true;
-    settings = {
-      X11Forwarding = true;
-    };
-  };
+  services.openssh.enable = true;
 
   services.avahi = {
     enable = true;
