@@ -1,2 +1,37 @@
 provider: custom_herakles
 model: cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit
+
+extensions:
+  developer:
+    bundled: true
+    enabled: true
+    name: developer
+    timeout: 300
+    type: builtin
+  computercontroller:
+    bundled: true
+    enabled: true
+    name: computercontroller
+    timeout: 300
+    type: builtin
+  exa:
+    enabled: true
+    name: Exa Web Search
+    description: Exa MCP server for web search and web crawling
+    timeout: 300
+    type: stdio
+    cmd: npx
+    args:
+      - -y
+      - exa-mcp-server
+    env_keys:
+      - EXA_API_KEY
+  fetch:
+    enabled: true
+    name: Fetch
+    description: Web content fetching and conversion for LLMs
+    timeout: 300
+    type: stdio
+    cmd: uvx
+    args:
+      - mcp-server-fetch
