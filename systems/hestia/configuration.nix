@@ -54,6 +54,8 @@ in
     allowedTCPPorts = [
       22
       80
+      1883
+      8080
     ];
     allowedUDPPorts = [
       5353
@@ -79,6 +81,43 @@ in
     };
   };
 
+  services.mosquitto = {
+    enable = true;
+    listeners = [
+      {
+        address = "127.0.0.1";
+        port = 1883;
+      }
+    ];
+  };
+
+  services.zigbee2mqtt = {
+    enable = true;
+    settings = {
+      homeassistant = {
+        enabled = true;
+      };
+      permit_join = false;
+      mqtt = {
+        server = "mqtt://127.0.0.1:1883";
+      };
+      serial = {
+        port = "/dev/zigbee";
+        adapter = "zstack";
+      };
+      frontend = {
+        port = 8080;
+      };
+    };
+  };
+
+  services.udev.extraRules = ''
+    SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="zigbee", MODE="0666", GROUP="dialout"
+    SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="zigbee", MODE="0666", GROUP="dialout"
+  '';
+
+  users.users.zigbee2mqtt.extraGroups = [ "dialout" ];
+
   services.home-assistant = {
     enable = true;
     extraComponents = [
@@ -86,6 +125,8 @@ in
       "hue"
       "tado"
       "todoist"
+      "mqtt"
+      "zha"
     ];
     customComponents = [ ];
     config = {
@@ -152,7 +193,7 @@ in
     git
     gnupg
     google-cloud-sdk
-    pinentry
+    pinentry-curses
     rsync
     util-linux
   ];
