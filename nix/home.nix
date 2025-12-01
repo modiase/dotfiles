@@ -30,6 +30,7 @@
   home.packages = with pkgs; [
     (callPackage ./nixpkgs/ankigen { })
     (callPackage ./nixpkgs/cursor-agent { })
+    (callPackage ./nixpkgs/coder { })
     cargo
     claude-code
     codex-cli

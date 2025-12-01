@@ -1,0 +1,21 @@
+{
+  "name": "custom_herakles",
+  "engine": "openai",
+  "display_name": "herakles",
+  "description": "Custom herakles provider",
+  "api_key_env": "CUSTOM_HERAKLES_API_KEY",
+  "base_url": "http://herakles:8000",
+  "models": [
+    {
+      "name": "cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit",
+      "context_limit": 128000,
+      "input_token_cost": null,
+      "output_token_cost": null,
+      "currency": null,
+      "supports_cache_control": null
+    }
+  ],
+  "headers": null,
+  "timeout_seconds": null,
+  "supports_streaming": true
+}
