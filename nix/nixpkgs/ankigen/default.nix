@@ -95,8 +95,8 @@ pkgs.writeShellScriptBin "ankigen" ''
     fi
     local user_message
     user_message=$(build_user_message "$1")
-    local model="claude-opus-4-1-20250805"
-    [ "$FAST" = true ] && model="claude-3-5-haiku-20241022"
+    local model="claude-opus-4-5-20251101"
+    [ "$FAST" = true ] && model="claude-haiku-4-5-20251001"
 
     local tools='[]'
     [ "$USE_WEB" = true ] && tools='[{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}]'
@@ -132,8 +132,8 @@ pkgs.writeShellScriptBin "ankigen" ''
     local user_message
     user_message=$(build_user_message "$1")
 
-    local model="gpt-4.1"
-    [ "$FAST" = true ] && model="o4-mini"
+    local model="gpt-4.1-2025-04-14"
+    [ "$FAST" = true ] && model="o4-mini-2025-04-16"
 
     local tools='[]'
     [ "$USE_WEB" = true ] && tools='[{"type":"web_search"}]'
