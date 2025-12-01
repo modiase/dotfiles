@@ -127,6 +127,7 @@ in
       "todoist"
       "mqtt"
       "zha"
+      "ntfy"
     ];
     customComponents = [ ];
     config = {
