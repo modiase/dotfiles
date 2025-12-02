@@ -122,16 +122,26 @@ in
     enable = true;
     extraComponents = [
       "apple_tv"
+      "homekit_controller"
       "hue"
-      "tado"
-      "todoist"
+      "ipp"
+      "isal"
       "mqtt"
-      "zha"
       "ntfy"
+      "sonos"
+      "tado"
+      "thread"
+      "todoist"
+      "zha"
     ];
+    extraPackages =
+      python3Packages: with python3Packages; [
+        zlib-ng
+      ];
     customComponents = [ ];
     config = {
       default_config = { };
+      automation = "!include automations.yaml";
       homeassistant = {
         elevation = "!secret elevation";
         latitude = "!secret latitude";
