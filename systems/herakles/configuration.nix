@@ -105,6 +105,17 @@
 
   nix.settings = {
     max-jobs = 16;
+    trusted-users = [ "moye" ];
+    secret-key-files = [ "/etc/nix/signing-key.sec" ];
+    post-build-hook = pkgs.writeShellScript "post-build-hook" ''
+      set -eu
+      set -f
+      export IFS=' '
+
+      for path in $OUT_PATHS; do
+        ${pkgs.nix}/bin/nix store sign --key-file /etc/nix/signing-key.sec "$path"
+      done
+    '';
     substituters = [
       "https://cache.nixos.org"
       "https://cuda-maintainers.cachix.org"
