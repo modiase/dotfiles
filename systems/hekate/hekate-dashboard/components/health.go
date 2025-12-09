@@ -147,13 +147,13 @@ func (m HealthModel) renderMemory() string {
 }
 
 func (m HealthModel) renderSystem() string {
+	borderStyle := healthBorderStyle.Copy().Width(67)
+
 	labelStyle := healthLabelStyle.Copy().Width(12)
 	valueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("255"))
 
-	// Format uptime
 	uptime := formatUptime(m.health.System.UptimeSeconds)
 
-	// Temperature color coding
 	tempStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	if m.health.System.TemperatureCelsius > 70 {
 		tempStyle = tempStyle.Foreground(lipgloss.Color("9"))
@@ -171,7 +171,7 @@ func (m HealthModel) renderSystem() string {
 		content += labelStyle.Render("Temperature:") + tempStyle.Render(fmt.Sprintf("%d°C", m.health.System.TemperatureCelsius))
 	}
 
-	return healthBorderStyle.Render(content)
+	return borderStyle.Render(content)
 }
 
 func (m HealthModel) renderBar(percent int, width int) string {
