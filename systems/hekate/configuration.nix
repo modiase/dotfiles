@@ -18,7 +18,6 @@ let
   health-status-server = pkgs.writeShellScript "health-status-server.sh" (
     builtins.readFile ./health-status-server.sh
   );
-  boot-time-sync = pkgs.writeShellScript "boot-time-sync.sh" (builtins.readFile ./boot-time-sync.sh);
   encryptedKey = ''
     -----BEGIN PGP MESSAGE-----
 
@@ -131,6 +130,9 @@ in
       iptables -A OUTPUT -o lo -j ACCEPT
       iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
+      iptables -A OUTPUT -p udp -d 162.159.200.1 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT
+      iptables -A OUTPUT -p udp -d 162.159.200.123 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT
+
       iptables -A OUTPUT -j DROP
     '';
     extraStopCommands = ''
@@ -142,6 +144,8 @@ in
       iptables -D OUTPUT -d 172.16.0.0/12 -j ACCEPT 2>/dev/null || true
       iptables -D OUTPUT -o lo -j ACCEPT 2>/dev/null || true
       iptables -D OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
+      iptables -D OUTPUT -p udp -d 162.159.200.1 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT 2>/dev/null || true
+      iptables -D OUTPUT -p udp -d 162.159.200.123 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT 2>/dev/null || true
       iptables -D OUTPUT -j DROP 2>/dev/null || true
     '';
   };
@@ -296,31 +300,14 @@ in
     };
   };
 
-  services.timesyncd.enable = true;
-
-  systemd.services.boot-time-sync = {
-    description = "One-time NTP sync before firewall lockdown";
-    wantedBy = [ "multi-user.target" ];
-    before = [ "firewall.service" ];
-    after = [
-      "systemd-timesyncd.service"
-      "network-online.target"
+  services.timesyncd = {
+    enable = true;
+    servers = [ "time.cloudflare.com" ];
+    fallbackServers = [
+      "162.159.200.1"
+      "162.159.200.123"
     ];
-    wants = [ "network-online.target" ];
-    path = [
-      pkgs.systemd
-      pkgs.coreutils
-      pkgs.gnugrep
-    ];
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${boot-time-sync}";
-      TimeoutStartSec = "30s";
-      RemainAfterExit = false;
-    };
   };
-
-  systemd.services.firewall.after = [ "boot-time-sync.service" ];
 
   systemd.tmpfiles.rules = [
     "d /var/log 0755 root root - -"
