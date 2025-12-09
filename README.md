@@ -7,36 +7,42 @@ This repository contains:
 - Infrastructure-as-code (OpenTofu) to provision Google Cloud resources for Hermes.
 - Helper scripts to build Google Compute Engine images from the Nix flake.
 
-## Building Hermes GCE Images
+## Building and Deploying Hermes
 
-Use `bin/build-gce-nixos-image.sh` to build and upload a GCE-compatible raw disk
-image. The script requires `--attr` to specify which derivation to build. For Hermes,
-run:
+The `bin/build-hermes` tool provides a complete workflow for building and deploying Hermes:
 
-```
-PROJECT_ID=modiase-infra ./bin/build-gce-nixos-image.sh \
-  --attr nixosConfigurations.hermes.config.system.build.googleComputeImage \
-  --dest gs://modiase-infra/images/hermes-nixos-latest.tar.gz \
-  --remote-host herakles
+**Build + Upload + Deploy (recommended):**
+```bash
+./bin/build-hermes deploy
 ```
 
-This command builds the full Hermes system image, uploads it to Google Cloud Storage,
-and writes metadata alongside the tarball. Omitting `--dest` publishes a generic base image at
-`gs://modiase-infra/images/base-nixos-latest-x86_64.tar.gz`.
+This builds the GCE image on herakles, uploads it to GCS, taints the Terraform resources, and runs `tofu apply -auto-approve` to recreate the instance with the new image.
 
-For a combined build + taint + apply workflow (non-interactive `tofu apply -auto-approve`), run:
-
-```
-PROJECT_ID=modiase-infra ./bin/build-and-deploy-hermes.sh
+**Build + Upload only:**
+```bash
+./bin/build-hermes build
 ```
 
-## Provisioning Hermes
+Builds the image and uploads to `gs://modiase-infra/images/hermes-nixos-latest.tar.gz` without deploying.
 
-1. Ensure `infra/tofu.tfvars` points `nixos_image_source` to the uploaded tarball (e.g.
-   `https://storage.googleapis.com/modiase-infra/images/hermes-nixos-latest.tar.gz`).
-2. Run `cd infra && tofu plan -var-file=tofu.tfvars` followed by `tofu apply -var-file=tofu.tfvars`.
-3. Terraform creates the image and instance. Hermes boots directly into the NixOS
-   configuration (user `moye`, ntfy/n8n services, nginx, backups, dotfiles bootstrap).
+**Deploy only (skip build):**
+```bash
+./bin/build-hermes deploy --no-build
+```
+
+Uses the existing image in GCS and redeploys the instance.
+
+**Check prerequisites:**
+```bash
+./bin/build-hermes check
+```
+
+Validates Nix flake, Terraform config, gcloud auth, and SSH access to herakles.
+
+**Options:**
+- `-v` / `-vv` - Increase verbosity
+- `--project-id` - Override GCP project (default: modiase-infra)
+- `--remote-host` - Override build host (default: herakles)
 
 ## Git Maintenance
 
