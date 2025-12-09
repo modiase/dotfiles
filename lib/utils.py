@@ -480,25 +480,22 @@ def build_nix_image(
             "nix",
             "build",
             f"{repo_root}#{nix_attr}",
-            "--out-link",
-            str(result_link),
         ]
 
         if system:
             nix_cmd.extend(["--system", system])
 
         if remote_host:
-            target_system = system or "aarch64-linux"
             nix_cmd.extend(
                 [
-                    "--builders",
-                    f"ssh://moye@{remote_host} {target_system} - - -",
-                    "--max-jobs",
-                    "0",
-                    "--cores",
-                    "0",
+                    "--store",
+                    f"ssh-ng://moye@{remote_host}",
+                    "--eval-store",
+                    "auto",
                 ]
             )
+
+        nix_cmd.extend(["--out-link", str(result_link)])
 
         if extra_args:
             nix_cmd.extend(extra_args)

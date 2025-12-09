@@ -100,18 +100,33 @@ fi
 pushd "$TMPDIR" >/dev/null
 OUT_LINK="result-image"
 
-NIX_CMD=(nix build "${FLAKE_URI}#${IMAGE_ATTR}" --out-link "$OUT_LINK" --max-jobs 0 --cores 0 --log-format raw)
+NIX_CMD=(nix build "${FLAKE_URI}#${IMAGE_ATTR}" --max-jobs 0 --log-format raw)
 if [[ -n "$REMOTE_HOST" ]]; then
-    NIX_CMD+=(--builders "ssh://moye@${REMOTE_HOST} x86_64-linux - - - kvm" --system x86_64-linux)
+    NIX_CMD+=(--store "ssh-ng://moye@${REMOTE_HOST}" --eval-store auto --system x86_64-linux --no-link --print-out-paths)
+else
+    NIX_CMD+=(--out-link "$OUT_LINK")
 fi
 if [[ $VERBOSE_LEVEL -ge 1 ]]; then
     NIX_CMD+=(--print-build-logs)
 fi
 
-run_logged "nix-build" "$COLOR_WHITE" "${NIX_CMD[@]}"
-popd >/dev/null
+if [[ -n "$REMOTE_HOST" ]]; then
+    log_info "nix-build started"
+    REMOTE_OUT_PATH="$("${NIX_CMD[@]}" 2>&1 | tee >(cat >&2) | grep '^/nix/store' | head -1)"
+    if [[ $? -ne 0 ]]; then
+        log_error "nix-build failed"
+        exit 1
+    fi
+    log_success "nix-build completed"
+    log_info "Copying result from remote store: $REMOTE_OUT_PATH"
+    nix copy --from "ssh-ng://moye@${REMOTE_HOST}" "$REMOTE_OUT_PATH"
+    OUT_PATH="$REMOTE_OUT_PATH"
+else
+    run_logged "nix-build" "$COLOR_WHITE" "${NIX_CMD[@]}"
+    OUT_PATH="$(realpath "$TMPDIR/$OUT_LINK")"
+fi
 
-OUT_PATH="$(realpath "$TMPDIR/$OUT_LINK")"
+popd >/dev/null
 if [[ -d "$OUT_PATH" ]]; then
     TARBALL_PATH="$(find "$OUT_PATH" -maxdepth 1 -type f -name '*.tar.gz' | head -n1)"
 else
