@@ -31,6 +31,7 @@
     (callPackage ./nixpkgs/ankigen { })
     (callPackage ./nixpkgs/cursor-agent { })
     (callPackage ./nixpkgs/coder { })
+    (callPackage ./nixpkgs/secretsmanager { })
     cargo
     claude-code
     codex-cli

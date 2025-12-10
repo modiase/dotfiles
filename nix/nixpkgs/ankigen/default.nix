@@ -1,5 +1,8 @@
 { pkgs, lib, ... }:
 
+let
+  secretsmanager = pkgs.callPackage ../secretsmanager { };
+in
 pkgs.writeShellScriptBin "ankigen" ''
   set -euo pipefail
 
@@ -8,56 +11,6 @@ pkgs.writeShellScriptBin "ankigen" ''
   USE_WEB=false
   FAST=false
   TOKENS=2000
-
-
-
-  get_api_key() {
-    local env_name="$1"
-    local keychain_service="''${2:-$env_name}"
-    local pass_key="''${3:-}"
-    local env_value="''${!env_name:-}"
-
-    if [ -n "$env_value" ]; then
-      echo "$env_value"
-      return 0
-    fi
-
-    case "$(uname)" in
-      Darwin)
-        if ! env_value=$(security find-generic-password -a "$USER" -s "$keychain_service" -w 2>/dev/null); then
-          echo "Error: $env_name not found in macOS Keychain (service \"$keychain_service\")." >&2
-          echo "Run: security add-generic-password -a \"$USER\" -s \"$keychain_service\" -w \"YOUR_API_KEY\"" >&2
-          return 1
-        fi
-        ;;
-      Linux)
-        if ! command -v pass >/dev/null 2>&1; then
-          echo "Error: pass command not found in PATH." >&2
-          echo "Install pass and initialize it with: pass init <gpg-id>" >&2
-          return 1
-        fi
-        if [ ! -d "$HOME/.password-store" ]; then
-          echo "Error: pass password store is not initialized." >&2
-          echo "Run: pass init <gpg-id>" >&2
-          return 1
-        fi
-        if [ -z "$pass_key" ]; then
-          pass_key=$(printf '%s\n' "$env_name" | tr '[:upper:]' '[:lower:]' | tr '_' '-')
-        fi
-        if ! env_value=$(pass show "$pass_key" 2>/dev/null | head -n1); then
-          echo "Error: $env_name not found in pass (entry \"$pass_key\")." >&2
-          echo "Run: pass insert $pass_key" >&2
-          return 1
-        fi
-        ;;
-      *)
-        echo "Error: Unsupported OS $(uname)" >&2
-        return 1
-        ;;
-    esac
-
-    echo "$env_value"
-  }
 
   get_system_prompt() {
     local url="https://gist.githubusercontent.com/modiase/88cbb2e7947a4ae970a91d9e335ab59c/raw/anki.txt"
@@ -90,7 +43,7 @@ pkgs.writeShellScriptBin "ankigen" ''
 
   ankigen_claude() {
     local api_key
-    if ! api_key="$(get_api_key "ANTHROPIC_API_KEY" "ANTHROPIC_API_KEY" "anthropic-api-key")"; then
+    if ! api_key="$(${secretsmanager}/bin/secretsmanager get ANTHROPIC_API_KEY --pass-path anthropic-api-key)"; then
       exit 1
     fi
     local user_message
@@ -126,7 +79,7 @@ pkgs.writeShellScriptBin "ankigen" ''
 
   ankigen_chatgpt() {
     local api_key
-    if ! api_key="$(get_api_key "OPENAI_API_KEY" "OPENAI_API_KEY" "openai-api-key")"; then
+    if ! api_key="$(${secretsmanager}/bin/secretsmanager get OPENAI_API_KEY --pass-path openai-api-key)"; then
       exit 1
     fi
     local user_message
@@ -161,7 +114,7 @@ pkgs.writeShellScriptBin "ankigen" ''
 
   ankigen_gemini() {
     local api_key
-    if ! api_key="$(get_api_key "GEMINI_API_KEY" "GEMINI_API_KEY" "gemini-api-key")"; then
+    if ! api_key="$(${secretsmanager}/bin/secretsmanager get GEMINI_API_KEY --pass-path gemini-api-key)"; then
       exit 1
     fi
     local user_message
