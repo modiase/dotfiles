@@ -67,11 +67,16 @@
         HostName 192.168.1.97
         HostKeyAlias herakles
 
-    Host hermes
-        HostName 34.39.105.36
+    Match host hestia exec "ping -c1 -W3 10.0.100.184 >/dev/null 2>&1"
+        HostName 10.0.100.184
+        ServerAliveInterval 60
 
     Host hestia
-        HostName hestia.local
+        HostName 192.168.1.184
+        HostKeyAlias hestia
+
+    Host hermes
+        HostName 34.39.105.36
   '';
 
 }
