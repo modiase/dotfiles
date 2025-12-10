@@ -138,10 +138,13 @@ in
       python3Packages: with python3Packages; [
         zlib-ng
       ];
-    customComponents = [ ];
+    customComponents = with pkgs.home-assistant-custom-components; [
+      adaptive_lighting
+    ];
     config = {
       default_config = { };
       automation = "!include automations.yaml";
+      adaptive_lighting = { };
       homeassistant = {
         elevation = "!secret elevation";
         latitude = "!secret latitude";
