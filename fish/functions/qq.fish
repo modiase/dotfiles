@@ -39,33 +39,9 @@ else
     set pass_key anthropic-api-key
 end
 
-if set -q $api_key_env
-    gptcli --model $modelname $argv
-    return
-end
-
-set -l api_key
-if test (uname) = Darwin
-    set api_key (security find-generic-password -w -s "$keychain_service" 2>/dev/null)
-    if test $status -ne 0
-        echo "Error: $model_choice API key not found in macOS Keychain." >&2
-        echo "Please add it by running:" >&2
-        echo "security add-generic-password -a \"\$USER\" -s \"$keychain_service\" -w \"YOUR_API_KEY\"" >&2
-        return 1
-    end
-else
-    if not test -d "$HOME/.password-store"
-        echo "Error: pass password store is not initialized." >&2
-        echo "Please initialize it by running: pass init <gpg-id>" >&2
-        return 1
-    end
-    set api_key (pass show $pass_key 2>/dev/null)
-    if test $status -ne 0
-        echo "Error: $model_choice API key '$pass_key' not found in pass." >&2
-        echo "Please add it by running:" >&2
-        echo "pass insert $pass_key" >&2
-        return 1
-    end
+set -l api_key (secretsmanager get $api_key_env --pass-path $pass_key)
+if test $status -ne 0
+    return 1
 end
 
 set -x $api_key_env "$api_key"
