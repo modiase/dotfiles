@@ -44,13 +44,14 @@
     eza
     fd
     fzf
-    go
-    gopls
-    google-cloud-sdk
     gcc
     gemini-cli
     gh
+    glow
     gnused
+    go
+    google-cloud-sdk
+    gopls
     gpt-cli
     httpie
     jq
@@ -73,8 +74,8 @@
     pass-git-helper
     pgcli
     poetry
-    procs
     pre-commit
+    procs
     pstree
     (python313.withPackages (
       ps: with ps; [
