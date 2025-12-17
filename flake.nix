@@ -138,11 +138,10 @@
             })
           ];
         };
-        extraSpecialArgs = {
-          system = "x86_64-linux";
-        };
         modules = [
           ./nix/home.nix
+          ./nix/platforms/linux.nix
+          ./nix/architectures/x86_64.nix
           {
             home.homeDirectory = "/home/${username}";
             home.stateVersion = "24.05";
@@ -164,11 +163,10 @@
             })
           ];
         };
-        extraSpecialArgs = {
-          system = "aarch64-linux";
-        };
         modules = [
           ./nix/home.nix
+          ./nix/platforms/linux.nix
+          ./nix/architectures/aarch64.nix
           {
             home.homeDirectory = "/home/${username}";
             home.stateVersion = "24.05";
@@ -190,11 +188,10 @@
             })
           ];
         };
-        extraSpecialArgs = {
-          system = "aarch64-darwin";
-        };
         modules = [
           ./nix/home.nix
+          ./nix/platforms/darwin.nix
+          ./nix/architectures/aarch64.nix
           {
             home.homeDirectory = "/Users/${username}";
             home.stateVersion = "24.05";

@@ -1,7 +1,6 @@
 {
   pkgs,
   lib,
-  system,
   ...
 }:
 let
@@ -40,7 +39,7 @@ in
       ps = "procs";
       top = "btop";
     }
-    // lib.optionalAttrs (lib.hasSuffix "-linux" system) {
+    // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
       pbcopy = "xclip -selection clipboard";
     };
     shellAbbrs = {

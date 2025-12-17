@@ -116,15 +116,6 @@ in
           proxy_redirect / /projector/;
         '';
       };
-
-      locations."~* ^/projector/.*\\.(js|css|png|jpg|svg|woff|woff2)$" = {
-        proxyPass = "http://127.0.0.1:${toString ports.tk700Dashboard}";
-        extraConfig = ''
-          proxy_set_header Host ''$host;
-          proxy_cache_valid 200 1d;
-          add_header Cache-Control "public, immutable";
-        '';
-      };
     };
   };
 

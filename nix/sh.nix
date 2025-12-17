@@ -1,6 +1,5 @@
 {
   pkgs,
-  system,
   lib,
   ...
 }:
@@ -53,7 +52,7 @@ let
     fi
   '';
 
-  setTmuxTmpdir = lib.optionalString (!lib.hasSuffix "darwin" system) ''
+  setTmuxTmpdir = lib.optionalString (!pkgs.stdenv.hostPlatform.isDarwin) ''
     export TMUX_TMPDIR=/run/user/$(id -u)/tmux-$(id -u)
   '';
 
