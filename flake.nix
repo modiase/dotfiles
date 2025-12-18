@@ -12,8 +12,8 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     flake-utils.url = "github:numtide/flake-utils";
-    tk700-control-dashboard = {
-      url = "github:modiase/tk700-control-dashboard";
+    tk700-controller-dashboard = {
+      url = "github:modiase/tk700-controller-dashboard";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -25,7 +25,7 @@
       home-manager,
       nix-darwin,
       flake-utils,
-      tk700-control-dashboard,
+      tk700-controller-dashboard,
       ...
     }@inputs:
     let
@@ -307,8 +307,8 @@
             ];
             nixpkgs.overlays = [
               (final: prev: {
-                tk700-control-dashboard =
-                  tk700-control-dashboard.packages.${prev.system}.default.overrideAttrs
+                tk700-controller-dashboard =
+                  tk700-controller-dashboard.packages.${prev.system}.default.overrideAttrs
                     (old: {
                       basePath = "/projector/";
                       buildPhase = ''

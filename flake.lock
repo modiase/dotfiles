@@ -98,7 +98,7 @@
         "home-manager": "home-manager",
         "nix-darwin": "nix-darwin",
         "nixpkgs": "nixpkgs",
-        "tk700-control-dashboard": "tk700-control-dashboard"
+        "tk700-controller-dashboard": "tk700-controller-dashboard"
       }
     },
     "systems": {
@@ -131,7 +131,7 @@
         "type": "github"
       }
     },
-    "tk700-control-dashboard": {
+    "tk700-controller-dashboard": {
       "inputs": {
         "flake-utils": "flake-utils_2",
         "nixpkgs": [
@@ -139,16 +139,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1766057715,
-        "narHash": "sha256-dzXZhFET0UceeYdRIrKMtk9IhBuuhN/RilOF9kzhW04=",
+        "lastModified": 1766167100,
+        "narHash": "sha256-obucpDZqq5wyVWVpNK0wi0KpNkMHhxFLKdusmQfFweE=",
         "owner": "modiase",
-        "repo": "tk700-control-dashboard",
-        "rev": "835a64dc9ed7805219c9a39f7fcfb32fbd03ebf5",
+        "repo": "tk700-controller-dashboard",
+        "rev": "16db188ce9ff97d923ec03f278dbe721f519f1b4",
         "type": "github"
       },
       "original": {
         "owner": "modiase",
-        "repo": "tk700-control-dashboard",
+        "repo": "tk700-controller-dashboard",
         "type": "github"
       }
     }
