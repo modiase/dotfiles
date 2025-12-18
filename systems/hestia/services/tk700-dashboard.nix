@@ -6,25 +6,25 @@
 }:
 
 {
-  systemd.services.tk700-dashboard = {
-    description = "BenQ TK700 Control Dashboard";
+  systemd.services.tk700-controller-dashboard = {
+    description = "BenQ TK700 Controller Dashboard";
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
     wantedBy = [ "multi-user.target" ];
 
     environment = {
-      TK700_HOST = "192.168.1.80";
-      TK700_PORT = "8234";
-      TK700_TIMEOUT = "5000";
+      TK700_CONTROLLER_HOST = "192.168.1.80";
+      TK700_CONTROLLER_PORT = "8234";
+      TK700_CONTROLLER_TIMEOUT = "5000";
       PORT = "3000";
       NODE_ENV = "production";
-      BUN_INSTALL_CACHE_DIR = "/var/cache/tk700-dashboard/bun";
+      BUN_INSTALL_CACHE_DIR = "/var/cache/tk700-controller-dashboard/bun";
     };
 
     serviceConfig = {
       Type = "simple";
-      User = "tk700-dashboard";
-      Group = "tk700-dashboard";
+      User = "tk700-controller-dashboard";
+      Group = "tk700-controller-dashboard";
       Restart = "on-failure";
       RestartSec = "5s";
 
@@ -33,20 +33,20 @@
       ProtectSystem = "strict";
       ProtectHome = true;
 
-      CacheDirectory = "tk700-dashboard/bun";
+      CacheDirectory = "tk700-controller-dashboard/bun";
 
       MemoryMax = "512M";
       CPUQuota = "50%";
 
-      ExecStart = "${pkgs.tk700-control-dashboard}/bin/benq-control-server";
+      ExecStart = "${pkgs.tk700-controller-dashboard}/bin/tk700-controller-dashboard-server";
     };
   };
 
-  users.users.tk700-dashboard = {
+  users.users.tk700-controller-dashboard = {
     isSystemUser = true;
-    group = "tk700-dashboard";
-    description = "TK700 Dashboard Service User";
+    group = "tk700-controller-dashboard";
+    description = "TK700 Controller Dashboard Service User";
   };
 
-  users.groups.tk700-dashboard = { };
+  users.groups.tk700-controller-dashboard = { };
 }
