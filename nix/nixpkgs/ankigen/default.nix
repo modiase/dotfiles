@@ -11,6 +11,7 @@ pkgs.writeShellScriptBin "ankigen" ''
   USE_WEB=false
   FAST=false
   TOKENS=2000
+  FORMAT=true
 
   get_system_prompt() {
     local url="https://gist.githubusercontent.com/modiase/88cbb2e7947a4ae970a91d9e335ab59c/raw/anki.txt"
@@ -39,6 +40,26 @@ pkgs.writeShellScriptBin "ankigen" ''
 
   build_user_message() {
     printf 'Please create an Anki card for the following question: %s' "$1"
+  }
+
+  format_cards() {
+    local input="$1"
+    local front back
+
+    front=$(echo "$input" | ${pkgs.gnused}/bin/sed -n 's|.*<front>\(.*\)</front>.*|\1|p')
+    back=$(echo "$input" | ${pkgs.gnused}/bin/sed -n 's|.*<back>\(.*\)</back>.*|\1|p')
+
+    echo "┌─────────────────────────────────────────────────────────────────┐"
+    echo "│ FRONT                                                           │"
+    echo "└─────────────────────────────────────────────────────────────────┘"
+    echo "$front"
+    echo ""
+    echo "┌─────────────────────────────────────────────────────────────────┐"
+    echo "│ BACK                                                            │"
+    echo "└─────────────────────────────────────────────────────────────────┘"
+    echo "$back"
+    echo ""
+    echo "═════════════════════════════════════════════════════════════════"
   }
 
   ankigen_claude() {
@@ -74,7 +95,14 @@ pkgs.writeShellScriptBin "ankigen" ''
       exit 1
     fi
 
-    echo "$raw_response" | ${pkgs.jq}/bin/jq -r '.content[0].text' | ${pkgs.gnused}/bin/sed '/<thinking>/,/<\/thinking>/d'
+    local output
+    output=$(echo "$raw_response" | ${pkgs.jq}/bin/jq -r '.content[0].text' | ${pkgs.gnused}/bin/sed -e '/<thinking>/,/<\/thinking>/d' -e '/<drafts>/,/<\/drafts>/d')
+
+    if [ "$FORMAT" = true ]; then
+      format_cards "$output"
+    else
+      echo "$output"
+    fi
   }
 
   ankigen_chatgpt() {
@@ -109,7 +137,14 @@ pkgs.writeShellScriptBin "ankigen" ''
       exit 1
     fi
 
-    echo "$raw_response" | ${pkgs.jq}/bin/jq -r 'if .output_text and (.output_text|type=="string") and (.output_text|length>0) then .output_text else ([ .output[]? | select(.type=="message") | .content[]? | select(.type=="output_text") | .text // empty ] | join("\n\n")) // "No text output found." end' | ${pkgs.gnused}/bin/sed '/<thinking>/,/<\/thinking>/d'
+    local output
+    output=$(echo "$raw_response" | ${pkgs.jq}/bin/jq -r 'if .output_text and (.output_text|type=="string") and (.output_text|length>0) then .output_text else ([ .output[]? | select(.type=="message") | .content[]? | select(.type=="output_text") | .text // empty ] | join("\n\n")) // "No text output found." end' | ${pkgs.gnused}/bin/sed -e '/<thinking>/,/<\/thinking>/d' -e '/<drafts>/,/<\/drafts>/d')
+
+    if [ "$FORMAT" = true ]; then
+      format_cards "$output"
+    else
+      echo "$output"
+    fi
   }
 
   ankigen_gemini() {
@@ -144,10 +179,17 @@ pkgs.writeShellScriptBin "ankigen" ''
       exit 1
     fi
 
-    echo "$raw_response" | ${pkgs.jq}/bin/jq -r '[.candidates[]?.content.parts[]?.text // empty] | map(select(length>0)) | join("\n\n") | if length>0 then . else "No text output found." end' | ${pkgs.gnused}/bin/sed '/<thinking>/,/<\/thinking>/d'
+    local output
+    output=$(echo "$raw_response" | ${pkgs.jq}/bin/jq -r '[.candidates[]?.content.parts[]?.text // empty] | map(select(length>0)) | join("\n\n") | if length>0 then . else "No text output found." end' | ${pkgs.gnused}/bin/sed -e '/<thinking>/,/<\/thinking>/d' -e '/<drafts>/,/<\/drafts>/d')
+
+    if [ "$FORMAT" = true ]; then
+      format_cards "$output"
+    else
+      echo "$output"
+    fi
   }
 
-  TEMP=$(${pkgs.util-linux}/bin/getopt -o hbdfwt: --long help,no-cache,debug,fast,web,token: -n "$0" -- "$@")
+  TEMP=$(${pkgs.util-linux}/bin/getopt -o hbdfrwt: --long help,no-cache,debug,fast,raw,web,token: -n "$0" -- "$@")
   if [ $? != 0 ]; then
     echo "Error parsing options" >&2
     exit 1
@@ -156,10 +198,11 @@ pkgs.writeShellScriptBin "ankigen" ''
 
   while true; do
     case "$1" in
-      -h|--help) echo "Usage: $0 [claude|chatgpt|gemini] [-b|--no-cache] [-d|--debug] [-f|--fast] [-w|--web] [-t|--token N] \"question\""; exit 0 ;;
+      -h|--help) echo "Usage: $0 [claude|chatgpt|gemini] [-b|--no-cache] [-d|--debug] [-f|--fast] [-r|--raw] [-w|--web] [-t|--token N] \"question\""; exit 0 ;;
       -b|--no-cache) NO_CACHE=true; shift ;;
       -d|--debug) DEBUG=1; shift ;;
       -f|--fast) FAST=true; shift ;;
+      -r|--raw) FORMAT=false; shift ;;
       -w|--web) USE_WEB=true; shift ;;
       -t|--token) TOKENS="$2"; shift 2 ;;
       --) shift; break ;;
