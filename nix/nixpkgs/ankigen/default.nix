@@ -56,12 +56,40 @@ pkgs.writeShellScriptBin "ankigen" ''
     fi
   }
 
+  extract_xml_content() {
+    local input="$1"
+    local tag="$2"
+
+    echo "$input" | ${pkgs.libxml2}/bin/xmllint --html --xpath "string(//$tag)" - 2>/dev/null || echo ""
+  }
+
   format_cards() {
     local input="$1"
     local front back
 
-    front=$(echo "$input" | ${pkgs.gnused}/bin/sed -n 's|.*<front>\(.*\)</front>.*|\1|p')
-    back=$(echo "$input" | ${pkgs.gnused}/bin/sed -n 's|.*<back>\(.*\)</back>.*|\1|p')
+    front=$(extract_xml_content "$input" "front")
+    back=$(extract_xml_content "$input" "back")
+
+    if [[ -z "$front" || -z "$back" ]]; then
+      if [[ -t 1 ]]; then
+        local width
+        width=$(get_terminal_width)
+        local border_length=$((width - 2))
+        local top_line bottom_line line_chars
+        line_chars=$(printf '%*s' "$border_length" "" | ${pkgs.gnused}/bin/sed "s/./─/g")
+        top_line="┌''${line_chars}┐"
+        bottom_line="└''${line_chars}┘"
+        local label_padding=$((border_length - 2))
+
+        echo "$top_line"
+        printf "│ %-''${label_padding}s │\n" "ERROR"
+        echo "$bottom_line"
+        echo "$input"
+      else
+        echo "<error>$input</error>"
+      fi
+      return
+    fi
 
     if [[ ! -t 1 ]]; then
       echo "$input"
