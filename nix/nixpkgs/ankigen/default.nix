@@ -42,6 +42,20 @@ pkgs.writeShellScriptBin "ankigen" ''
     printf 'Please create an Anki card for the following question: %s' "$1"
   }
 
+  get_terminal_width() {
+    local width
+
+    if width=$(${pkgs.ncurses}/bin/tput cols 2>/dev/null) && [[ -n "$width" ]]; then
+      echo "$width"
+    elif [[ -n "$COLUMNS" ]]; then
+      echo "$COLUMNS"
+    elif width=$(stty size 2>/dev/null | cut -d' ' -f2) && [[ -n "$width" ]]; then
+      echo "$width"
+    else
+      echo "80"
+    fi
+  }
+
   format_cards() {
     local input="$1"
     local front back
@@ -49,17 +63,44 @@ pkgs.writeShellScriptBin "ankigen" ''
     front=$(echo "$input" | ${pkgs.gnused}/bin/sed -n 's|.*<front>\(.*\)</front>.*|\1|p')
     back=$(echo "$input" | ${pkgs.gnused}/bin/sed -n 's|.*<back>\(.*\)</back>.*|\1|p')
 
-    echo "┌─────────────────────────────────────────────────────────────────┐"
-    echo "│ FRONT                                                           │"
-    echo "└─────────────────────────────────────────────────────────────────┘"
+    if [[ ! -t 1 ]]; then
+      echo "$input"
+      return
+    fi
+
+    local width
+    width=$(get_terminal_width)
+
+    if ((width < 40)); then
+      echo "FRONT:"
+      echo "$front"
+      echo ""
+      echo "BACK:"
+      echo "$back"
+      return
+    fi
+
+    local border_length=$((width - 2))
+    local top_line bottom_line separator line_chars sep_chars
+    line_chars=$(printf '%*s' "$border_length" "" | ${pkgs.gnused}/bin/sed "s/./─/g")
+    sep_chars=$(printf '%*s' "$width" "" | ${pkgs.gnused}/bin/sed "s/./═/g")
+    top_line="┌''${line_chars}┐"
+    bottom_line="└''${line_chars}┘"
+    separator="$sep_chars"
+
+    local label_padding=$((border_length - 2))
+
+    echo "$top_line"
+    printf "│ %-''${label_padding}s │\n" "FRONT"
+    echo "$bottom_line"
     echo "$front"
     echo ""
-    echo "┌─────────────────────────────────────────────────────────────────┐"
-    echo "│ BACK                                                            │"
-    echo "└─────────────────────────────────────────────────────────────────┘"
+    echo "$top_line"
+    printf "│ %-''${label_padding}s │\n" "BACK"
+    echo "$bottom_line"
     echo "$back"
     echo ""
-    echo "═════════════════════════════════════════════════════════════════"
+    echo "$separator"
   }
 
   ankigen_claude() {
