@@ -13,6 +13,7 @@
     commonNixSettings
     darwinFrontendServices
     (heraklesBuildServer "iris")
+    ../../nix/homebrew.nix
   ];
 
   nixpkgs.hostPlatform = "aarch64-darwin";
@@ -40,7 +41,7 @@
     Include /Users/moye/.colima/ssh_config
 
     Host *
-        SetEnv TERM=alacritty
+        SetEnv TERM=xterm-256color
         IdentityFile ~/.ssh/iris.pem
 
     Match host pallas exec "ping -c1 -W3 10.0.100.204 >/dev/null 2>&1"

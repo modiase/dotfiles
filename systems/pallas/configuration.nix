@@ -13,6 +13,7 @@
     commonNixSettings
     darwinFrontendServices
     (heraklesBuildServer "pallas")
+    ../../nix/homebrew.nix
   ];
 
   nixpkgs.hostPlatform = "aarch64-darwin";

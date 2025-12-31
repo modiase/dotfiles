@@ -56,6 +56,55 @@
 - Run checks inside the activate shell when applicable to ensure the correct environment.
 - Do not bypass or disable hooks; fix code to satisfy them unless explicitly instructed otherwise.
 
+## Shell Scripting Style
+
+- **Prefer `&&` chaining over if/else** for simple conditionals:
+  ```bash
+  # Good: chain with && and early return
+  [[ "$condition" ]] && do_something && return
+  fallback_action
+
+  # Avoid: verbose if/else
+  if [[ "$condition" ]]; then
+      do_something
+  else
+      fallback_action
+  fi
+  ```
+- **Use conditional assignment** instead of if/else for variable values:
+  ```bash
+  # Good
+  local output="$default"
+  [[ "$condition" ]] && output="$alternate"
+
+  # Avoid
+  if [[ "$condition" ]]; then
+      local output="$alternate"
+  else
+      local output="$default"
+  fi
+  ```
+
+## Fish Functions
+
+- **Do NOT include function wrapper** - home-manager's `programs.fish.functions` automatically wraps the body
+- **Files in `fish/functions/` should contain ONLY the function body**, not `function name ... end`
+- Example - for a function `gst`, the file `fish/functions/gst.fish` should contain just: `git status $argv`
+- **Prefer command construction over if/else** - build commands with `set` and execute with `eval`:
+  ```fish
+  # Good: construct command, then eval
+  set -l cmd mycommand
+  test -n "$SOME_VAR"; and set -a cmd --some-flag
+  eval $cmd $argv
+
+  # Avoid: if/else branching
+  if test -n "$SOME_VAR"
+      mycommand --some-flag $argv
+  else
+      mycommand $argv
+  end
+  ```
+
 ## Core Principles
 
 - **Be Precise**: State facts from documentation, not assumptions
