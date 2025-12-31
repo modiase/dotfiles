@@ -48,7 +48,7 @@ in
       bind r source-file ~/.config/tmux/tmux.conf
 
       set -g default-terminal "tmux-256color"
-      set -ga terminal-overrides ",xterm-ghostty:Tc"
+      set -ga terminal-overrides ",xterm-ghostty:Tc,xterm-256color:Tc,tmux-256color:Tc"
       set -g allow-passthrough all
     '';
   };

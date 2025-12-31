@@ -41,7 +41,6 @@
     Include /Users/moye/.colima/ssh_config
 
     Host *
-        SetEnv TERM=xterm-256color
         IdentityFile ~/.ssh/iris.pem
 
     Match host pallas exec "ping -c1 -W3 10.0.100.204 >/dev/null 2>&1"
