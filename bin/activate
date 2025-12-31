@@ -1,13 +1,16 @@
-#!/usr/bin/env -S bash -eu
+#!/usr/bin/env bash
+set -eu
 
 LOG_LEVEL=2
 MAX_CORES=$(($(nproc) - 1))
+LOCK_TIMEOUT=30
 COLOR_ENABLED=true
+PRETTY=${PRETTY:-1}
 
 show_usage() {
     local exit_code=${1:-0}
     cat <<EOF
-Usage: $0 [-h] [-l LEVEL] [-c CORES]
+Usage: $0 [-h] [-l LEVEL] [-c CORES] [-t TIMEOUT] [-p]
 
 Activate dotfiles configuration for Darwin or NixOS systems.
 
@@ -18,25 +21,34 @@ Options:
                 2 = show stdout from rebuild processes
                 3+ = enable debug mode (set -x)
     -c CORES     Set max cores for parallel builds (default: $(nproc) - 1)
+    -t TIMEOUT   Set lock timeout in minutes (default: 30)
+                Prevents concurrent activations and detects hung processes
+    -p           Disable pretty output (no spinner)
+                Can also set PRETTY=0 environment variable
 
 Examples:
-    $0           # Activate with minimal output
+    $0           # Activate with default settings
     $0 -l 2      # Show rebuild process output
     $0 -l 3      # Enable debug mode
     $0 -c 4      # Use 4 cores for builds
+    $0 -t 60     # Use 60-minute timeout
+    $0 -p        # Disable spinner
+    PRETTY=0 $0  # Same as -p
     $0 -h        # Show this help
 
 The script will:
 - Update Darwin/NixOS system configuration
 - Update home-manager configuration
 - Use $(nproc) - 1 cores for parallel builds by default
+- Prevent concurrent activations with file locking
+- Show progress with spinner (unless disabled with -p)
 
 All output is timestamped and colorized when possible.
 EOF
     exit "$exit_code"
 }
 
-while getopts "hl:c:" opt; do
+while getopts "hl:c:t:p" opt; do
     case $opt in
         h)
             show_usage 0
@@ -56,6 +68,17 @@ while getopts "hl:c:" opt; do
                 echo "Error: -c requires a positive integer" >&2
                 show_usage 1
             fi
+            ;;
+        t)
+            if [[ "$OPTARG" =~ ^[0-9]+$ ]]; then
+                LOCK_TIMEOUT=$OPTARG
+            else
+                echo "Error: -t requires a positive integer (minutes)" >&2
+                show_usage 1
+            fi
+            ;;
+        p)
+            PRETTY=0
             ;;
         \?)
             show_usage 1
@@ -77,10 +100,93 @@ fi
 set -o pipefail
 export NIX_CONFIG="experimental-features = nix-command flakes"
 
+if [ "$(uname -s)" = "Darwin" ]; then
+    LOCKFILE="/tmp/dotfiles-activate-${UID}.lock"
+else
+    LOCKFILE="${XDG_RUNTIME_DIR:-/tmp}/dotfiles-activate-${UID}.lock"
+fi
+LOCK_ACQUIRED=0
+
+acquire_lock() {
+    local lockdir="${LOCKFILE}.d"
+    local pidfile="$lockdir/pid"
+    local tsfile="$lockdir/timestamp"
+    local timeoutfile="$lockdir/timeout"
+    local timeout_seconds=$((LOCK_TIMEOUT * 60))
+    local wait_elapsed=0
+    local max_wait=$timeout_seconds
+
+    while ! mkdir "$lockdir" 2>/dev/null; do
+        local lock_pid lock_ts lock_timeout lock_age
+        lock_pid=$(cat "$pidfile" 2>/dev/null)
+        lock_ts=$(cat "$tsfile" 2>/dev/null)
+        lock_timeout=$(cat "$timeoutfile" 2>/dev/null)
+
+        if [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null; then
+            echo "Removing stale lock (PID $lock_pid no longer exists)"
+            rm -rf "$lockdir"
+            continue
+        fi
+
+        if [ -n "$lock_ts" ] && [ -n "$lock_timeout" ]; then
+            lock_age=$(($(date +%s) - lock_ts))
+            local lock_timeout_seconds=$((lock_timeout * 60))
+            if [ "$lock_age" -ge "$lock_timeout_seconds" ]; then
+                echo "Removing stale lock (held for ${lock_age}s, timeout ${lock_timeout_seconds}s)"
+                rm -rf "$lockdir"
+                continue
+            fi
+        fi
+
+        if [ "$wait_elapsed" -ge "$max_wait" ]; then
+            echo "Error: Could not acquire lock after waiting ${LOCK_TIMEOUT} minutes (held by PID: ${lock_pid:-unknown})" >&2
+            return 1
+        fi
+
+        if [ "$wait_elapsed" -eq 0 ]; then
+            echo "Waiting for lock held by PID ${lock_pid:-unknown}"
+        fi
+
+        local remaining=$((max_wait - wait_elapsed))
+        echo "Waiting for lock... (${wait_elapsed}s elapsed, ${remaining}s remaining)"
+        sleep 5
+        wait_elapsed=$((wait_elapsed + 5))
+    done
+
+    echo $$ >"$pidfile"
+    date +%s >"$tsfile"
+    echo "$LOCK_TIMEOUT" >"$timeoutfile"
+    LOCK_ACQUIRED=1
+    return 0
+}
+
+release_lock() {
+    if [ "$LOCK_ACQUIRED" -eq 1 ]; then
+        rm -rf "${LOCKFILE}.d"
+    fi
+}
+
+cleanup_and_exit() {
+    release_lock
+    exit 130
+}
+
+trap release_lock EXIT
+trap cleanup_and_exit INT TERM
+
 COLOR_ENABLED=${COLOR_ENABLED:-true}
 LOGGING_NO_PREFIX=${LOGGING_NO_PREFIX:-0}
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 source "$REPO_ROOT/lib/lib.sh"
+
+log_to_system "info" "Activation started by $USER (timeout: ${LOCK_TIMEOUT}m, cores: ${MAX_CORES})"
+
+if ! acquire_lock; then
+    log_to_system "error" "Failed to acquire lock, aborting activation"
+    exit 1
+fi
+
+log_to_system "info" "Lock acquired successfully"
 
 if [ "$(uname -s)" = "Darwin" ]; then
     curl --proto '=https' --tlsv1.2 -sSf -L https://github.com/NixOS/nix/raw/master/scripts/sequoia-nixbld-user-migration.sh | bash - >/dev/null 2>&1 || true
@@ -107,10 +213,10 @@ ARCH=$(uname -m)
 case "$OS" in
     "Darwin")
         if ! command -v darwin-rebuild >/dev/null 2>&1; then
-            log_info "Installing nix-darwin..."
+            log_to_system "info" "Installing nix-darwin..."
             REBUILD_CMD="nix run nix-darwin/master#darwin-rebuild --"
         else
-            log_info "Updating nix-darwin configuration..."
+            log_to_system "info" "Updating nix-darwin configuration..."
             REBUILD_CMD="darwin-rebuild"
         fi
         if ! run_logged "darwin-rebuild" "$COLOR_WHITE" sudo NIX_CONFIG="$NIX_CONFIG" "$REBUILD_CMD" switch --flake . --max-jobs "$MAX_CORES" --cores "$MAX_CORES"; then
@@ -120,7 +226,7 @@ case "$OS" in
         ;;
     "Linux")
         if [ -f /etc/NIXOS ]; then
-            log_info "Updating NixOS configuration..."
+            log_to_system "info" "Updating NixOS configuration..."
             if ! run_logged "nixos-rebuild" "$COLOR_WHITE" sudo nixos-rebuild switch --flake . --max-jobs "$MAX_CORES" --cores "$MAX_CORES"; then
                 exit 1
             fi
@@ -145,4 +251,4 @@ if ! run_logged "home-manager" "$COLOR_WHITE" nix shell nixpkgs#home-manager -c 
     exit 1
 fi
 
-log_success "Configuration updated successfully!"
+log_to_system "info" "Configuration updated successfully"

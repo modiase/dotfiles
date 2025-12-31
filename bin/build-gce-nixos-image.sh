@@ -112,8 +112,7 @@ fi
 
 if [[ -n "$REMOTE_HOST" ]]; then
     log_info "nix-build started"
-    REMOTE_OUT_PATH="$("${NIX_CMD[@]}" 2>&1 | tee >(cat >&2) | grep '^/nix/store' | head -1)"
-    if [[ $? -ne 0 ]]; then
+    if ! REMOTE_OUT_PATH="$("${NIX_CMD[@]}" 2>&1 | tee >(cat >&2) | grep '^/nix/store' | head -1)"; then
         log_error "nix-build failed"
         exit 1
     fi
