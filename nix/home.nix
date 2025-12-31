@@ -31,6 +31,7 @@
     delta
     direnv
     docker
+    doggo
     duf
     dust
     eza

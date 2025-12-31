@@ -32,8 +32,8 @@
   system.primaryUser = "moye";
 
   environment.systemPackages = with pkgs; [
-    vim
     git
+    vim
   ];
 
   programs.ssh.extraConfig = ''
