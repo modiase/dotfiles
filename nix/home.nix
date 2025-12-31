@@ -7,11 +7,11 @@
 
 {
   imports = [
-    ./alacritty.nix
     ./bat.nix
     ./btop.nix
     ./fish.nix
     ./git.nix
+    ./ghostty.nix
     ./neovim.nix
     ./sh.nix
     ./tmux.nix
@@ -25,6 +25,13 @@
     (callPackage ./nixpkgs/coder { })
     (callPackage ./nixpkgs/secretsmanager { })
     cargo
+    (writeShellScriptBin "chafa" ''
+      if [[ -n "$TMUX" ]]; then
+        exec ${chafa}/bin/chafa --format kitty --passthrough tmux "$@"
+      else
+        exec ${chafa}/bin/chafa "$@"
+      fi
+    '')
     claude-code
     codex-cli
     coreutils
@@ -40,8 +47,8 @@
     gcc
     gemini-cli
     gh
-    glow
     gnused
+    glow
     go
     google-cloud-sdk
     gopls
@@ -66,7 +73,6 @@
     pass
     pass-git-helper
     pgcli
-    poetry
     pre-commit
     procs
     pstree

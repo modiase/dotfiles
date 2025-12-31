@@ -1,6 +1,8 @@
 { config, pkgs, ... }:
 
 let
+  colors = import ./colors.nix;
+
   commonTmuxConfig = ''
     # remap prefix from 'C-b' to 'C-a'
     unbind C-b
@@ -23,8 +25,8 @@ let
     # Clear terminal using <prefix> + C-l
     bind C-l send-keys 'C-l'
 
-    set -g window-active-style 'fg=#ffffff'
-    set -g window-style 'fg=#413c77'
+    set -g window-active-style 'fg=#${colors.foreground}'
+    set -g window-style 'fg=#${colors.foregroundDim}'
 
     set -g default-command ${pkgs.fish}/bin/fish
   '';
@@ -45,9 +47,9 @@ in
     extraConfig = commonTmuxConfig + ''
       bind r source-file ~/.config/tmux/tmux.conf
 
-      set -g terminal-overrides ',*alacritty*:Tc'
       set -g default-terminal "tmux-256color"
-      set -ga terminal-overrides ",alacritty:Tc"
+      set -ga terminal-overrides ",xterm-ghostty:Tc"
+      set -g allow-passthrough all
     '';
   };
 
@@ -59,6 +61,7 @@ in
     set -g terminal-overrides ',xterm-256color:Tc'
     set -ga terminal-overrides ',*:XT:Smulx@:Setulc@'
     set -ga terminal-overrides ',*:setrgbf@:setrgbb@:setrgbaf@:setrgbab@'
+    set -g allow-passthrough all
 
     run-shell '${pkgs.tmuxPlugins.sensible}/share/tmux-plugins/sensible/sensible.tmux'
     run-shell '${pkgs.tmuxPlugins.nord}/share/tmux-plugins/nord/nord.tmux'

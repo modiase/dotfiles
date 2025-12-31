@@ -132,9 +132,7 @@ log_to_system() {
 log_info() {
     local msg="$1"
     log_to_system "info" "$msg"
-    if [[ ${LOG_LEVEL:-1} -ge 1 ]]; then
-        log "$msg"
-    fi
+    [[ ${LOG_LEVEL:-1} -ge 1 ]] && log "$msg"
 }
 
 log_error() {
@@ -146,11 +144,8 @@ log_error() {
 log_success() {
     local msg="$1"
     log_to_system "info" "$msg"
-    if [[ ${PRETTY:-1} -eq 1 ]]; then
-        echo -e "${COLOR_GREEN}${msg}${COLOR_RESET}"
-    else
-        _print_log_line "success" "$msg" "" "$COLOR_CYAN" "$COLOR_GREEN" false
-    fi
+    [[ ${PRETTY:-1} -eq 1 ]] && echo -e "${COLOR_GREEN}${msg}${COLOR_RESET}" && return
+    _print_log_line "success" "$msg" "" "$COLOR_CYAN" "$COLOR_GREEN" false
 }
 
 check() {
@@ -159,28 +154,20 @@ check() {
 }
 
 debug() {
-    local MSG="$1"
-    if [[ ${DEBUG:-0} -gt 0 ]]; then
-        echo "${MSG}"
-    fi
+    [[ ${DEBUG:-0} -gt 0 ]] && echo "$1"
 }
 
 colorize() {
     local color="$1"
     local text="$2"
-    if [[ "$COLOR_ENABLED" = true && -t 1 ]]; then
-        echo -e "${color}${text}${COLOR_RESET}"
-    else
-        echo "$text"
-    fi
+    local output="$text"
+    [[ "$COLOR_ENABLED" = true && -t 1 ]] && output="${color}${text}${COLOR_RESET}"
+    echo -e "$output"
 }
 
 timestamp_prefix() {
-    if [[ "$LOGGING_NO_PREFIX" == "1" ]]; then
-        printf ""
-    else
-        printf "%s" "$(date '+%H:%M:%S')"
-    fi
+    [[ "$LOGGING_NO_PREFIX" == "1" ]] && return
+    printf "%s" "$(date '+%H:%M:%S')"
 }
 
 # Unified log line printer
@@ -210,22 +197,15 @@ _print_log_line() {
     padded_label="$(_pad_center "$normalized_label" 20)"
     padded_level="$(_pad_center "$level" 7)"
 
+    local compose_fn=_compose_line_plain
     if [[ "$is_err" = true ]]; then
-        if _supports_color_stderr; then
-            _compose_line "$COLOR_WHITE" "$ts" "$sep" "$label_color" "$padded_label" "$sep" "$COLOR_WHITE" "$padded_level" "$sep" "$msg_color" "$message" 1>&2
-            echo 1>&2
-        else
-            _compose_line_plain "$COLOR_WHITE" "$ts" "$sep" "$label_color" "$padded_label" "$sep" "$COLOR_WHITE" "$padded_level" "$sep" "$msg_color" "$message" 1>&2
-            echo 1>&2
-        fi
+        _supports_color_stderr && compose_fn=_compose_line
+        $compose_fn "$COLOR_WHITE" "$ts" "$sep" "$label_color" "$padded_label" "$sep" "$COLOR_WHITE" "$padded_level" "$sep" "$msg_color" "$message" >&2
+        echo >&2
     else
-        if _supports_color_stdout; then
-            _compose_line "$COLOR_WHITE" "$ts" "$sep" "$label_color" "$padded_label" "$sep" "$COLOR_WHITE" "$padded_level" "$sep" "$msg_color" "$message"
-            echo
-        else
-            _compose_line_plain "$COLOR_WHITE" "$ts" "$sep" "$label_color" "$padded_label" "$sep" "$COLOR_WHITE" "$padded_level" "$sep" "$msg_color" "$message"
-            echo
-        fi
+        _supports_color_stdout && compose_fn=_compose_line
+        $compose_fn "$COLOR_WHITE" "$ts" "$sep" "$label_color" "$padded_label" "$sep" "$COLOR_WHITE" "$padded_level" "$sep" "$msg_color" "$message"
+        echo
     fi
 }
 
