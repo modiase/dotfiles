@@ -55,6 +55,18 @@ git maintenance start --scheduler=auto
 
 The `--file` flag is required because home-manager manages the global git config as read-only. Maintenance settings are stored in `~/.config/git/maintenance.config`, which is included in the global config.
 
+## Viewing Activation Logs
+
+**Linux (systemd journal):**
+```bash
+journalctl -t dotfiles-activate -f
+```
+
+**macOS:**
+```bash
+tail -f ~/Library/Logs/dotfiles-activate.log
+```
+
 ## Agent Workflow Notes
 
 Automations and CI jobs must:

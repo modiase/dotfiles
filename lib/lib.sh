@@ -94,8 +94,44 @@ _pad_center() {
     printf "%s%s%s" "$left_pad" "$text" "$right_pad"
 }
 
+log_to_system() {
+    local level="$1"
+    local msg="$2"
+    local syslog_level="$level"
+    local os
+    os=$(uname -s)
+
+    case "$level" in
+        warn) syslog_level="warning" ;;
+        error) syslog_level="err" ;;
+    esac
+
+    case "$os" in
+        Linux)
+            if command -v systemd-cat >/dev/null 2>&1; then
+                echo "$msg" | systemd-cat -t "dotfiles-activate" -p "$syslog_level"
+            elif command -v logger >/dev/null 2>&1; then
+                logger -t "dotfiles-activate" -p "user.${syslog_level}" "$msg"
+            fi
+            ;;
+        Darwin)
+            local logdir="$HOME/Library/Logs"
+            local logfile="$logdir/dotfiles-activate.log"
+
+            if [ ! -d "$logdir" ]; then
+                mkdir -p "$logdir"
+            fi
+
+            local timestamp
+            timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+            printf "%s [%s] %s\n" "$timestamp" "$level" "$msg" >>"$logfile"
+            ;;
+    esac
+}
+
 log_info() {
     local msg="$1"
+    log_to_system "info" "$msg"
     if [[ ${LOG_LEVEL:-1} -ge 1 ]]; then
         log "$msg"
     fi
@@ -103,12 +139,18 @@ log_info() {
 
 log_error() {
     local msg="$1"
+    log_to_system "error" "$msg"
     perror "$msg"
 }
 
 log_success() {
     local msg="$1"
-    _print_log_line "success" "$msg" "" "$COLOR_CYAN" "$COLOR_GREEN" false
+    log_to_system "info" "$msg"
+    if [[ ${PRETTY:-1} -eq 1 ]]; then
+        echo -e "${COLOR_GREEN}${msg}${COLOR_RESET}"
+    else
+        _print_log_line "success" "$msg" "" "$COLOR_CYAN" "$COLOR_GREEN" false
+    fi
 }
 
 check() {
@@ -199,17 +241,20 @@ perror() {
 
 process_output() {
     local label="$1"
-    local label_color="$2"
+    local label_color="${2:-}"
     local is_stderr=${3:-false}
+    local level="info"
+    local console_color="$COLOR_WHITE"
+
+    [[ "$is_stderr" = "true" ]] && level="warn" && console_color="$COLOR_YELLOW"
+
     while IFS= read -r line; do
         [[ -z "$line" ]] && continue
-        if [[ ${LOG_LEVEL:-1} -lt 2 && "$is_stderr" != "true" ]]; then
-            continue
-        fi
-        if [[ "$is_stderr" = "true" ]]; then
-            _print_log_line "warn" "$line" "$label" "$label_color" "$COLOR_YELLOW" true
-        else
-            _print_log_line "info" "$line" "$label" "$label_color" "$COLOR_WHITE" false
+
+        log_to_system "$level" "[$label] $line"
+
+        if [[ ${PRETTY:-1} -eq 0 ]] && [[ ${LOG_LEVEL:-1} -ge 2 ]]; then
+            _print_log_line "$level" "$line" "$label" "${label_color:-$COLOR_CYAN}" "$console_color" "$is_stderr"
         fi
     done
 }
@@ -218,18 +263,80 @@ run_logged() {
     local label="$1"
     local stdout_color="$2"
     shift 2
-    log_info "${label} started"
     local status=0
-    (
-        set -o pipefail
-        "${@}" > >(process_output "$label" "$stdout_color" false) \
-        2> >(process_output "$label" "$stdout_color" true)
-    ) || status=$?
-    if [[ $status -ne 0 ]]; then
-        log_error "${label} failed (exit ${status})"
-        return $status
+
+    if [[ -t 2 ]] && [[ ${LOG_LEVEL:-1} -lt 3 ]] && [[ ${PRETTY:-1} -eq 1 ]]; then
+        log_to_system "info" "${label} started"
+
+        local tmpfile
+        tmpfile=$(mktemp)
+        trap 'rm -f "$tmpfile"' RETURN
+
+        (
+            set -o pipefail
+            "${@}" > >(while IFS= read -r line; do
+                echo "$line" >"$tmpfile"
+                process_output "$label" "" false <<<"$line"
+            done) \
+            2> >(while IFS= read -r line; do
+                echo "$line" >"$tmpfile"
+                process_output "$label" "" true <<<"$line"
+            done)
+        ) &
+        local cmd_pid=$!
+
+        shopt -s checkwinsize
+        local spinner_chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+        local i=0
+
+        while kill -0 $cmd_pid 2>/dev/null; do
+            local max_width=$((COLUMNS - 5))
+            local latest
+            latest=$(cat "$tmpfile" 2>/dev/null | tail -1 || echo "")
+            local spinner_display="${COLOR_CYAN}${spinner_chars:$i:1}${COLOR_RESET}"
+            local display="${spinner_display}  ${label}"
+
+            if [[ -n "$latest" ]]; then
+                local max_msg_len=$((max_width - ${#label} - 6))
+                if [[ ${#latest} -gt $max_msg_len ]]; then
+                    if [[ $max_msg_len -gt 3 ]]; then
+                        latest="${latest:0:$((max_msg_len - 3))}..."
+                    else
+                        latest=""
+                    fi
+                fi
+                [[ -n "$latest" ]] && display="${display} | ${latest}"
+            fi
+
+            printf "\r\033[K%b" "$display" >&2
+            i=$(((i + 1) % ${#spinner_chars}))
+            sleep 0.1
+        done
+
+        wait $cmd_pid || status=$?
+
+        if [[ $status -eq 0 ]]; then
+            printf "\r\033[K${COLOR_GREEN}✓${COLOR_RESET}  %s\n" "$label" >&2
+            log_to_system "info" "${label} completed"
+        else
+            printf "\r\033[K${COLOR_RED}✗${COLOR_RESET}  %s\n" "$label" >&2
+            log_to_system "error" "${label} failed (exit ${status})"
+            log_error "${label} failed (exit ${status})"
+            return $status
+        fi
+    else
+        log_info "${label} started"
+        (
+            set -o pipefail
+            "${@}" > >(process_output "$label" "$stdout_color" false) \
+            2> >(process_output "$label" "$stdout_color" true)
+        ) || status=$?
+        if [[ $status -ne 0 ]]; then
+            log_error "${label} failed (exit ${status})"
+            return $status
+        fi
+        log_success "${label} completed"
     fi
-    log_success "${label} completed"
     return 0
 }
 
