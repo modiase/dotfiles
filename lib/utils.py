@@ -6,7 +6,6 @@ import re
 import shlex
 import subprocess
 import sys
-import tempfile
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -469,46 +468,42 @@ def build_nix_image(
 ) -> str:
     """Build a Nix image using nix build and return the result path."""
     logger.info(f"Building {nix_attr}")
-    if extra_args is None:
-        extra_args = ()
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir_path = Path(tmpdir)
-        result_link = tmpdir_path / "result"
+    nix_cmd = [
+        "nix",
+        "build",
+        f"{repo_root}#{nix_attr}",
+        "--print-out-paths",
+        "--no-link",
+    ]
 
-        nix_cmd = [
-            "nix",
-            "build",
-            f"{repo_root}#{nix_attr}",
-        ]
+    if system:
+        nix_cmd.extend(["--system", system])
 
-        if system:
-            nix_cmd.extend(["--system", system])
+    if remote_host:
+        nix_cmd.extend(
+            ["--store", f"ssh-ng://moye@{remote_host}", "--eval-store", "auto"]
+        )
 
-        if remote_host:
-            nix_cmd.extend(
-                [
-                    "--store",
-                    f"ssh-ng://moye@{remote_host}",
-                    "--eval-store",
-                    "auto",
-                ]
-            )
+    if extra_args:
+        nix_cmd.extend(extra_args)
 
-        nix_cmd.extend(["--out-link", str(result_link)])
+    output, _ = run_command(nix_cmd, f"build {nix_attr}", env=env, capture_output=True)
 
-        if extra_args:
-            nix_cmd.extend(extra_args)
+    output_path = next(
+        (
+            line.strip()
+            for line in output.split("\n")
+            if line.strip().startswith("/nix/store/")
+        ),
+        None,
+    )
+    if not output_path:
+        logger.error(f"Build produced no output path. Output was: {output}")
+        sys.exit(1)
 
-        run_command(nix_cmd, f"build {nix_attr}", env=env)
-
-        if not result_link.exists():
-            logger.error(f"Build result not found: {result_link}")
-            sys.exit(1)
-
-        real_image_path = result_link.resolve()
-        logger.info(f"Built: {real_image_path}")
-        return str(real_image_path)
+    logger.info(f"Built: {output_path}")
+    return output_path
 
 
 def build_gce_image(
