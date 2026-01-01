@@ -55,13 +55,11 @@ in
     enable = true;
     allowedTCPPorts = [
       22
-      53
       80
       1883
       8080
     ];
     allowedUDPPorts = [
-      53
       5353
     ];
   };
@@ -82,56 +80,6 @@ in
       enable = true;
       addresses = true;
       domain = true;
-    };
-  };
-
-  services.unbound = {
-    enable = true;
-    settings = {
-      server = {
-        interface = [ "192.168.1.184" ];
-        access-control = [
-          "192.168.1.0/24 allow"
-          "10.0.0.0/24 allow"
-        ];
-        access-control-view = [
-          "192.168.1.0/24 internal-view"
-          "10.0.0.0/24 external-view"
-        ];
-      };
-      forward-zone = [
-        {
-          name = ".";
-          forward-addr = [
-            "1.1.1.1"
-            "1.0.0.1"
-          ];
-        }
-      ];
-      view = [
-        {
-          name = "internal-view";
-          view-first = "yes";
-          local-zone = ''"home." static'';
-          local-data = [
-            ''"hestia.home. IN A 192.168.1.184"''
-            ''"hekate.home. IN A 192.168.1.110"''
-            ''"herakles.home. IN A 192.168.1.97"''
-            ''"pallas.home. IN A 192.168.1.204"''
-          ];
-        }
-        {
-          name = "external-view";
-          view-first = "yes";
-          local-zone = ''"home." static'';
-          local-data = [
-            ''"hestia.home. IN A 10.0.100.184"''
-            ''"hekate.home. IN A 10.0.100.110"''
-            ''"herakles.home. IN A 10.0.100.97"''
-            ''"pallas.home. IN A 10.0.100.204"''
-          ];
-        }
-      ];
     };
   };
 

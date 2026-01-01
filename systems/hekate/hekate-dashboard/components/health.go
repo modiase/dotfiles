@@ -102,7 +102,7 @@ func (m HealthModel) View() string {
 
 func (m HealthModel) renderCPU() string {
 	borderStyle := healthBorderStyle.Copy().
-		Width(30).
+		Width(32).
 		Height(9)
 
 	// Color based on CPU usage
@@ -122,7 +122,7 @@ func (m HealthModel) renderCPU() string {
 
 func (m HealthModel) renderMemory() string {
 	borderStyle := healthBorderStyle.Copy().
-		Width(35).
+		Width(32).
 		Height(9)
 
 	// Color based on memory usage
@@ -147,7 +147,7 @@ func (m HealthModel) renderMemory() string {
 }
 
 func (m HealthModel) renderSystem() string {
-	borderStyle := healthBorderStyle.Copy().Width(67)
+	borderStyle := healthBorderStyle.Copy().Width(72)
 
 	labelStyle := healthLabelStyle.Copy().Width(12)
 	valueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("255"))

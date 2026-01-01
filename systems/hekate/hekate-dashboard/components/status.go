@@ -44,9 +44,10 @@ func (m StatusModel) tick() tea.Cmd {
 func (m StatusModel) fetchStatus() tea.Cmd {
 	return func() tea.Msg {
 		serviceNames := []string{
-			"wireguard-wg0",
-			"sshd",
 			"avahi-daemon",
+			"sshd",
+			"unbound",
+			"wireguard-wg0",
 		}
 
 		statuses := []ServiceStatus{}

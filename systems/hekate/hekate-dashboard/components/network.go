@@ -128,10 +128,5 @@ func (m NetworkModel) View() string {
 	end0Content := lipgloss.NewStyle().Bold(true).Render("end0 (LAN)") + "\n" + m.eth0Info
 	end0Box := boxStyle.Render(end0Content)
 
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")).
-		Padding(1, 0, 0, 1)
-	help := helpStyle.Render("Updates every 5 seconds")
-
-	return header + "\n\n" + wg0Box + "\n" + end0Box + "\n" + help
+	return header + "\n\n" + wg0Box + "\n" + end0Box
 }
