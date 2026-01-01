@@ -18,8 +18,10 @@ from utils import (
 )
 
 
-def get_flash_instructions(image_file: Path) -> str:
-    return f"zstd -d -c {image_file} | sudo dd of=/dev/sdX bs=4M status=progress"
+def get_flash_instructions(image_path: str, remote_host: str | None = None) -> str:
+    if remote_host:
+        return f"ssh moye@{remote_host} 'zstd -d -c {image_path}' | sudo dd of=/dev/sdX bs=4M status=progress"
+    return f"zstd -d -c {image_path} | sudo dd of=/dev/sdX bs=4M status=progress"
 
 
 def _check_removable_darwin(device_path: str) -> bool:
@@ -80,8 +82,10 @@ def _run_disk_command(cmd: list, action: str) -> bool:
         return False
 
 
-def flash_image_to_device(image_file: Path, device_path: str) -> bool:
-    logger.warning(f"⚠️  About to flash {image_file} to {device_path}")
+def flash_image_to_device(
+    image_path: str, device_path: str, remote_host: str | None = None
+) -> bool:
+    logger.warning(f"⚠️  About to flash {image_path} to {device_path}")
     logger.warning("⚠️  This will DESTROY ALL DATA on the target device!")
 
     try:
@@ -93,60 +97,30 @@ def flash_image_to_device(image_file: Path, device_path: str) -> bool:
 
         logger.info("Starting flash process...")
 
-        decompressed_size = None
-        try:
-            zstd_info = subprocess.run(
-                ["zstd", "--list", str(image_file)],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            for line in zstd_info.stdout.splitlines():
-                parts = line.split()
-                if len(parts) >= 6 and parts[0].isdigit():
-                    size_str = parts[4]
-                    unit = parts[5]
-
-                    size_value = float(size_str)
-                    if "GiB" in unit or "GB" in unit:
-                        decompressed_size = int(size_value * 1024**3)
-                    elif "MiB" in unit or "MB" in unit:
-                        decompressed_size = int(size_value * 1024**2)
-                    elif "KiB" in unit or "KB" in unit:
-                        decompressed_size = int(size_value * 1024)
-                    else:
-                        decompressed_size = int(size_value)
-
-                    logger.info(
-                        f"Decompressed size: {decompressed_size / (1024**3):.2f} GB"
-                    )
-                    break
-        except Exception as e:
-            logger.debug(f"Could not get decompressed size: {e}")
-
-        if decompressed_size:
+        if remote_host:
             flash_cmd = (
-                f"zstd -d -c {image_file} | pv -s {decompressed_size} -p -t -e -r -b | "
-                f"sudo dd of={device_path} bs=4M conv=fsync"
+                f"ssh moye@{remote_host} 'zstd -d -c {image_path}' | "
+                f"sudo dd of={device_path} bs=4M status=progress"
             )
         else:
-            flash_cmd = f"zstd -d -c {image_file} | sudo dd of={device_path} bs=4M status=progress"
+            flash_cmd = (
+                f"zstd -d -c {image_path} | "
+                f"sudo dd of={device_path} bs=4M status=progress"
+            )
 
-        result = subprocess.run(flash_cmd, shell=True, check=False, text=True)
+        result = subprocess.run(flash_cmd, shell=True, check=False)
 
         if result.returncode == 0:
-            logger.success(f"✅ Successfully flashed {image_file} to {device_path}")
-
+            logger.success(f"✅ Successfully flashed {image_path} to {device_path}")
             logger.info("Ejecting device...")
             if platform.system() == "Darwin":
                 _run_disk_command(["diskutil", "eject", device_path], "Device eject")
             else:
                 _run_disk_command(["sudo", "eject", device_path], "Device eject")
-
             return True
-        else:
-            logger.error(f"❌ Flash failed with exit code {result.returncode}")
-            return False
+
+        logger.error(f"❌ Flash failed with exit code {result.returncode}")
+        return False
 
     except Exception as e:
         logger.error(f"❌ Flash failed with exception: {e}")
@@ -232,7 +206,6 @@ def cli(
                 sys.exit(0 if perform_hekate_dry_run(repo_root, remote_host) else 1)
 
     action = "build"
-    copy_command = False
 
     if interactive:
         questions = [
@@ -272,36 +245,45 @@ def cli(
 
     with logger.contextualize(task="building-image"):
         logger.info("Building hekate image")
-        image_file = Path(
-            build_nix_image(
-                repo_root,
-                "nixosConfigurations.hekate.config.system.build.sdImage",
-                "aarch64-linux",
-                remote_host,
-                ["--verbose"] if verbose >= 2 else None,
-            )
+        build_output = build_nix_image(
+            repo_root,
+            "nixosConfigurations.hekate.config.system.build.sdImage",
+            "aarch64-linux",
+            remote_host,
+            ["--verbose"] if verbose >= 2 else None,
         )
-        image_file = list(image_file.glob("**/*.img.zst"))[0]
+
+        if remote_host:
+            result = subprocess.run(
+                [
+                    "ssh",
+                    f"moye@{remote_host}",
+                    f"find {build_output} -type f -name '*.img.zst'",
+                ],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            image_path = result.stdout.strip()
+        else:
+            image_path = str(list(Path(build_output).glob("**/*.img.zst"))[0])
 
     with logger.contextualize(task="preparing-flash-command"):
-        image_size = subprocess.run(
-            ["du", "-h", str(image_file)], capture_output=True, text=True
-        ).stdout.split()[0]
-
         logger.success("Hekate image built successfully")
-        logger.info(f"Image location: {image_file}")
-        logger.info(f"Image size: {image_size}")
+        logger.info(f"Image location: {image_path}")
 
         if device:
             with logger.contextualize(task="flashing-device"):
-                if flash_image_to_device(image_file, device):
+                if flash_image_to_device(image_path, device, remote_host):
                     logger.success(f"✅ Image successfully flashed to {device}")
                     return
                 else:
                     logger.error(f"❌ Failed to flash image to {device}")
                     sys.exit(1)
         else:
-            logger.info(f"Flash with: {get_flash_instructions(image_file)}")
+            logger.info(
+                f"Flash with: {get_flash_instructions(image_path, remote_host)}"
+            )
 
     if interactive and not device:
         copy_answers = inquirer.prompt(
@@ -313,30 +295,20 @@ def cli(
                 ),
             ]
         )
-        copy_command = copy_answers and copy_answers["copy_command"]
 
-        if copy_command:
-            try:
-                subprocess.run(
-                    ["pbcopy"],
-                    input=get_flash_instructions(image_file),
-                    text=True,
-                    check=True,
-                )
-                logger.info("Flash command copied to clipboard!")
-            except (subprocess.CalledProcessError, FileNotFoundError):
+        if copy_answers and copy_answers["copy_command"]:
+            flash_cmd = get_flash_instructions(image_path, remote_host)
+            for clip_cmd in [["pbcopy"], ["xclip", "-selection", "clipboard"]]:
                 try:
-                    subprocess.run(
-                        ["xclip", "-selection", "clipboard"],
-                        input=get_flash_instructions(image_file),
-                        text=True,
-                        check=True,
-                    )
+                    subprocess.run(clip_cmd, input=flash_cmd, text=True, check=True)
                     logger.info("Flash command copied to clipboard!")
+                    break
                 except (subprocess.CalledProcessError, FileNotFoundError):
-                    logger.warning(
-                        "Could not copy to clipboard (pbcopy/xclip not available)"
-                    )
+                    continue
+            else:
+                logger.warning(
+                    "Could not copy to clipboard (pbcopy/xclip not available)"
+                )
 
 
 if __name__ == "__main__":
