@@ -116,6 +116,7 @@ in
     allowedUDPPorts = [
       51820
       5353
+      53
     ];
     allowedTCPPorts = [
       22
@@ -133,6 +134,9 @@ in
       iptables -A OUTPUT -p udp -d 162.159.200.1 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT
       iptables -A OUTPUT -p udp -d 162.159.200.123 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT
 
+      iptables -A OUTPUT -p udp -d 1.1.1.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT
+      iptables -A OUTPUT -p udp -d 1.0.0.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT
+
       iptables -A OUTPUT -j DROP
     '';
     extraStopCommands = ''
@@ -146,6 +150,8 @@ in
       iptables -D OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
       iptables -D OUTPUT -p udp -d 162.159.200.1 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT 2>/dev/null || true
       iptables -D OUTPUT -p udp -d 162.159.200.123 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT 2>/dev/null || true
+      iptables -D OUTPUT -p udp -d 1.1.1.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT 2>/dev/null || true
+      iptables -D OUTPUT -p udp -d 1.0.0.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT 2>/dev/null || true
       iptables -D OUTPUT -j DROP 2>/dev/null || true
     '';
   };
@@ -197,6 +203,61 @@ in
       enable = true;
       addresses = true;
       domain = true;
+    };
+  };
+
+  services.unbound = {
+    enable = true;
+    settings = {
+      server = {
+        interface = [
+          "10.0.0.1"
+          "192.168.1.110"
+        ];
+        access-control = [
+          "192.168.1.0/24 allow"
+          "10.0.0.0/24 allow"
+        ];
+        access-control-view = [
+          "192.168.1.0/24 internal-view"
+          "10.0.0.0/24 external-view"
+        ];
+        verbosity = 1;
+        log-queries = "yes";
+      };
+      forward-zone = [
+        {
+          name = ".";
+          forward-addr = [
+            "1.1.1.1"
+            "1.0.0.1"
+          ];
+        }
+      ];
+      view = [
+        {
+          name = "internal-view";
+          view-first = "yes";
+          local-zone = ''"home." static'';
+          local-data = [
+            ''"hestia.home. IN A 192.168.1.184"''
+            ''"hekate.home. IN A 192.168.1.110"''
+            ''"herakles.home. IN A 192.168.1.97"''
+            ''"pallas.home. IN A 192.168.1.204"''
+          ];
+        }
+        {
+          name = "external-view";
+          view-first = "yes";
+          local-zone = ''"home." static'';
+          local-data = [
+            ''"hestia.home. IN A 10.0.100.184"''
+            ''"hekate.home. IN A 10.0.100.110"''
+            ''"herakles.home. IN A 10.0.100.97"''
+            ''"pallas.home. IN A 10.0.100.204"''
+          ];
+        }
+      ];
     };
   };
 

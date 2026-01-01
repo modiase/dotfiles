@@ -15,6 +15,7 @@ const (
 	statusTab tab = iota
 	sshTab
 	wireguardTab
+	dnsTab
 	healthTab
 	networkTab
 	timeTab
@@ -28,6 +29,7 @@ type model struct {
 	statusModel    components.StatusModel
 	sshModel       components.SSHModel
 	wireguardModel components.WireGuardModel
+	dnsModel       components.DNSModel
 	healthModel    components.HealthModel
 	networkModel   components.NetworkModel
 	timeModel      components.TimeModel
@@ -39,6 +41,7 @@ func initialModel() model {
 		statusModel:    components.NewStatusModel(),
 		sshModel:       components.NewSSHModel(),
 		wireguardModel: components.NewWireGuardModel(),
+		dnsModel:       components.NewDNSModel(),
 		healthModel:    components.NewHealthModel(),
 		networkModel:   components.NewNetworkModel(),
 		timeModel:      components.NewTimeModel(),
@@ -50,6 +53,7 @@ func (m model) Init() tea.Cmd {
 		m.statusModel.Init(),
 		m.sshModel.Init(),
 		m.wireguardModel.Init(),
+		m.dnsModel.Init(),
 		m.healthModel.Init(),
 		m.networkModel.Init(),
 		m.timeModel.Init(),
@@ -72,10 +76,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "3":
 			m.activeTab = wireguardTab
 		case "4":
-			m.activeTab = healthTab
+			m.activeTab = dnsTab
 		case "5":
-			m.activeTab = networkTab
+			m.activeTab = healthTab
 		case "6":
+			m.activeTab = networkTab
+		case "7":
 			m.activeTab = timeTab
 		case "left":
 			if m.activeTab > statusTab {
@@ -99,6 +105,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, cmd)
 
 	m.wireguardModel, cmd = m.wireguardModel.Update(msg)
+	cmds = append(cmds, cmd)
+
+	m.dnsModel, cmd = m.dnsModel.Update(msg)
 	cmds = append(cmds, cmd)
 
 	m.healthModel, cmd = m.healthModel.Update(msg)
@@ -128,7 +137,7 @@ func (m model) View() string {
 		BorderForeground(lipgloss.Color("240"))
 
 	tabs := []string{}
-	tabNames := []string{"Status", "SSH", "WireGuard", "Health", "Network", "Time"}
+	tabNames := []string{"Status", "SSH", "WireGuard", "DNS", "Health", "Network", "Time"}
 	for i, name := range tabNames {
 		if tab(i) == m.activeTab {
 			tabs = append(tabs, activeTabStyle.Render(name))
@@ -147,6 +156,8 @@ func (m model) View() string {
 		content = m.sshModel.View()
 	case wireguardTab:
 		content = m.wireguardModel.View()
+	case dnsTab:
+		content = m.dnsModel.View()
 	case healthTab:
 		content = m.healthModel.View()
 	case networkTab:
@@ -158,7 +169,7 @@ func (m model) View() string {
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240")).
 		Padding(1, 0, 0, 2)
-	help := helpStyle.Render("← → / 1-6: switch tabs • q: quit")
+	help := helpStyle.Render("← → / 1-7: switch tabs • q: quit")
 
 	return fmt.Sprintf("%s\n\n%s\n%s", header, content, help)
 }
