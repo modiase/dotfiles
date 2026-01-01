@@ -219,7 +219,7 @@ case "$OS" in
             log_to_system "info" "Updating nix-darwin configuration..."
             REBUILD_CMD="darwin-rebuild"
         fi
-        if ! run_logged "darwin-rebuild" "$COLOR_WHITE" sudo NIX_CONFIG="$NIX_CONFIG" "$REBUILD_CMD" switch --flake . --max-jobs "$MAX_CORES" --cores "$MAX_CORES"; then
+        if ! run_logged "darwin-rebuild" "$COLOR_WHITE" sudo NIX_CONFIG="$NIX_CONFIG" "$REBUILD_CMD" switch --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES"; then
             exit 1
         fi
         HOME_MANAGER_TARGET="moye-aarch64-darwin"
@@ -227,7 +227,7 @@ case "$OS" in
     "Linux")
         if [ -f /etc/NIXOS ]; then
             log_to_system "info" "Updating NixOS configuration..."
-            if ! run_logged "nixos-rebuild" "$COLOR_WHITE" sudo nixos-rebuild switch --flake . --max-jobs "$MAX_CORES" --cores "$MAX_CORES"; then
+            if ! run_logged "nixos-rebuild" "$COLOR_WHITE" sudo nixos-rebuild switch --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES"; then
                 exit 1
             fi
         fi
@@ -247,7 +247,7 @@ case "$OS" in
         ;;
 esac
 
-if ! run_logged "home-manager" "$COLOR_WHITE" nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake .#$HOME_MANAGER_TARGET; then
+if ! run_logged "home-manager" "$COLOR_WHITE" nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake "$REPO_ROOT#$HOME_MANAGER_TARGET"; then
     exit 1
 fi
 

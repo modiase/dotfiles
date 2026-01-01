@@ -1,5 +1,5 @@
 {
-  description = "llama.cpp with configurable model (default: Qwen2.5-7B) for macOS";
+  description = "llama.cpp with configurable model (default: Phi-4-mini) for macOS";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -25,12 +25,12 @@
         modelInfo = {
           # Default model. Override at runtime with env vars:
           # LLM_NAME, LLM_REPO, LLM_FILE, LLM_SIZE, LLM_SHA256
-          # Granite-4.0 micro (GGUF via bartowski), quant: Q6_K_L
-          name = "granite-4.0-micro";
-          repo = "bartowski/ibm-granite_granite-4.0-micro-GGUF";
-          file = "ibm-granite_granite-4.0-micro-Q6_K_L.gguf";
-          size = "2.86GB";
-          sha256 = "7827723a49ab2c000ee269a96b2592730470dceaa39269ec733a7a698db7b25e";
+          # Qwen3-8B (GGUF via unsloth), quant: Q4_K_M - SoTA instruction following
+          name = "qwen3-8b";
+          repo = "unsloth/Qwen3-8B-GGUF";
+          file = "Qwen3-8B-Q4_K_M.gguf";
+          size = "5.03GB";
+          sha256 = "";
         };
 
         modelDownloader = pkgs.writeShellScript "download-model" ''
@@ -459,19 +459,14 @@
 
           DATA_DIR="''${XDG_DATA_HOME:-$HOME/.local/share}/llama-cpp"
           MODEL_DIR="$DATA_DIR/models"
-          LOG_DIR="$DATA_DIR/logs"
           MODEL_FILE="''${LLM_FILE:-${modelInfo.file}}"
-          DEFAULT_MODEL="$MODEL_DIR/$MODEL_FILE"
 
-          mkdir -p "$MODEL_DIR" "$LOG_DIR"
+          mkdir -p "$MODEL_DIR"
 
-          if [[ ! -f "$DEFAULT_MODEL" ]]; then
-            echo "Model not found at $DEFAULT_MODEL, downloading..."
-            ${modelDownloader} "$MODEL_DIR"
-          fi
+          [[ ! -f "$MODEL_DIR/$MODEL_FILE" ]] && ${modelDownloader} "$MODEL_DIR"
 
           exec ${llamaCpp}/bin/llama-server \
-            --model "$DEFAULT_MODEL" \
+            --model "$MODEL_DIR/$MODEL_FILE" \
             --threads 4 \
             --ctx-size 4096 \
             --host 127.0.0.1 \
@@ -778,6 +773,52 @@
             }')" | ${pkgs.jq}/bin/jq -r '.content'
         '';
 
+        modelInstaller = pkgs.writeShellScript "model-install" ''
+          #!/bin/bash
+          set -euo pipefail
+
+          DATA_DIR="''${XDG_DATA_HOME:-$HOME/.local/share}/llama-cpp"
+          MODEL_DIR="$DATA_DIR/models"
+          MODEL_FILE="''${LLM_FILE:-${modelInfo.file}}"
+
+          echo "=== llama.cpp Model Installer ==="
+
+          if [[ -f "$MODEL_DIR/$MODEL_FILE" ]]; then
+            echo "✓ Model already exists at $MODEL_DIR/$MODEL_FILE"
+            exit 0
+          fi
+
+          ${modelDownloader} "$MODEL_DIR"
+          echo "✓ Model installed"
+        '';
+
+        modelUninstaller = pkgs.writeShellScript "model-uninstall" ''
+          #!/bin/bash
+          set -euo pipefail
+
+          DATA_DIR="''${XDG_DATA_HOME:-$HOME/.local/share}/llama-cpp"
+          MODEL_DIR="$DATA_DIR/models"
+
+          echo "=== llama.cpp Model Uninstaller ==="
+
+          if [[ -d "$MODEL_DIR" ]]; then
+            echo "Removing models from $MODEL_DIR..."
+            rm -rf "$MODEL_DIR"
+            echo "✓ Models removed"
+          else
+            echo "No model directory found at $MODEL_DIR"
+          fi
+
+          echo "✓ Model cleanup complete"
+        '';
+
+        modelReinstaller = pkgs.writeShellScript "model-reinstall" ''
+          #!/bin/bash
+          set -euo pipefail
+          ${modelUninstaller}
+          ${modelInstaller}
+        '';
+
       in
       {
         packages = {
@@ -863,6 +904,21 @@
           prompt = {
             type = "app";
             program = "${promptClient}";
+          };
+
+          model-install = {
+            type = "app";
+            program = "${modelInstaller}";
+          };
+
+          model-uninstall = {
+            type = "app";
+            program = "${modelUninstaller}";
+          };
+
+          model-reinstall = {
+            type = "app";
+            program = "${modelReinstaller}";
           };
         };
 

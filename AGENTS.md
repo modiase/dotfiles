@@ -105,6 +105,10 @@
   end
   ```
 
+## Language
+
+- **Use British English spelling** - e.g., "summarise" not "summarize", "colour" not "color", "organisation" not "organization"
+
 ## Core Principles
 
 - **Be Precise**: State facts from documentation, not assumptions
