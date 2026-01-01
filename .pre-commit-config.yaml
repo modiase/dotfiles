@@ -37,6 +37,15 @@ repos:
         args:
           - -c
           - "nix-shell -p fd go --run 'fd -e go -x gofmt -w'"
+      - id: lint-go
+        name: lint go files
+        entry: bash
+        language: system
+        files: \.go$
+        pass_filenames: false
+        args:
+          - -c
+          - "nix-shell -p fd go golangci-lint --run 'for dir in $(fd go.mod -x dirname); do (cd $dir && golangci-lint run ./...); done'"
       - id: ruff-check
         name: ruff check
         entry: bash
