@@ -62,6 +62,12 @@ in
     allowedUDPPorts = [
       5353
     ];
+    allowedUDPPortRanges = [
+      {
+        from = 60000;
+        to = 61000;
+      }
+    ];
   };
 
   services.openssh = {
