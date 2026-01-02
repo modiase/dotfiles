@@ -82,13 +82,14 @@ function __ssh_run_ssh --no-scope-shadowing
 end
 
 if test $use_mosh -eq 1
-    command ssh -o BatchMode=yes -o ConnectTimeout=2 $host "command -v mosh-server" >/dev/null 2>&1
-    if test $status -eq 0
+    set -l mosh_check (command ssh -o BatchMode=yes -o ConnectTimeout=2 $host "command -v mosh-server" 2>/dev/null)
+    if string match -q '*mosh-server*' "$mosh_check"
         set -l cmd mosh $args
         set -l tmux_suffix
         test $want_tmux -eq 1; and set tmux_suffix '-- sh -c "tmux attach 2>/dev/null || tmux new"'
         test $debug -eq 1; and echo "Using: $cmd $tmux_suffix"
         eval $cmd $tmux_suffix
+        test $status -ne 0; and __ssh_run_ssh
     else
         test $debug -eq 1; and echo "mosh-server not found on $host, using ssh"
         __ssh_run_ssh
