@@ -45,7 +45,11 @@ const (
 	ollamaURL = "http://localhost:11434"
 )
 
-var localModel string
+var (
+	localModel  string
+	remoteURL   string
+	remoteModel string
+)
 
 type Card struct {
 	Front string `json:"front"`
@@ -858,6 +862,8 @@ func callLLMWithSystem(systemPrompt, userPrompt string, useFast bool) (string, e
 	switch provider {
 	case "local":
 		return callLocal(systemPrompt, userPrompt, useFast)
+	case "remote":
+		return callRemote(systemPrompt, userPrompt, useFast)
 	case "claude":
 		return callClaude(systemPrompt, userPrompt, useFast)
 	case "chatgpt":
@@ -1225,6 +1231,132 @@ func callLocal(systemPrompt, userPrompt string, _ bool) (string, error) {
 	return stripTags(result.Choices[0].Message.Content, "think", "drafts"), nil
 }
 
+func detectRemoteServer() error {
+	if remoteURL != "" {
+		return nil
+	}
+
+	hosts := []string{"herakles", "herakles.home"}
+	client := &http.Client{Timeout: 3 * time.Second}
+
+	for _, host := range hosts {
+		url := fmt.Sprintf("http://%s:11434", host)
+		resp, err := client.Get(url + "/api/tags")
+		if err != nil {
+			continue
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode == 200 {
+			remoteURL = url
+			return nil
+		}
+	}
+
+	return fmt.Errorf("remote LLM unavailable: no ollama/vllm server found on herakles or herakles.home:11434")
+}
+
+func detectRemoteModel() error {
+	if remoteModel != "" {
+		return nil
+	}
+
+	if err := detectRemoteServer(); err != nil {
+		return err
+	}
+
+	resp, err := http.Get(remoteURL + "/api/tags")
+	if err != nil {
+		return fmt.Errorf("remote LLM unavailable: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var result struct {
+		Models []struct {
+			Name string `json:"name"`
+		} `json:"models"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return err
+	}
+
+	if len(result.Models) == 0 {
+		return fmt.Errorf("no models available on remote server")
+	}
+
+	remoteModel = result.Models[0].Name
+	return nil
+}
+
+func callRemote(systemPrompt, userPrompt string, _ bool) (string, error) {
+	if err := detectRemoteModel(); err != nil {
+		return "", err
+	}
+
+	userPrompt = "/no_think " + userPrompt
+
+	var messages []map[string]string
+	if systemPrompt != "" {
+		messages = append(messages, map[string]string{"role": "system", "content": systemPrompt})
+	}
+	messages = append(messages, map[string]string{"role": "user", "content": userPrompt})
+
+	payload := map[string]any{
+		"model":    remoteModel,
+		"messages": messages,
+		"stream":   false,
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest("POST", remoteURL+"/api/chat", bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 300 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("remote LLM unavailable: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("remote LLM error: %s", string(respBody))
+	}
+
+	var result struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return "", err
+	}
+
+	if len(result.Choices) == 0 {
+		return "", fmt.Errorf("no choices in response")
+	}
+
+	return stripTags(result.Choices[0].Message.Content, "think", "drafts"), nil
+}
+
+func isRemoteAvailable() bool {
+	return detectRemoteServer() == nil
+}
+
 func stripTags(s string, tags ...string) string {
 	for _, tag := range tags {
 		open, close := "<"+tag+">", "</"+tag+">"
@@ -1285,11 +1417,11 @@ func main() {
 		Short: "Generate Anki flashcards using AI",
 		Long: `Generate Anki flashcards using AI models with web search.
 
-Providers: local (default), claude, chatgpt, gemini
+Providers: remote (default), local, claude, chatgpt, gemini
 
 Examples:
   ankigen "What is Docker?"
-  ankigen claude "What is Docker?"
+  ankigen remote "What is Docker?"
   ankigen claude -f "Quick question"
   ankigen --no-web "Simple definition"`,
 		Args: cobra.ArbitraryArgs,
@@ -1326,11 +1458,13 @@ func isLocalAvailable() bool {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	providers := map[string]bool{"local": true, "claude": true, "chatgpt": true, "gemini": true}
+	providers := map[string]bool{"local": true, "remote": true, "claude": true, "chatgpt": true, "gemini": true}
 
 	if len(args) > 0 && providers[args[0]] {
 		provider = args[0]
 		args = args[1:]
+	} else if isRemoteAvailable() {
+		provider = "remote"
 	} else if isLocalAvailable() {
 		provider = "local"
 	} else {

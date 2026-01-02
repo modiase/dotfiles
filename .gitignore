@@ -36,6 +36,9 @@ worktrees/
 
 # Agents
 INSTRUCT.md
+# symlink AGENTS.md
+CLAUDE.md
 
 *.pyc
 **/__pycache__/
+

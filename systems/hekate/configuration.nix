@@ -18,6 +18,9 @@ let
   health-status-server = pkgs.writeShellScript "health-status-server.sh" (
     builtins.readFile ./health-status-server.sh
   );
+  dns-logs-server = pkgs.writeShellScript "dns-logs-server.sh" (
+    builtins.readFile ./dns-logs-server.sh
+  );
   encryptedKey = ''
     -----BEGIN PGP MESSAGE-----
 
@@ -358,6 +361,21 @@ in
       PrivateTmp = true;
       ProtectSystem = "strict";
       ProtectHome = true;
+    };
+  };
+
+  systemd.services.dns-logs-server = {
+    description = "DNS logs server for dashboard";
+    wantedBy = [ "multi-user.target" ];
+    path = [
+      pkgs.coreutils
+      pkgs.socat
+    ];
+    serviceConfig = {
+      ExecStart = "${dns-logs-server}";
+      Restart = "always";
+      RestartSec = "5s";
+      RuntimeDirectory = "dns-logs";
     };
   };
 
