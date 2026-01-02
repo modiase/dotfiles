@@ -4,7 +4,6 @@ let
   colors = import ./colors.nix;
 
   commonTmuxConfig = ''
-    # remap prefix from 'C-b' to 'C-a'
     unbind C-b
     set-option -g prefix C-a
     bind-key C-a send-prefix
@@ -14,21 +13,24 @@ let
     bind -n S-M-Left resize-pane -L 5
     bind -n S-M-Right resize-pane -R 5
 
-    # split panes using | and -
     bind = split-window -h -c "#{pane_current_path}"
     bind - split-window -v -c "#{pane_current_path}"
     unbind '"'
     unbind %
 
     set -g mouse on
-
-    # Clear terminal using <prefix> + C-l
     bind C-l send-keys 'C-l'
 
     set -g window-active-style 'fg=#${colors.foreground}'
     set -g window-style 'fg=#${colors.foregroundDim}'
 
     set -g default-command ${pkgs.fish}/bin/fish
+    set -g allow-passthrough all
+    set -s set-clipboard on
+
+    bind -T copy-mode-vi Enter send -X copy-pipe-and-cancel 'yank > #{pane_tty}'
+    bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel 'yank > #{pane_tty}'
+    bind -T copy-mode-vi y send -X copy-pipe-and-cancel 'yank > #{pane_tty}'
   '';
 in
 {
@@ -49,19 +51,18 @@ in
 
       set -g default-terminal "tmux-256color"
       set -ga terminal-overrides ",xterm-ghostty:Tc,xterm-256color:Tc,tmux-256color:Tc"
-      set -g allow-passthrough all
+      set -as terminal-features ',xterm-256color:clipboard,xterm-ghostty:clipboard,tmux-256color:clipboard'
     '';
   };
 
   home.file.".config/tmux/tmux-vscode.conf".text = commonTmuxConfig + ''
     bind r source-file ~/.config/tmux/tmux-vscode.conf
 
-    # VSCode integrated terminal settings
     set -g default-terminal "xterm-256color"
     set -g terminal-overrides ',xterm-256color:Tc'
     set -ga terminal-overrides ',*:XT:Smulx@:Setulc@'
     set -ga terminal-overrides ',*:setrgbf@:setrgbb@:setrgbaf@:setrgbab@'
-    set -g allow-passthrough all
+    set -as terminal-features ',xterm-256color:clipboard'
 
     run-shell '${pkgs.tmuxPlugins.sensible}/share/tmux-plugins/sensible/sensible.tmux'
     run-shell '${pkgs.tmuxPlugins.nord}/share/tmux-plugins/nord/nord.tmux'
