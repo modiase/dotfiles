@@ -52,7 +52,6 @@
     go
     google-cloud-sdk
     gopls
-    gpt-cli
     httpie
     jq
     jwt-cli
