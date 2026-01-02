@@ -28,7 +28,7 @@ let
        ! in_nix_environment && \
        [[ -z "$CURSOR_AGENT" ]] && \
        [[ -t 0 && -t 1 ]] && \
-       [[ "$(ps -o comm= -p $PPID)" =~ (login|sshd|tmux|screen|zsh|bash|ghostty) ]]; then
+       [[ "$(ps -o comm= -p $PPID)" =~ (login|sshd|mosh-server|tmux|screen|zsh|bash|ghostty) ]]; then
        exec fish
     fi
   '';

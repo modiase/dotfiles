@@ -58,6 +58,7 @@
     jwt-cli
     kubectl
     lsof
+    mosh
     moor
     ncdu
     ngrok
