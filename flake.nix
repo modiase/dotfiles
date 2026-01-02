@@ -305,9 +305,10 @@
             nixpkgs.overlays = [
               (final: prev: {
                 tk700-controller-dashboard =
-                  tk700-controller-dashboard.packages.${prev.system}.default.overrideAttrs
+                  tk700-controller-dashboard.packages.${prev.stdenv.hostPlatform.system}.default.overrideAttrs
                     (old: {
                       basePath = "/projector/";
+                      nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ prev.pnpm ];
                       buildPhase = ''
                         runHook preBuild
                         export HOME=$TMPDIR
