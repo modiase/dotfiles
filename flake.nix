@@ -130,7 +130,6 @@
           config.allowUnfree = true;
           overlays = [
             (self: super: {
-              gpt-cli = super.callPackage ./nix/nixpkgs/gpt-cli { };
               codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
               space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
               lato = super.callPackage ./nix/nixpkgs/lato { };
@@ -155,7 +154,6 @@
           config.allowUnfree = true;
           overlays = [
             (self: super: {
-              gpt-cli = super.callPackage ./nix/nixpkgs/gpt-cli { };
               codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
               space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
               lato = super.callPackage ./nix/nixpkgs/lato { };
@@ -180,7 +178,6 @@
           config.allowUnfree = true;
           overlays = [
             (self: super: {
-              gpt-cli = super.callPackage ./nix/nixpkgs/gpt-cli { };
               codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
               space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
               lato = super.callPackage ./nix/nixpkgs/lato { };
