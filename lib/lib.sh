@@ -13,7 +13,6 @@ COLOR_YELLOW='\033[0;33m'
 # shellcheck disable=SC2034
 COLOR_WHITE='\033[0;37m'
 
-# Render helpers for multi-segment colored lines
 _supports_color_stdout() { [[ "$COLOR_ENABLED" = true && -t 1 ]]; }
 _supports_color_stderr() { [[ "$COLOR_ENABLED" = true && -t 2 ]]; }
 
@@ -72,7 +71,6 @@ _compose_line_plain() {
     printf "%s" "$out"
 }
 
-# Center pad text to a fixed width using spaces
 _pad_center() {
     local text="$1"
     local width="$2"
@@ -170,7 +168,6 @@ timestamp_prefix() {
     printf "%s" "$(date '+%H:%M:%S')"
 }
 
-# Unified log line printer
 _print_log_line() {
     # $1=level (info|warn|error|success) $2=message $3=label(optional) $4=label_color $5=msg_color $6=is_stderr(true|false)
     local level="$1"
