@@ -1,36 +1,48 @@
 if contains -- -h $argv; or contains -- --help $argv
-    echo "ssh wrapper: uses mosh + tmux when available"
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    echo "SSH WRAPPER"
+    echo "═══════════════════════════════════════════════════════════════════════════════"
     echo ""
-    echo "Wrapper flags:"
+    echo "Smart SSH wrapper that uses Eternal Terminal (et) + tmux when available."
+    echo "Falls back to plain SSH when et is unavailable or incompatible flags are used."
+    echo ""
+    echo "WRAPPER FLAGS:"
     echo "  -d, --debug    Show which command will be used"
-    echo "  --no-mosh      Force ssh (or set NO_MOSH=1)"
+    echo "  --no-et        Force plain SSH (or set NO_ET=1)"
     echo "  --no-tmux      Skip tmux auto-attach (or set NO_TMUX=1)"
     echo ""
-    echo "Falls back to ssh when:"
-    echo "  - mosh is not installed or mosh-server missing on remote"
-    echo "  - Using -L, -R, -D (port forwarding)"
-    echo "  - Using -X, -Y (X11 forwarding)"
-    echo "  - Using -A (agent forwarding)"
+    echo "AUTOMATIC FALLBACK TO SSH:"
+    echo "  - et not installed or etserver missing on remote"
+    echo "  - Port forwarding flags: -L, -R, -D"
+    echo "  - X11 forwarding flags: -X, -Y"
+    echo "  - Agent forwarding flag: -A"
     echo ""
-    echo "Passes directly to mosh when:"
-    echo "  - Using --ssh, --server, --predict, --bind-server, --local, --no-init"
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    echo "ETERNAL TERMINAL (et) HELP"
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    command -q et; and et --help 2>&1; or echo "  (et not installed)"
+    echo ""
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    echo "SSH HELP"
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    command ssh --help 2>&1; or ssh 2>&1
     return
 end
 
 set -l debug 0
-set -l no_mosh 0
+set -l no_et 0
 set -l no_tmux 0
 set -l args
 
-test -n "$NO_MOSH"; and set no_mosh 1
+test -n "$NO_ET"; and set no_et 1
 test -n "$NO_TMUX"; and set no_tmux 1
 
 for arg in $argv
     switch $arg
         case -d --debug
             set debug 1
-        case --no-mosh
-            set no_mosh 1
+        case --no-et
+            set no_et 1
         case --no-tmux
             set no_tmux 1
         case '*'
@@ -38,16 +50,11 @@ for arg in $argv
     end
 end
 
-set -l mosh_flags 0
-string match -qr -- '--(ssh|server|predict|bind-server|local|no-init)(=|$)' "$args"; and set mosh_flags 1
-
 set -l ssh_only 0
 string match -qr -- '-(L|R|D|X|Y|A)' "$args"; and set ssh_only 1
 
-set -l use_mosh 0
-test $no_mosh -eq 0; and command -q mosh; and test $ssh_only -eq 0; and set use_mosh 1
-
-test $mosh_flags -eq 1; and test $use_mosh -eq 0; and echo "Error: mosh flags used but mosh unavailable or --no-mosh set" >&2; and return 1
+set -l use_et 0
+test $no_et -eq 0; and command -q et; and test $ssh_only -eq 0; and set use_et 1
 
 set -l skip_next 0
 set -l host ""
@@ -81,17 +88,21 @@ function __ssh_run_ssh --no-scope-shadowing
     eval $cmd $tmux_suffix
 end
 
-if test $use_mosh -eq 1
-    set -l mosh_check (command ssh -o BatchMode=yes -o ConnectTimeout=2 $host "command -v mosh-server" 2>/dev/null)
-    if string match -q '*mosh-server*' "$mosh_check"
-        set -l cmd mosh $args
-        set -l tmux_suffix
-        test $want_tmux -eq 1; and set tmux_suffix '-- sh -c "tmux attach 2>/dev/null || tmux new"'
-        test $debug -eq 1; and echo "Using: $cmd $tmux_suffix"
-        eval $cmd $tmux_suffix
+if test $use_et -eq 1
+    set -l et_check (command ssh -o BatchMode=yes -o ConnectTimeout=2 $host "command -v etserver" 2>/dev/null)
+    if string match -q '*etserver*' "$et_check"
+        set -l tmux_cmd
+        test $want_tmux -eq 1; and set tmux_cmd 'tmux attach 2>/dev/null || tmux new'
+        set -l cmd et
+        if test -n "$tmux_cmd"
+            set -a cmd -c "$tmux_cmd"
+        end
+        set -a cmd $host
+        test $debug -eq 1; and echo "Using: $cmd"
+        eval $cmd
         test $status -ne 0; and __ssh_run_ssh
     else
-        test $debug -eq 1; and echo "mosh-server not found on $host, using ssh"
+        test $debug -eq 1; and echo "etserver not found on $host, using ssh"
         __ssh_run_ssh
     end
 else

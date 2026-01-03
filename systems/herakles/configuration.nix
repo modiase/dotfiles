@@ -78,6 +78,7 @@
   ];
 
   services.openssh.enable = true;
+  services.eternal-terminal.enable = true;
 
   services.avahi = {
     enable = true;

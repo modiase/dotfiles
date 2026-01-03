@@ -57,6 +57,7 @@ in
       22
       80
       1883
+      2022
       8080
     ];
     allowedUDPPorts = [
@@ -78,6 +79,8 @@ in
       PermitRootLogin = "no";
     };
   };
+
+  services.eternal-terminal.enable = true;
 
   services.avahi = {
     enable = true;
