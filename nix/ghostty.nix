@@ -23,6 +23,7 @@ let
     macos-option-as-alt = false;
     keybind = "cmd+shift+r=prompt_surface_title";
     shell-integration-features = "ssh-terminfo,ssh-env";
+    bell-features = "system,attention";
   };
 
   formatValue =
