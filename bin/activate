@@ -8,6 +8,8 @@ COLOR_ENABLED=true
 PRETTY=${PRETTY:-1}
 USE_MAIN_WORKTREE=0
 TARGET_HOST=""
+SUBCOMMAND=""
+SHOW_TARGET=""
 
 [ -n "${CI:-}" ] && [ "$CI" != "0" ] && PRETTY=0
 
@@ -15,8 +17,13 @@ show_usage() {
     local exit_code=${1:-0}
     cat <<EOF
 Usage: $0 [-h] [-l LEVEL] [-c CORES] [-t TIMEOUT] [--no-pretty] [--main] [--host HOST]
+       $0 show [HOST]
 
 Activate dotfiles configuration for Darwin or NixOS systems.
+
+Subcommands:
+    show [HOST]   Show activation status (origin/main, worktree, system, home hashes)
+                  If HOST specified, shows status on that remote machine
 
 Options:
     -h            Show this help message
@@ -36,11 +43,8 @@ Options:
 
 Examples:
     $0                  # Activate with default settings
-    $0 -l 2             # Show rebuild process output
-    $0 -l 3             # Enable debug mode
-    $0 -c 4             # Use 4 cores for builds
-    $0 -t 60            # Use 60-minute timeout
-    $0 --no-pretty      # Disable spinner
+    $0 show             # Show activation status on this machine
+    $0 show herakles    # Show activation status on herakles
     $0 --main           # Activate from latest main branch
     $0 --host pallas    # Deploy to pallas via SSH
     $0 --host all       # Deploy to all manageable hosts in parallel
@@ -89,12 +93,18 @@ for i in $(seq 1 $#); do
         --help)
             show_usage 0
             ;;
+        show)
+            SUBCOMMAND="show"
+            ;;
         *)
             ARGS+=("$arg")
             ;;
     esac
 done
 set -- "${ARGS[@]+"${ARGS[@]}"}"
+
+# Handle show subcommand target
+[ "$SUBCOMMAND" = "show" ] && [ ${#ARGS[@]} -gt 0 ] && SHOW_TARGET="${ARGS[0]}" && ARGS=("${ARGS[@]:1}")
 
 while getopts "hl:c:t:" opt; do
     case $opt in
@@ -133,7 +143,7 @@ done
 
 shift $((OPTIND - 1))
 
-if [ $# -ne 0 ]; then
+if [ $# -ne 0 ] && [ "$SUBCOMMAND" != "show" ]; then
     echo "Unknown arguments: $*" >&2
     show_usage 1
 fi
@@ -219,6 +229,51 @@ is_activated() {
     local target_hash="$2"
     [ -f "$state_file" ] && [ "$(cat "$state_file")" = "$target_hash" ]
 }
+
+show_status() {
+    local repo_root="$1"
+    local worktree="$repo_root/worktrees/main"
+    local origin_main worktree_head system_hash home_hash
+
+    # Nord pastel colors (labels)
+    local c_cyan=$'\033[38;5;116m'    # Nord 8 - origin/main label
+    local c_blue=$'\033[38;5;110m'    # Nord 9 - worktree label
+    local c_purple=$'\033[38;5;139m'  # Nord 15 - system label
+    local c_magenta=$'\033[38;5;175m' # Nord-ish - home label
+    # Value colors
+    local c_green=$'\033[38;5;108m'   # Nord 14 - matching
+    local c_yellow=$'\033[38;5;222m'  # Nord 13 - not matching
+    local c_reset=$'\033[0m'
+
+    origin_main=$(git -C "$repo_root" rev-parse origin/main 2>/dev/null || echo "(unknown)")
+    [ -d "$worktree" ] && worktree_head=$(git -C "$worktree" rev-parse HEAD 2>/dev/null || echo "(not created)") || worktree_head="(not created)"
+    system_hash=$(cat "$SYSTEM_STATE" 2>/dev/null || echo "(not set)")
+    home_hash=$(cat "$HOME_STATE" 2>/dev/null || echo "(not set)")
+
+    local val_color
+    printf "${c_cyan}%-20s${c_reset} ${c_green}%s${c_reset}\n" "origin/main:" "$origin_main"
+
+    [ "$worktree_head" = "$origin_main" ] && val_color=$c_green || val_color=$c_yellow
+    printf "${c_blue}%-20s${c_reset} ${val_color}%s${c_reset}\n" "worktree HEAD:" "$worktree_head"
+
+    [ "$system_hash" = "$origin_main" ] && val_color=$c_green || val_color=$c_yellow
+    printf "${c_purple}%-20s${c_reset} ${val_color}%s${c_reset}\n" "system activated:" "$system_hash"
+
+    [ "$home_hash" = "$origin_main" ] && val_color=$c_green || val_color=$c_yellow
+    printf "${c_magenta}%-20s${c_reset} ${val_color}%s${c_reset}\n" "home activated:" "$home_hash"
+}
+
+if [ "$SUBCOMMAND" = "show" ]; then
+    if [ -n "$SHOW_TARGET" ]; then
+        ssh "$SHOW_TARGET" "cd ~/Dotfiles/worktrees/main && ./bin/activate show"
+    else
+        # Always use ~/Dotfiles as repo root (not git rev-parse, which would return worktree path)
+        REPO_ROOT="$HOME/Dotfiles"
+        git -C "$REPO_ROOT" fetch origin main 2>/dev/null || true
+        show_status "$REPO_ROOT"
+    fi
+    exit 0
+fi
 
 if [ "$USE_MAIN_WORKTREE" -eq 1 ]; then
     REPO_ROOT="$(git rev-parse --show-toplevel)"
