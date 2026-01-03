@@ -32,6 +32,8 @@
 
   system.primaryUser = "moye";
 
+  environment.etc."resolver/home".text = "nameserver 10.0.0.1\n";
+
   environment.systemPackages = with pkgs; [
     git
     vim
