@@ -25,6 +25,7 @@ var (
 	fastMode    bool
 	localSearch bool
 	maxTokens   int
+	maxTries    int
 	noCache     bool
 	provider    string
 	question    string
@@ -53,9 +54,10 @@ var (
 )
 
 type Card struct {
-	Front string `json:"front"`
-	Back  string `json:"back"`
-	Error string `json:"error,omitempty"`
+	Front       string `json:"front"`
+	Back        string `json:"back"`
+	Error       string `json:"error,omitempty"`
+	RawResponse string `json:"-"`
 }
 
 type Stage interface {
@@ -142,12 +144,21 @@ func (generateStage) Name() string { return "Generating card" }
 func (generateStage) Next() Stage  { return nil }
 
 func (generateStage) Execute(ctx *PipelineContext) error {
-	card, err := generateCard(ctx.Question, ctx.Summary)
-	if err != nil {
-		return err
+	ctx.FailedAttempts = nil
+	for attempt := 1; attempt <= maxTries; attempt++ {
+		card, err := generateCard(ctx.Question, ctx.Summary)
+		if err != nil {
+			ctx.FailedAttempts = append(ctx.FailedAttempts, fmt.Sprintf("Attempt %d error: %v", attempt, err))
+			continue
+		}
+		if card.Error != "" || strings.TrimSpace(card.Front) == "" || strings.TrimSpace(card.Back) == "" {
+			ctx.FailedAttempts = append(ctx.FailedAttempts, fmt.Sprintf("Attempt %d:\n%s", attempt, card.RawResponse))
+			continue
+		}
+		ctx.Card = card
+		return nil
 	}
-	ctx.Card = card
-	return nil
+	return fmt.Errorf("card generation failed after %d attempts", maxTries)
 }
 
 func (generateStage) Validate(ctx *PipelineContext) error {
@@ -161,12 +172,15 @@ func (generateStage) Validate(ctx *PipelineContext) error {
 }
 
 type PipelineContext struct {
-	Question     string
-	SearchTerms  []string
-	SearchResult string
-	Summary      string
-	Card         Card
-	Error        error
+	Question       string
+	SearchTerms    []string
+	SearchResult   string
+	Summary        string
+	Card           Card
+	Error          error
+	FailedAttempts []string
+	CardHistory    []Card
+	HistoryIndex   int
 }
 
 type model struct {
@@ -183,6 +197,8 @@ type model struct {
 	tabView     *debugModel
 	searchTotal int
 	searchDone  int
+	iterating   bool
+	iterInput   textarea.Model
 }
 
 type debugModel struct {
@@ -254,6 +270,11 @@ type errorMsg struct {
 	err error
 }
 
+type iterateCompleteMsg struct {
+	card Card
+	err  error
+}
+
 // Nord colour palette
 const (
 	nord4  = lipgloss.Color("#D8DEE9") // snow storm (dimmed text)
@@ -296,10 +317,18 @@ func initialModel(question string) model {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(nord8)
 
+	ta := textarea.New()
+	ta.Placeholder = "Enter iteration instructions..."
+	ta.SetWidth(70)
+	ta.SetHeight(3)
+	ta.ShowLineNumbers = false
+	ta.CharLimit = 500
+
 	return model{
-		spinner: s,
-		stage:   searchTermsStage{},
-		context: &PipelineContext{Question: question},
+		spinner:   s,
+		stage:     searchTermsStage{},
+		context:   &PipelineContext{Question: question},
+		iterInput: ta,
 	}
 }
 
@@ -311,12 +340,43 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.iterating {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "esc":
+				m.iterating = false
+				m.iterInput.Reset()
+				return m, nil
+			case "ctrl+d":
+				instructions := strings.TrimSpace(m.iterInput.Value())
+				if instructions == "" {
+					m.iterating = false
+					return m, nil
+				}
+				m.iterating = false
+				m.done = false
+				m.substage = "iterating"
+				m.iterInput.Reset()
+				return m, runIterate(m.context, instructions)
+			}
+		}
+		var cmd tea.Cmd
+		m.iterInput, cmd = m.iterInput.Update(msg)
+		return m, cmd
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "q", "ctrl+c", "esc":
+		case "q", "ctrl+c":
 			m.quitting = true
 			return m, tea.Quit
+		case "esc":
+			if m.done {
+				m.quitting = true
+				return m, tea.Quit
+			}
 		case "r":
 			if m.done {
 				m.stage = generateStage{}
@@ -324,6 +384,26 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.copied = false
 				m.substage = ""
 				return m, runStage(m.stage, m.context)
+			}
+		case "i":
+			if m.done && m.context.Card.Front != "" {
+				m.iterating = true
+				m.iterInput.Focus()
+				return m, textarea.Blink
+			}
+		case "left", "h":
+			if m.done && m.context.HistoryIndex > 0 {
+				m.context.HistoryIndex--
+				m.context.Card = m.context.CardHistory[m.context.HistoryIndex]
+				m.copied = false
+				m.substage = fmt.Sprintf("history %d/%d", m.context.HistoryIndex+1, len(m.context.CardHistory))
+			}
+		case "right", "l":
+			if m.done && m.context.HistoryIndex < len(m.context.CardHistory)-1 {
+				m.context.HistoryIndex++
+				m.context.Card = m.context.CardHistory[m.context.HistoryIndex]
+				m.copied = false
+				m.substage = fmt.Sprintf("history %d/%d", m.context.HistoryIndex+1, len(m.context.CardHistory))
 			}
 		case "c":
 			if m.done && m.context.Card.Front != "" {
@@ -401,10 +481,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.stage = msg.stage.Next()
 		if m.stage == nil {
 			m.done = true
+			m.context.CardHistory = append(m.context.CardHistory, m.context.Card)
+			m.context.HistoryIndex = len(m.context.CardHistory) - 1
 			m.tabView = initDebugModel(m.context, m.width, m.height)
 			return m, nil
 		}
 		return m, runStage(m.stage, m.context)
+
+	case iterateCompleteMsg:
+		if msg.err != nil {
+			m.err = msg.err
+			m.done = true
+			return m, nil
+		}
+		m.context.Card = msg.card
+		m.context.CardHistory = append(m.context.CardHistory, msg.card)
+		m.context.HistoryIndex = len(m.context.CardHistory) - 1
+		m.done = true
+		m.substage = ""
+		return m, nil
 
 	case errorMsg:
 		m.err = msg.err
@@ -422,16 +517,43 @@ func (m model) View() string {
 
 	var b strings.Builder
 
+	if m.iterating {
+		b.WriteString("\n")
+		b.WriteString(titleStyle.Render("Iteration instructions:"))
+		b.WriteString("\n\n")
+		b.WriteString(m.iterInput.View())
+		b.WriteString("\n\n")
+		b.WriteString(dimStyle.Render("Ctrl+D to submit, Esc to cancel"))
+		b.WriteString("\n")
+		return b.String()
+	}
+
 	if m.err != nil {
 		b.WriteString("\n")
 		b.WriteString(errorStyle.Render("✗ Error: "))
 		b.WriteString(errorStyle.Render(m.err.Error()))
-		b.WriteString("\n")
+		b.WriteString("\n\n")
+		if len(m.context.FailedAttempts) > 0 {
+			b.WriteString(titleStyle.Render("Failed attempts:"))
+			b.WriteString("\n")
+			b.WriteString(dimStyle.Render(strings.Repeat("─", 60)))
+			b.WriteString("\n")
+			for _, attempt := range m.context.FailedAttempts {
+				b.WriteString(dimStyle.Render(attempt))
+				b.WriteString("\n")
+				b.WriteString(dimStyle.Render(strings.Repeat("─", 60)))
+				b.WriteString("\n")
+			}
+		}
 	} else if !m.done {
 		b.WriteString("\n")
 		b.WriteString(m.spinner.View())
 		b.WriteString(" ")
-		b.WriteString(titleStyle.Render(m.stage.Name()))
+		if m.substage == "iterating" {
+			b.WriteString(titleStyle.Render("Iterating card"))
+		} else {
+			b.WriteString(titleStyle.Render(m.stage.Name()))
+		}
 		b.WriteString("...\n")
 
 		switch m.stage.(type) {
@@ -505,10 +627,14 @@ func (m model) View() string {
 			b.WriteString(dimStyle.Render(strings.Repeat("─", width)))
 			b.WriteString("\n")
 
-			if m.copied && m.substage != "" {
+			if m.copied || (m.substage != "" && strings.HasPrefix(m.substage, "history")) {
 				b.WriteString(successStyle.Render("✓ " + m.substage))
 			} else {
-				b.WriteString(helpStyle.Render("[r] Regenerate  [c] Copy  [f] Front  [b] Back  [q] Quit  [1-4] Tabs"))
+				historyHint := ""
+				if len(m.context.CardHistory) > 1 {
+					historyHint = fmt.Sprintf("  [←→] History (%d/%d)", m.context.HistoryIndex+1, len(m.context.CardHistory))
+				}
+				b.WriteString(helpStyle.Render("[r] Regen  [i] Iterate  [c] Copy  [f] Front  [b] Back  [q] Quit" + historyHint))
 			}
 			b.WriteString("\n")
 		} else {
@@ -536,6 +662,45 @@ func runStage(stage Stage, ctx *PipelineContext) tea.Cmd {
 		}
 		return stageCompleteMsg{stage: stage, ctx: ctx}
 	}
+}
+
+func runIterate(ctx *PipelineContext, instructions string) tea.Cmd {
+	return func() tea.Msg {
+		card, err := iterateCard(ctx, instructions)
+		return iterateCompleteMsg{card: card, err: err}
+	}
+}
+
+func iterateCard(ctx *PipelineContext, instructions string) (Card, error) {
+	systemPrompt, err := fetchSystemPrompt()
+	if err != nil {
+		return Card{}, err
+	}
+
+	var userPrompt strings.Builder
+	userPrompt.WriteString(fmt.Sprintf("Original question: %s\n\n", ctx.Question))
+	if ctx.Summary != "" {
+		userPrompt.WriteString(fmt.Sprintf("Research context:\n%s\n\n", ctx.Summary))
+	}
+	userPrompt.WriteString(fmt.Sprintf("Current card:\nFront: %s\nBack: %s\n\n", ctx.Card.Front, ctx.Card.Back))
+	userPrompt.WriteString(fmt.Sprintf("Please modify this card according to these instructions: %s", instructions))
+
+	response, err := callLLMWithSystem(systemPrompt, userPrompt.String(), fastMode)
+	if err != nil {
+		return Card{}, err
+	}
+
+	var card Card
+	card.RawResponse = response
+	response = strings.TrimSpace(response)
+	if start, end := strings.Index(response, "{"), strings.LastIndex(response, "}"); start != -1 && end > start {
+		if err := json.Unmarshal([]byte(response[start:end+1]), &card); err == nil {
+			card.RawResponse = response
+			return card, nil
+		}
+	}
+
+	return Card{Error: "Failed to parse iterated card", RawResponse: response}, nil
 }
 
 func (m model) completedStages() []Stage {
@@ -783,9 +948,11 @@ func generateCard(question, context string) (Card, error) {
 	}
 
 	var card Card
+	card.RawResponse = response
 	response = strings.TrimSpace(response)
 	if start, end := strings.Index(response, "{"), strings.LastIndex(response, "}"); start != -1 && end > start {
 		if err := json.Unmarshal([]byte(response[start:end+1]), &card); err == nil {
+			card.RawResponse = response
 			return card, nil
 		}
 	}
@@ -814,16 +981,16 @@ func generateCard(question, context string) (Card, error) {
 
 	if front.Len() > 0 && back.Len() > 0 {
 		return Card{
-			Front: strings.TrimSpace(front.String()),
-			Back:  strings.TrimSpace(back.String()),
+			Front:       strings.TrimSpace(front.String()),
+			Back:        strings.TrimSpace(back.String()),
+			RawResponse: response,
 		}, nil
 	}
 
-	preview := response
-	if len(preview) > 200 {
-		preview = preview[:200] + "..."
-	}
-	return Card{Error: fmt.Sprintf("Failed to parse: %s", preview)}, nil
+	return Card{
+		Error:       "Failed to parse response",
+		RawResponse: response,
+	}, nil
 }
 
 func fetchSystemPrompt() (string, error) {
@@ -1433,6 +1600,7 @@ Examples:
 	rootCmd.Flags().BoolVarP(&noCache, "no-cache", "b", false, "Bypass system prompt cache")
 	rootCmd.Flags().BoolVarP(&rawOutput, "raw", "r", false, "Output raw response")
 	rootCmd.Flags().IntVarP(&maxTokens, "tokens", "t", 2000, "Max tokens")
+	rootCmd.Flags().IntVarP(&maxTries, "max-tries", "m", 3, "Max generation attempts on parse failure")
 
 	rootCmd.PreRun = func(cmd *cobra.Command, args []string) {
 		webMode = !noWeb
