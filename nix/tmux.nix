@@ -31,6 +31,7 @@ let
     bind -T copy-mode-vi Enter send -X copy-pipe-and-cancel 'yank > #{pane_tty}'
     bind -T copy-mode-vi MouseDragEnd1Pane send -X copy-pipe-and-cancel 'yank > #{pane_tty}'
     bind -T copy-mode-vi y send -X copy-pipe-and-cancel 'yank > #{pane_tty}'
+    bind -n DoubleClick1Pane { select-pane -t=; copy-mode -H; send -X select-word; run -d0.3; send -X copy-pipe-and-cancel 'yank > #{pane_tty}' }
   '';
 in
 {
