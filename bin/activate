@@ -196,10 +196,9 @@ if [ -n "$TARGET_HOST" ]; then
     for host in $DEPLOY_HOSTS; do
         (
             prefix=$(printf "%-16s| " "$host")
-            # Update worktree inline (don't rely on remote's --main which may be outdated)
             ssh "$host" 'cd ~/Dotfiles && git fetch origin main && \
                 ([ -d worktrees/main ] && git -C worktrees/main reset --hard origin/main || \
-                 git worktree add --detach worktrees/main origin/main) && \
+                git worktree add --detach worktrees/main origin/main) && \
                 cd worktrees/main && ./bin/activate' 2>&1 | sed "s/^/$prefix/"
             echo ${PIPESTATUS[0]} > "$RESULT_DIR/$host"
         ) &
@@ -239,14 +238,12 @@ show_status() {
     local worktree="$repo_root/worktrees/main"
     local origin_main worktree_head system_hash home_hash
 
-    # Nord pastel colors (labels)
-    local c_cyan=$'\033[38;5;116m'    # Nord 8 - origin/main label
-    local c_blue=$'\033[38;5;110m'    # Nord 9 - worktree label
-    local c_purple=$'\033[38;5;139m'  # Nord 15 - system label
-    local c_magenta=$'\033[38;5;175m' # Nord-ish - home label
-    # Value colors
-    local c_green=$'\033[38;5;108m'   # Nord 14 - matching
-    local c_yellow=$'\033[38;5;222m'  # Nord 13 - not matching
+    local c_cyan=$'\033[38;5;116m'    # Nord 8
+    local c_blue=$'\033[38;5;110m'    # Nord 9
+    local c_purple=$'\033[38;5;139m'  # Nord 15
+    local c_magenta=$'\033[38;5;175m'
+    local c_green=$'\033[38;5;108m'   # Nord 14
+    local c_yellow=$'\033[38;5;222m'  # Nord 13
     local c_reset=$'\033[0m'
 
     origin_main=$(git -C "$repo_root" rev-parse origin/main 2>/dev/null || echo "(unknown)")
@@ -271,7 +268,6 @@ if [ "$SUBCOMMAND" = "show" ]; then
     if [ -n "$SHOW_TARGET" ]; then
         ssh "$SHOW_TARGET" "cd ~/Dotfiles/worktrees/main && ./bin/activate show"
     else
-        # Always use ~/Dotfiles as repo root (not git rev-parse, which would return worktree path)
         REPO_ROOT="$HOME/Dotfiles"
         git -C "$REPO_ROOT" fetch origin main 2>/dev/null || true
         show_status "$REPO_ROOT"
