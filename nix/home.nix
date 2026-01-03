@@ -32,21 +32,6 @@
         exec ${chafa}/bin/chafa "$@"
       fi
     '')
-    (writeShellScriptBin "yank" ''
-      # OSC52 clipboard script - https://sunaku.github.io/tmux-yank-osc52.html
-      input=$( cat "$@" )
-      input() { printf %s "$input" ;}
-
-      # copy via OSC 52
-      printf_escape() {
-        esc=$1
-        test -n "$TMUX" -o -z "''${TERM##screen*}" && esc="\033Ptmux;\033$esc\033\\"
-        printf "$esc"
-      }
-      len=$( input | wc -c ) max=74994
-      test $len -gt $max && echo "$0: input is $(( len - max )) bytes too long" >&2
-      printf_escape "\033]52;c;$( input | head -c $max | base64 | tr -d '\r\n' )\a"
-    '')
     claude-code
     codex-cli
     coreutils
@@ -56,6 +41,7 @@
     doggo
     duf
     dust
+    eternal-terminal
     eza
     fd
     fzf
@@ -72,7 +58,6 @@
     jwt-cli
     kubectl
     lsof
-    mosh
     moor
     ncdu
     ngrok

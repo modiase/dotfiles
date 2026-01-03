@@ -37,8 +37,19 @@
   '';
 
   environment.systemPackages = with pkgs; [
-    vim
+    eternal-terminal
     git
+    vim
   ];
+
+  launchd.daemons.etserver = {
+    serviceConfig = {
+      ProgramArguments = [ "${pkgs.eternal-terminal}/bin/etserver" ];
+      KeepAlive = true;
+      RunAtLoad = true;
+      StandardOutPath = "/tmp/etserver.out.log";
+      StandardErrorPath = "/tmp/etserver.err.log";
+    };
+  };
 
 }
