@@ -91,16 +91,15 @@ end
 if test $use_et -eq 1
     set -l et_check (command ssh -o BatchMode=yes -o ConnectTimeout=2 $host "command -v etserver" 2>/dev/null)
     if string match -q '*etserver*' "$et_check"
-        set -l tmux_cmd
-        test $want_tmux -eq 1; and set tmux_cmd 'tmux attach 2>/dev/null || tmux new'
-        set -l cmd et
-        if test -n "$tmux_cmd"
-            set -a cmd -c "$tmux_cmd"
+        set -l et_status 0
+        if test $want_tmux -eq 1
+            test $debug -eq 1; and echo "Using: et -c 'tmux attach 2>/dev/null || tmux new' $host"
+            et -c 'tmux attach 2>/dev/null || tmux new' $host; or set et_status $status
+        else
+            test $debug -eq 1; and echo "Using: et $host"
+            et $host; or set et_status $status
         end
-        set -a cmd $host
-        test $debug -eq 1; and echo "Using: $cmd"
-        eval $cmd
-        test $status -ne 0; and __ssh_run_ssh
+        test $et_status -ne 0; and __ssh_run_ssh
     else
         test $debug -eq 1; and echo "etserver not found on $host, using ssh"
         __ssh_run_ssh
