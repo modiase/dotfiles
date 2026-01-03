@@ -6,35 +6,45 @@ MAX_CORES=$(($(nproc) - 1))
 LOCK_TIMEOUT=30
 COLOR_ENABLED=true
 PRETTY=${PRETTY:-1}
+USE_MAIN_WORKTREE=0
+TARGET_HOST=""
+
+[ -n "${CI:-}" ] && [ "$CI" != "0" ] && PRETTY=0
 
 show_usage() {
     local exit_code=${1:-0}
     cat <<EOF
-Usage: $0 [-h] [-l LEVEL] [-c CORES] [-t TIMEOUT] [-p]
+Usage: $0 [-h] [-l LEVEL] [-c CORES] [-t TIMEOUT] [--no-pretty] [--main] [--host HOST]
 
 Activate dotfiles configuration for Darwin or NixOS systems.
 
 Options:
-    -h           Show this help message
-    -l LEVEL     Set log level (default: 2)
-                1 = minimal output (errors and completion only)
-                2 = show stdout from rebuild processes
-                3+ = enable debug mode (set -x)
-    -c CORES     Set max cores for parallel builds (default: $(nproc) - 1)
-    -t TIMEOUT   Set lock timeout in minutes (default: 30)
-                Prevents concurrent activations and detects hung processes
-    -p           Disable pretty output (no spinner)
-                Can also set PRETTY=0 environment variable
+    -h            Show this help message
+    -l LEVEL      Set log level (default: 2)
+                  1 = minimal output (errors and completion only)
+                  2 = show stdout from rebuild processes
+                  3+ = enable debug mode (set -x)
+    -c CORES      Set max cores for parallel builds (default: $(nproc) - 1)
+    -t TIMEOUT    Set lock timeout in minutes (default: 30)
+                  Prevents concurrent activations and detects hung processes
+    --no-pretty   Disable pretty output (no spinner)
+                  Auto-enabled when CI environment variable is set
+    --main        Run activate from the latest main
+    --host HOST   Run 'activate --main' on remote host(s) via SSH
+                  Use 'all' to deploy to all remotely-manageable hosts in parallel
+                  Manageable hosts are defined by dotfiles.manageRemotely = true
 
 Examples:
-    $0           # Activate with default settings
-    $0 -l 2      # Show rebuild process output
-    $0 -l 3      # Enable debug mode
-    $0 -c 4      # Use 4 cores for builds
-    $0 -t 60     # Use 60-minute timeout
-    $0 -p        # Disable spinner
-    PRETTY=0 $0  # Same as -p
-    $0 -h        # Show this help
+    $0                  # Activate with default settings
+    $0 -l 2             # Show rebuild process output
+    $0 -l 3             # Enable debug mode
+    $0 -c 4             # Use 4 cores for builds
+    $0 -t 60            # Use 60-minute timeout
+    $0 --no-pretty      # Disable spinner
+    $0 --main           # Activate from latest main branch
+    $0 --host pallas    # Deploy to pallas via SSH
+    $0 --host all       # Deploy to all manageable hosts in parallel
+    $0 -h               # Show this help
 
 The script will:
 - Update Darwin/NixOS system configuration
@@ -48,7 +58,45 @@ EOF
     exit "$exit_code"
 }
 
-while getopts "hl:c:t:p" opt; do
+ARGS=()
+SKIP_NEXT=0
+for i in $(seq 1 $#); do
+    if [ "$SKIP_NEXT" -eq 1 ]; then
+        SKIP_NEXT=0
+        continue
+    fi
+    arg="${!i}"
+    case "$arg" in
+        --main)
+            USE_MAIN_WORKTREE=1
+            ;;
+        --no-pretty)
+            PRETTY=0
+            ;;
+        --host)
+            next_i=$((i + 1))
+            if [ "$next_i" -le $# ]; then
+                TARGET_HOST="${!next_i}"
+                SKIP_NEXT=1
+            else
+                echo "Error: --host requires a hostname argument" >&2
+                show_usage 1
+            fi
+            ;;
+        --host=*)
+            TARGET_HOST="${arg#--host=}"
+            ;;
+        --help)
+            show_usage 0
+            ;;
+        *)
+            ARGS+=("$arg")
+            ;;
+    esac
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+
+while getopts "hl:c:t:" opt; do
     case $opt in
         h)
             show_usage 0
@@ -77,9 +125,6 @@ while getopts "hl:c:t:p" opt; do
                 show_usage 1
             fi
             ;;
-        p)
-            PRETTY=0
-            ;;
         \?)
             show_usage 1
             ;;
@@ -91,6 +136,104 @@ shift $((OPTIND - 1))
 if [ $# -ne 0 ]; then
     echo "Unknown arguments: $*" >&2
     show_usage 1
+fi
+
+if [ -n "$TARGET_HOST" ]; then
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+    get_manageable_hosts() {
+        nix eval --impure --raw --expr "
+            let
+                flake = builtins.getFlake \"git+file://$REPO_ROOT\";
+                lib = flake.inputs.nixpkgs.lib;
+                darwin = lib.mapAttrsToList (name: cfg:
+                    if cfg.config.dotfiles.manageRemotely or false then name else null
+                ) (flake.darwinConfigurations or {});
+                nixos = lib.mapAttrsToList (name: cfg:
+                    if cfg.config.dotfiles.manageRemotely or false then name else null
+                ) (flake.nixosConfigurations or {});
+            in builtins.concatStringsSep \"\\n\" (lib.filter (x: x != null) (darwin ++ nixos))
+        " 2>/dev/null || echo ""
+    }
+
+    MANAGEABLE_HOSTS=$(get_manageable_hosts)
+    [ -z "$MANAGEABLE_HOSTS" ] && echo "Error: Could not determine manageable hosts from flake" >&2 && \
+        echo "Ensure dotfiles.manageRemotely = true is set for target hosts" >&2 && exit 1
+
+    validate_host() { echo "$MANAGEABLE_HOSTS" | grep -qx "$1"; }
+
+    DEPLOY_HOSTS="$MANAGEABLE_HOSTS"
+    if [ "$TARGET_HOST" != "all" ]; then
+        validate_host "$TARGET_HOST" || {
+            echo "Error: '$TARGET_HOST' is not a remotely manageable host" >&2
+            echo "" >&2
+            echo "Available hosts:" >&2
+            echo "$MANAGEABLE_HOSTS" | sed 's/^/  /' >&2
+            exit 1
+        }
+        DEPLOY_HOSTS="$TARGET_HOST"
+    fi
+
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    echo "REMOTE DEPLOYMENT"
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    echo "Deploying to: $(echo $DEPLOY_HOSTS | tr '\n' ' ')"
+    echo ""
+
+    RESULT_DIR=$(mktemp -d)
+    trap "rm -rf $RESULT_DIR" EXIT
+
+    for host in $DEPLOY_HOSTS; do
+        (
+            prefix=$(printf "%-16s| " "$host")
+            ssh "$host" "cd ~/Dotfiles && ./bin/activate --main" 2>&1 | sed "s/^/$prefix/"
+            echo ${PIPESTATUS[0]} > "$RESULT_DIR/$host"
+        ) &
+    done
+
+    wait
+
+    echo ""
+    FAILED=0
+    for host in $DEPLOY_HOSTS; do
+        result=$(cat "$RESULT_DIR/$host" 2>/dev/null || echo 1)
+        [ "$result" -eq 0 ] && echo "✓ $host: success" || { echo "✗ $host: FAILED"; FAILED=1; }
+    done
+
+    echo ""
+    [ "$FAILED" -eq 0 ] && echo "Remote deployment complete: all hosts succeeded" && exit 0
+    echo "Remote deployment complete: some hosts failed"
+    exit 1
+fi
+
+if [ "$USE_MAIN_WORKTREE" -eq 1 ]; then
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    WORKTREE_PATH="${REPO_ROOT}/worktrees/main"
+
+    echo "Fetching latest from origin..."
+    git -C "$REPO_ROOT" fetch origin main
+
+    ORIGIN_MAIN=$(git -C "$REPO_ROOT" rev-parse origin/main)
+    make_readonly() { find "$WORKTREE_PATH" -type f -not -path '*/.git/*' -exec chmod a-w {} \; 2>/dev/null || true; }
+
+    if [ -d "$WORKTREE_PATH" ]; then
+        CURRENT_HEAD=$(git -C "$WORKTREE_PATH" rev-parse HEAD)
+        [ "$CURRENT_HEAD" = "$ORIGIN_MAIN" ] && \
+            echo "Already at origin/main (${ORIGIN_MAIN:0:8}), nothing to do" && exit 0
+        echo "Updating worktree to origin/main..."
+        git -C "$WORKTREE_PATH" reset --hard origin/main
+        make_readonly
+    else
+        echo "Creating main worktree..."
+        mkdir -p "${REPO_ROOT}/worktrees"
+        git -C "$REPO_ROOT" worktree add --detach "$WORKTREE_PATH" origin/main
+        make_readonly
+    fi
+
+    echo "Running activate from main worktree..."
+    PRETTY_FLAG=""
+    [ "${PRETTY:-1}" -eq 0 ] && PRETTY_FLAG="--no-pretty"
+    exec "$WORKTREE_PATH/bin/activate" -l "$LOG_LEVEL" -c "$MAX_CORES" -t "$LOCK_TIMEOUT" $PRETTY_FLAG
 fi
 
 if [ "$LOG_LEVEL" -ge 3 ]; then

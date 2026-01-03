@@ -34,367 +34,377 @@ let
 in
 
 {
+  options.dotfiles.manageRemotely = lib.mkOption {
+    type = lib.types.bool;
+    default = false;
+    description = "Whether this host can be managed remotely via activate --host";
+  };
+
   imports = [
     (modulesPath + "/installer/sd-card/sd-image-aarch64.nix")
     "${hardwareRepo}/raspberry-pi/4"
   ];
 
-  nixpkgs.hostPlatform = "aarch64-linux";
+  config = {
+    dotfiles.manageRemotely = false;
 
-  boot.kernelPackages = pkgs.linuxPackages_latest;
-  boot.supportedFilesystems = lib.mkForce [
-    "vfat"
-    "ext4"
-  ];
-  boot.initrd.availableKernelModules = [
-    "xhci_pci"
-    "usbhid"
-    "usb_storage"
-  ];
+    nixpkgs.hostPlatform = "aarch64-linux";
 
-  boot.loader.grub.enable = false;
-  boot.loader.generic-extlinux-compatible.enable = true;
-  boot.kernelParams = [
-    "8250.nr_uarts=1"
-    "console=tty1"
-    "cma=128M"
-    "dyndbg=\"module wireguard +p\""
-  ];
-
-  boot.initrd.postMountCommands = ''
-    mkdir -p $targetRoot/etc/wireguard
-    echo '${encryptedKey}' | ${pkgs.gnupg}/bin/gpg --decrypt --quiet --batch --passphrase "$(cat /proc/device-tree/serial-number | tr -d '\0')" > $targetRoot/etc/wireguard/private.key
-    chmod 400 $targetRoot/etc/wireguard/private.key
-    chown root:root $targetRoot/etc/wireguard/private.key
-  '';
-
-  documentation.enable = false;
-  documentation.nixos.enable = false;
-  documentation.man.enable = false;
-  documentation.info.enable = false;
-  documentation.doc.enable = false;
-
-  services.thermald.enable = false;
-
-  programs.command-not-found.enable = false;
-  programs.nano.enable = false;
-
-  environment.defaultPackages = [ ];
-  environment.systemPackages = with pkgs; [
-    util-linux
-    gnupg
-  ];
-
-  hardware.enableRedistributableFirmware = true;
-
-  nixpkgs.config.allowUnfree = true;
-
-  networking.hostName = "hekate";
-  networking.domain = "home";
-  networking.extraHosts = "127.0.0.1 hekate";
-  networking.useDHCP = true;
-  networking.firewall.checkReversePath = "loose";
-  networking.wireguard.interfaces.wg0 = {
-    ips = [ "10.0.0.1/24" ];
-    listenPort = 51820;
-    mtu = 1280;
-    privateKeyFile = "/etc/wireguard/private.key";
-    peers = [
-      {
-        # iris
-        publicKey = "Od72AK2AKZptCZcGJ+PvF78/9EwlFonpWP8X/fCzLGE=";
-        allowedIPs = [ "10.0.0.2/32" ];
-        persistentKeepalive = 21;
-      }
-      {
-        # pegasus
-        publicKey = "/tdJioXk+bkkn0HIATk9t5nMNZMTVqHc3KJA5+vm+w8=";
-        allowedIPs = [ "10.0.0.3/32" ];
-        persistentKeepalive = 21;
-      }
+    boot.kernelPackages = pkgs.linuxPackages_latest;
+    boot.supportedFilesystems = lib.mkForce [
+      "vfat"
+      "ext4"
     ];
-  };
-  networking.firewall = {
-    enable = true;
-    allowedUDPPorts = [
-      51820
-      5353
-      53
+    boot.initrd.availableKernelModules = [
+      "xhci_pci"
+      "usbhid"
+      "usb_storage"
     ];
-    allowedTCPPorts = [
-      22
+
+    boot.loader.grub.enable = false;
+    boot.loader.generic-extlinux-compatible.enable = true;
+    boot.kernelParams = [
+      "8250.nr_uarts=1"
+      "console=tty1"
+      "cma=128M"
+      "dyndbg=\"module wireguard +p\""
     ];
-    extraCommands = ''
-      iptables -A FORWARD -i wg0 -o end0 -j ACCEPT
-      iptables -A FORWARD -i end0 -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT
 
-      iptables -A OUTPUT -d 192.168.0.0/16 -j ACCEPT
-      iptables -A OUTPUT -d 10.0.0.0/8 -j ACCEPT
-      iptables -A OUTPUT -d 172.16.0.0/12 -j ACCEPT
-      iptables -A OUTPUT -o lo -j ACCEPT
-      iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-
-      iptables -A OUTPUT -p udp -d 162.159.200.1 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT
-      iptables -A OUTPUT -p udp -d 162.159.200.123 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT
-
-      iptables -A OUTPUT -p udp -d 1.1.1.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT
-      iptables -A OUTPUT -p udp -d 1.0.0.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT
-
-      iptables -A OUTPUT -j DROP
+    boot.initrd.postMountCommands = ''
+      mkdir -p $targetRoot/etc/wireguard
+      echo '${encryptedKey}' | ${pkgs.gnupg}/bin/gpg --decrypt --quiet --batch --passphrase "$(cat /proc/device-tree/serial-number | tr -d '\0')" > $targetRoot/etc/wireguard/private.key
+      chmod 400 $targetRoot/etc/wireguard/private.key
+      chown root:root $targetRoot/etc/wireguard/private.key
     '';
-    extraStopCommands = ''
-      iptables -D FORWARD -i wg0 -o end0 -j ACCEPT 2>/dev/null || true
-      iptables -D FORWARD -i end0 -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
 
-      iptables -D OUTPUT -d 192.168.0.0/16 -j ACCEPT 2>/dev/null || true
-      iptables -D OUTPUT -d 10.0.0.0/8 -j ACCEPT 2>/dev/null || true
-      iptables -D OUTPUT -d 172.16.0.0/12 -j ACCEPT 2>/dev/null || true
-      iptables -D OUTPUT -o lo -j ACCEPT 2>/dev/null || true
-      iptables -D OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
-      iptables -D OUTPUT -p udp -d 162.159.200.1 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT 2>/dev/null || true
-      iptables -D OUTPUT -p udp -d 162.159.200.123 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT 2>/dev/null || true
-      iptables -D OUTPUT -p udp -d 1.1.1.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT 2>/dev/null || true
-      iptables -D OUTPUT -p udp -d 1.0.0.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT 2>/dev/null || true
-      iptables -D OUTPUT -j DROP 2>/dev/null || true
-    '';
-  };
+    documentation.enable = false;
+    documentation.nixos.enable = false;
+    documentation.man.enable = false;
+    documentation.info.enable = false;
+    documentation.doc.enable = false;
 
-  networking.nat = {
-    enable = true;
-    internalInterfaces = [ "wg0" ];
-    externalInterface = "end0";
-    forwardPorts = [ ];
-    extraCommands = ''
-      iptables -t nat -A POSTROUTING -s 10.0.0.0/24 -o end0 -j MASQUERADE
-      iptables -t nat -A PREROUTING -d 10.0.100.0/24 -j NETMAP --to 192.168.1.0/24
-    '';
-    extraStopCommands = ''
-      iptables -t nat -D POSTROUTING -s 10.0.0.0/24 -o end0 -j MASQUERADE 2>/dev/null || true
-      iptables -t nat -D PREROUTING -d 10.0.100.0/24 -j NETMAP --to 192.168.1.0/24 2>/dev/null || true
-    '';
-  };
+    services.thermald.enable = false;
 
-  services.openssh = {
-    enable = true;
-    settings = {
-      PermitRootLogin = "no";
-      PasswordAuthentication = false;
-      LogLevel = "INFO";
+    programs.command-not-found.enable = false;
+    programs.nano.enable = false;
+
+    environment.defaultPackages = [ ];
+    environment.systemPackages = with pkgs; [
+      util-linux
+      gnupg
+    ];
+
+    hardware.enableRedistributableFirmware = true;
+
+    nixpkgs.config.allowUnfree = true;
+
+    networking.hostName = "hekate";
+    networking.domain = "home";
+    networking.extraHosts = "127.0.0.1 hekate";
+    networking.useDHCP = true;
+    networking.firewall.checkReversePath = "loose";
+    networking.wireguard.interfaces.wg0 = {
+      ips = [ "10.0.0.1/24" ];
+      listenPort = 51820;
+      mtu = 1280;
+      privateKeyFile = "/etc/wireguard/private.key";
+      peers = [
+        {
+          # iris
+          publicKey = "Od72AK2AKZptCZcGJ+PvF78/9EwlFonpWP8X/fCzLGE=";
+          allowedIPs = [ "10.0.0.2/32" ];
+          persistentKeepalive = 21;
+        }
+        {
+          # pegasus
+          publicKey = "/tdJioXk+bkkn0HIATk9t5nMNZMTVqHc3KJA5+vm+w8=";
+          allowedIPs = [ "10.0.0.3/32" ];
+          persistentKeepalive = 21;
+        }
+      ];
     };
-    extraConfig = ''
-      Match User admin
-        ForceCommand ${hekate-dashboard}/bin/hekate-dashboard
-        AllowTcpForwarding no
-        AllowAgentForwarding no
-        X11Forwarding no
-        PermitTunnel no
-        AllowStreamLocalForwarding no
-    '';
-  };
-
-  systemd.services."getty@tty1" = {
-    enable = true;
-    wantedBy = [ "multi-user.target" ];
-  };
-
-  systemd.services.systemd-networkd-wait-online.enable = false;
-
-  services.avahi = {
-    enable = true;
-    nssmdns4 = true;
-    publish = {
+    networking.firewall = {
       enable = true;
-      addresses = true;
-      domain = true;
-    };
-  };
+      allowedUDPPorts = [
+        51820
+        5353
+        53
+      ];
+      allowedTCPPorts = [
+        22
+      ];
+      extraCommands = ''
+        iptables -A FORWARD -i wg0 -o end0 -j ACCEPT
+        iptables -A FORWARD -i end0 -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT
 
-  services.unbound = {
-    enable = true;
-    settings = {
-      server = {
-        interface = [
-          "10.0.0.1"
-          "192.168.1.110"
-        ];
-        access-control = [
-          "192.168.1.0/24 allow"
-          "10.0.0.0/24 allow"
-        ];
-        access-control-view = [
-          "192.168.1.0/24 internal-view"
-          "10.0.0.0/24 external-view"
-        ];
-        verbosity = 1;
-        log-queries = "yes";
+        iptables -A OUTPUT -d 192.168.0.0/16 -j ACCEPT
+        iptables -A OUTPUT -d 10.0.0.0/8 -j ACCEPT
+        iptables -A OUTPUT -d 172.16.0.0/12 -j ACCEPT
+        iptables -A OUTPUT -o lo -j ACCEPT
+        iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+        iptables -A OUTPUT -p udp -d 162.159.200.1 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT
+        iptables -A OUTPUT -p udp -d 162.159.200.123 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT
+
+        iptables -A OUTPUT -p udp -d 1.1.1.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT
+        iptables -A OUTPUT -p udp -d 1.0.0.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT
+
+        iptables -A OUTPUT -j DROP
+      '';
+      extraStopCommands = ''
+        iptables -D FORWARD -i wg0 -o end0 -j ACCEPT 2>/dev/null || true
+        iptables -D FORWARD -i end0 -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+
+        iptables -D OUTPUT -d 192.168.0.0/16 -j ACCEPT 2>/dev/null || true
+        iptables -D OUTPUT -d 10.0.0.0/8 -j ACCEPT 2>/dev/null || true
+        iptables -D OUTPUT -d 172.16.0.0/12 -j ACCEPT 2>/dev/null || true
+        iptables -D OUTPUT -o lo -j ACCEPT 2>/dev/null || true
+        iptables -D OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
+        iptables -D OUTPUT -p udp -d 162.159.200.1 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT 2>/dev/null || true
+        iptables -D OUTPUT -p udp -d 162.159.200.123 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT 2>/dev/null || true
+        iptables -D OUTPUT -p udp -d 1.1.1.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT 2>/dev/null || true
+        iptables -D OUTPUT -p udp -d 1.0.0.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT 2>/dev/null || true
+        iptables -D OUTPUT -j DROP 2>/dev/null || true
+      '';
+    };
+
+    networking.nat = {
+      enable = true;
+      internalInterfaces = [ "wg0" ];
+      externalInterface = "end0";
+      forwardPorts = [ ];
+      extraCommands = ''
+        iptables -t nat -A POSTROUTING -s 10.0.0.0/24 -o end0 -j MASQUERADE
+        iptables -t nat -A PREROUTING -d 10.0.100.0/24 -j NETMAP --to 192.168.1.0/24
+      '';
+      extraStopCommands = ''
+        iptables -t nat -D POSTROUTING -s 10.0.0.0/24 -o end0 -j MASQUERADE 2>/dev/null || true
+        iptables -t nat -D PREROUTING -d 10.0.100.0/24 -j NETMAP --to 192.168.1.0/24 2>/dev/null || true
+      '';
+    };
+
+    services.openssh = {
+      enable = true;
+      settings = {
+        PermitRootLogin = "no";
+        PasswordAuthentication = false;
+        LogLevel = "INFO";
       };
-      forward-zone = [
-        {
-          name = ".";
-          forward-addr = [
-            "1.1.1.1"
-            "1.0.0.1"
-          ];
-        }
-      ];
-      view = [
-        {
-          name = "internal-view";
-          view-first = "yes";
-          local-zone = ''"home." static'';
-          local-data = [
-            ''"hestia.home. IN A 192.168.1.184"''
-            ''"hekate.home. IN A 192.168.1.110"''
-            ''"herakles.home. IN A 192.168.1.97"''
-            ''"pallas.home. IN A 192.168.1.204"''
-          ];
-        }
-        {
-          name = "external-view";
-          view-first = "yes";
-          local-zone = ''"home." static'';
-          local-data = [
-            ''"hestia.home. IN A 10.0.100.184"''
-            ''"hekate.home. IN A 10.0.100.110"''
-            ''"herakles.home. IN A 10.0.100.97"''
-            ''"pallas.home. IN A 10.0.100.204"''
-          ];
-        }
-      ];
+      extraConfig = ''
+        Match User admin
+          ForceCommand ${hekate-dashboard}/bin/hekate-dashboard
+          AllowTcpForwarding no
+          AllowAgentForwarding no
+          X11Forwarding no
+          PermitTunnel no
+          AllowStreamLocalForwarding no
+      '';
     };
-  };
 
-  systemd.services.avahi-daemon.serviceConfig = {
-    NoNewPrivileges = true;
-    ProtectSystem = "strict";
-    PrivateDevices = true;
-    RestrictNamespaces = true;
-    MemoryDenyWriteExecute = true;
-    ProtectKernelTunables = true;
-  };
-
-  systemd.services.sshd.serviceConfig = {
-    NoNewPrivileges = true;
-    ProtectKernelTunables = true;
-    RestrictNamespaces = true;
-  };
-
-  users.users.admin = {
-    isNormalUser = true;
-    home = "/home/admin";
-    createHome = false;
-    shell = "${pkgs.bash}/bin/bash";
-    openssh.authorizedKeys.keys = authorizedKeyLists.moye;
-  };
-
-  security.sudo.enable = false;
-
-  boot.kernel.sysctl = {
-    "kernel.dmesg_restrict" = 1;
-    "kernel.kptr_restrict" = 2;
-    "net.core.bpf_jit_harden" = 2;
-    "kernel.unprivileged_userns_clone" = 0;
-  };
-
-  users.users.root.hashedPassword = "!";
-
-  nix.settings.allowed-users = [ "root" ];
-
-  systemd.services.ssh-logger = {
-    description = "SSH connection logger";
-    wantedBy = [ "multi-user.target" ];
-    serviceConfig = {
-      ExecStart = "${pkgs.bash}/bin/bash -c 'journalctl -f -u sshd | tee -a /var/log/ssh-access.log'";
-      Restart = "always";
-      RestartSec = "5s";
+    systemd.services."getty@tty1" = {
+      enable = true;
+      wantedBy = [ "multi-user.target" ];
     };
-  };
 
-  services.logrotate = {
-    enable = true;
-    settings = {
-      "/var/log/ssh-access.log" = {
-        frequency = "daily";
-        rotate = 7;
-        compress = true;
-        delaycompress = true;
-        missingok = true;
-        notifempty = true;
-        postrotate = "systemctl reload rsyslog";
+    systemd.services.systemd-networkd-wait-online.enable = false;
+
+    services.avahi = {
+      enable = true;
+      nssmdns4 = true;
+      publish = {
+        enable = true;
+        addresses = true;
+        domain = true;
       };
     };
-  };
 
-  systemd.services.wg-status-server = {
-    description = "WireGuard status server for dashboard";
-    wantedBy = [ "multi-user.target" ];
-    path = [
-      pkgs.wireguard-tools
-      pkgs.coreutils
-      pkgs.gawk
-      pkgs.socat
-    ];
-    serviceConfig = {
-      ExecStart = "${wg-status-server}";
-      Restart = "always";
-      RestartSec = "5s";
-      RuntimeDirectory = "wg-status";
+    services.unbound = {
+      enable = true;
+      settings = {
+        server = {
+          interface = [
+            "10.0.0.1"
+            "192.168.1.110"
+          ];
+          access-control = [
+            "192.168.1.0/24 allow"
+            "10.0.0.0/24 allow"
+          ];
+          access-control-view = [
+            "192.168.1.0/24 internal-view"
+            "10.0.0.0/24 external-view"
+          ];
+          verbosity = 1;
+          log-queries = "yes";
+        };
+        forward-zone = [
+          {
+            name = ".";
+            forward-addr = [
+              "1.1.1.1"
+              "1.0.0.1"
+            ];
+          }
+        ];
+        view = [
+          {
+            name = "internal-view";
+            view-first = "yes";
+            local-zone = ''"home." static'';
+            local-data = [
+              ''"hestia.home. IN A 192.168.1.184"''
+              ''"hekate.home. IN A 192.168.1.110"''
+              ''"herakles.home. IN A 192.168.1.97"''
+              ''"pallas.home. IN A 192.168.1.204"''
+            ];
+          }
+          {
+            name = "external-view";
+            view-first = "yes";
+            local-zone = ''"home." static'';
+            local-data = [
+              ''"hestia.home. IN A 10.0.100.184"''
+              ''"hekate.home. IN A 10.0.100.110"''
+              ''"herakles.home. IN A 10.0.100.97"''
+              ''"pallas.home. IN A 10.0.100.204"''
+            ];
+          }
+        ];
+      };
     };
-  };
 
-  systemd.services.health-status-server = {
-    description = "System health status server for dashboard";
-    wantedBy = [ "multi-user.target" ];
-    path = [
-      pkgs.coreutils
-      pkgs.procps
-      pkgs.gawk
-      pkgs.socat
-    ];
-    serviceConfig = {
-      ExecStart = "${health-status-server}";
-      Restart = "always";
-      RestartSec = "5s";
-      User = "nobody";
-      RuntimeDirectory = "health-status";
+    systemd.services.avahi-daemon.serviceConfig = {
       NoNewPrivileges = true;
-      PrivateTmp = true;
       ProtectSystem = "strict";
-      ProtectHome = true;
+      PrivateDevices = true;
+      RestrictNamespaces = true;
+      MemoryDenyWriteExecute = true;
+      ProtectKernelTunables = true;
     };
-  };
 
-  systemd.services.dns-logs-server = {
-    description = "DNS logs server for dashboard";
-    wantedBy = [ "multi-user.target" ];
-    path = [
-      pkgs.coreutils
-      pkgs.socat
-    ];
-    serviceConfig = {
-      ExecStart = "${dns-logs-server}";
-      Restart = "always";
-      RestartSec = "5s";
-      RuntimeDirectory = "dns-logs";
+    systemd.services.sshd.serviceConfig = {
+      NoNewPrivileges = true;
+      ProtectKernelTunables = true;
+      RestrictNamespaces = true;
     };
-  };
 
-  services.timesyncd = {
-    enable = true;
-    servers = [ "time.cloudflare.com" ];
-    fallbackServers = [
-      "162.159.200.1"
-      "162.159.200.123"
+    users.users.admin = {
+      isNormalUser = true;
+      home = "/home/admin";
+      createHome = false;
+      shell = "${pkgs.bash}/bin/bash";
+      openssh.authorizedKeys.keys = authorizedKeyLists.moye;
+    };
+
+    security.sudo.enable = false;
+
+    boot.kernel.sysctl = {
+      "kernel.dmesg_restrict" = 1;
+      "kernel.kptr_restrict" = 2;
+      "net.core.bpf_jit_harden" = 2;
+      "kernel.unprivileged_userns_clone" = 0;
+    };
+
+    users.users.root.hashedPassword = "!";
+
+    nix.settings.allowed-users = [ "root" ];
+
+    systemd.services.ssh-logger = {
+      description = "SSH connection logger";
+      wantedBy = [ "multi-user.target" ];
+      serviceConfig = {
+        ExecStart = "${pkgs.bash}/bin/bash -c 'journalctl -f -u sshd | tee -a /var/log/ssh-access.log'";
+        Restart = "always";
+        RestartSec = "5s";
+      };
+    };
+
+    services.logrotate = {
+      enable = true;
+      settings = {
+        "/var/log/ssh-access.log" = {
+          frequency = "daily";
+          rotate = 7;
+          compress = true;
+          delaycompress = true;
+          missingok = true;
+          notifempty = true;
+          postrotate = "systemctl reload rsyslog";
+        };
+      };
+    };
+
+    systemd.services.wg-status-server = {
+      description = "WireGuard status server for dashboard";
+      wantedBy = [ "multi-user.target" ];
+      path = [
+        pkgs.wireguard-tools
+        pkgs.coreutils
+        pkgs.gawk
+        pkgs.socat
+      ];
+      serviceConfig = {
+        ExecStart = "${wg-status-server}";
+        Restart = "always";
+        RestartSec = "5s";
+        RuntimeDirectory = "wg-status";
+      };
+    };
+
+    systemd.services.health-status-server = {
+      description = "System health status server for dashboard";
+      wantedBy = [ "multi-user.target" ];
+      path = [
+        pkgs.coreutils
+        pkgs.procps
+        pkgs.gawk
+        pkgs.socat
+      ];
+      serviceConfig = {
+        ExecStart = "${health-status-server}";
+        Restart = "always";
+        RestartSec = "5s";
+        User = "nobody";
+        RuntimeDirectory = "health-status";
+        NoNewPrivileges = true;
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+      };
+    };
+
+    systemd.services.dns-logs-server = {
+      description = "DNS logs server for dashboard";
+      wantedBy = [ "multi-user.target" ];
+      path = [
+        pkgs.coreutils
+        pkgs.socat
+      ];
+      serviceConfig = {
+        ExecStart = "${dns-logs-server}";
+        Restart = "always";
+        RestartSec = "5s";
+        RuntimeDirectory = "dns-logs";
+      };
+    };
+
+    services.timesyncd = {
+      enable = true;
+      servers = [ "time.cloudflare.com" ];
+      fallbackServers = [
+        "162.159.200.1"
+        "162.159.200.123"
+      ];
+    };
+
+    systemd.tmpfiles.rules = [
+      "d /var/log 0755 root root - -"
+      "f /var/log/ssh-access.log 0644 root root - -"
+      "d /home/admin 0555 root root - -"
+      "Z /tmp 0700 root root - -"
+      "Z /var/tmp 0700 root root - -"
     ];
+
+    system.stateVersion = "24.11";
   };
-
-  systemd.tmpfiles.rules = [
-    "d /var/log 0755 root root - -"
-    "f /var/log/ssh-access.log 0644 root root - -"
-    "d /home/admin 0555 root root - -"
-    "Z /tmp 0700 root root - -"
-    "Z /var/tmp 0700 root root - -"
-  ];
-
-  system.stateVersion = "24.11";
 }

@@ -9,6 +9,12 @@
 }:
 
 {
+  options.dotfiles.manageRemotely = pkgs.lib.mkOption {
+    type = pkgs.lib.types.bool;
+    default = false;
+    description = "Whether this host can be managed remotely via activate --host";
+  };
+
   imports = [
     commonNixSettings
     darwinFrontendServices
@@ -16,40 +22,43 @@
     ../../nix/homebrew.nix
   ];
 
-  nixpkgs.hostPlatform = "aarch64-darwin";
-  programs.zsh.enable = true;
-  system.stateVersion = 6;
+  config = {
+    dotfiles.manageRemotely = true;
 
-  networking.hostName = "pallas";
-  networking.computerName = "pallas";
-  networking.localHostName = "pallas";
+    nixpkgs.hostPlatform = "aarch64-darwin";
+    programs.zsh.enable = true;
+    system.stateVersion = 6;
 
-  users.users.moye = {
-    name = "moye";
-    home = "/Users/moye";
-    openssh.authorizedKeys.keys = authorizedKeyLists.moye;
-  };
+    networking.hostName = "pallas";
+    networking.computerName = "pallas";
+    networking.localHostName = "pallas";
 
-  system.primaryUser = "moye";
+    users.users.moye = {
+      name = "moye";
+      home = "/Users/moye";
+      openssh.authorizedKeys.keys = authorizedKeyLists.moye;
+    };
 
-  security.sudo.extraConfig = ''
-    moye ALL=(ALL) NOPASSWD: ALL
-  '';
+    system.primaryUser = "moye";
 
-  environment.systemPackages = with pkgs; [
-    eternal-terminal
-    git
-    vim
-  ];
+    security.sudo.extraConfig = ''
+      moye ALL=(ALL) NOPASSWD: ALL
+    '';
 
-  launchd.daemons.etserver = {
-    serviceConfig = {
-      ProgramArguments = [ "${pkgs.eternal-terminal}/bin/etserver" ];
-      KeepAlive = true;
-      RunAtLoad = true;
-      StandardOutPath = "/tmp/etserver.out.log";
-      StandardErrorPath = "/tmp/etserver.err.log";
+    environment.systemPackages = with pkgs; [
+      eternal-terminal
+      git
+      vim
+    ];
+
+    launchd.daemons.etserver = {
+      serviceConfig = {
+        ProgramArguments = [ "${pkgs.eternal-terminal}/bin/etserver" ];
+        KeepAlive = true;
+        RunAtLoad = true;
+        StandardOutPath = "/tmp/etserver.out.log";
+        StandardErrorPath = "/tmp/etserver.err.log";
+      };
     };
   };
-
 }
