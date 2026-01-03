@@ -1,6 +1,15 @@
 repos:
   - repo: local
     hooks:
+      - id: flake-check
+        name: validate flake
+        entry: bash
+        language: system
+        files: \.nix$
+        pass_filenames: false
+        args:
+          - -c
+          - "nix flake show --no-write-lock-file &>/dev/null"
       - id: format-nix
         name: format nix files
         entry: bash
