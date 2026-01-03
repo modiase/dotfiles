@@ -206,6 +206,20 @@ if [ -n "$TARGET_HOST" ]; then
     exit 1
 fi
 
+if [ "$(uname -s)" = "Darwin" ]; then
+    STATE_DIR="$HOME/.local/state/dotfiles"
+else
+    STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
+fi
+SYSTEM_STATE="$STATE_DIR/system-activated"
+HOME_STATE="$STATE_DIR/home-activated"
+
+is_activated() {
+    local state_file="$1"
+    local target_hash="$2"
+    [ -f "$state_file" ] && [ "$(cat "$state_file")" = "$target_hash" ]
+}
+
 if [ "$USE_MAIN_WORKTREE" -eq 1 ]; then
     REPO_ROOT="$(git rev-parse --show-toplevel)"
     WORKTREE_PATH="${REPO_ROOT}/worktrees/main"
@@ -218,17 +232,21 @@ if [ "$USE_MAIN_WORKTREE" -eq 1 ]; then
 
     if [ -d "$WORKTREE_PATH" ]; then
         CURRENT_HEAD=$(git -C "$WORKTREE_PATH" rev-parse HEAD)
-        [ "$CURRENT_HEAD" = "$ORIGIN_MAIN" ] && \
-            echo "Already at origin/main (${ORIGIN_MAIN:0:8}), nothing to do" && exit 0
-        echo "Updating worktree to origin/main..."
-        git -C "$WORKTREE_PATH" reset --hard origin/main
-        make_readonly
+        if [ "$CURRENT_HEAD" != "$ORIGIN_MAIN" ]; then
+            echo "Updating worktree to origin/main..."
+            git -C "$WORKTREE_PATH" reset --hard origin/main
+            make_readonly
+        fi
     else
         echo "Creating main worktree..."
         mkdir -p "${REPO_ROOT}/worktrees"
         git -C "$REPO_ROOT" worktree add --detach "$WORKTREE_PATH" origin/main
         make_readonly
     fi
+
+    is_activated "$SYSTEM_STATE" "$ORIGIN_MAIN" && \
+        is_activated "$HOME_STATE" "$ORIGIN_MAIN" && \
+        echo "Already activated ${ORIGIN_MAIN:0:8}, nothing to do" && exit 0
 
     echo "Running activate from main worktree..."
     PRETTY_FLAG=""
@@ -304,9 +322,17 @@ acquire_lock() {
 }
 
 release_lock() {
-    if [ "$LOCK_ACQUIRED" -eq 1 ]; then
-        rm -rf "${LOCKFILE}.d"
-    fi
+    [ "$LOCK_ACQUIRED" -eq 1 ] && rm -rf "${LOCKFILE}.d"
+}
+
+record_state() {
+    local state_file="$1"
+    local hash="$2"
+    mkdir -p "$STATE_DIR"
+    local temp
+    temp=$(mktemp "$STATE_DIR/.state.XXXXXX")
+    echo "$hash" > "$temp"
+    mv "$temp" "$state_file"
 }
 
 cleanup_and_exit() {
@@ -352,27 +378,27 @@ done
 
 OS=$(uname -s)
 ARCH=$(uname -m)
+TARGET_HASH=$(git -C "$REPO_ROOT" rev-parse HEAD)
 
 case "$OS" in
     "Darwin")
-        if ! command -v darwin-rebuild >/dev/null 2>&1; then
-            log_to_system "info" "Installing nix-darwin..."
-            REBUILD_CMD="nix run nix-darwin/master#darwin-rebuild --"
-        else
-            log_to_system "info" "Updating nix-darwin configuration..."
+        if ! is_activated "$SYSTEM_STATE" "$TARGET_HASH"; then
             REBUILD_CMD="darwin-rebuild"
-        fi
-        if ! run_logged "darwin-rebuild" "$COLOR_WHITE" sudo NIX_CONFIG="$NIX_CONFIG" "$REBUILD_CMD" switch --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES"; then
-            exit 1
+            command -v darwin-rebuild >/dev/null 2>&1 || {
+                log_to_system "info" "Installing nix-darwin..."
+                REBUILD_CMD="nix run nix-darwin/master#darwin-rebuild --"
+            }
+            command -v darwin-rebuild >/dev/null 2>&1 && log_to_system "info" "Updating nix-darwin configuration..."
+            run_logged "darwin-rebuild" "$COLOR_WHITE" sudo NIX_CONFIG="$NIX_CONFIG" $REBUILD_CMD switch --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" \
+                && record_state "$SYSTEM_STATE" "$TARGET_HASH" || exit 1
         fi
         HOME_MANAGER_TARGET="moye-aarch64-darwin"
         ;;
     "Linux")
-        if [ -f /etc/NIXOS ]; then
+        if [ -f /etc/NIXOS ] && ! is_activated "$SYSTEM_STATE" "$TARGET_HASH"; then
             log_to_system "info" "Updating NixOS configuration..."
-            if ! run_logged "nixos-rebuild" "$COLOR_WHITE" sudo nixos-rebuild switch --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES"; then
-                exit 1
-            fi
+            run_logged "nixos-rebuild" "$COLOR_WHITE" sudo nixos-rebuild switch --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" \
+                && record_state "$SYSTEM_STATE" "$TARGET_HASH" || exit 1
         fi
 
         case "$ARCH" in
@@ -390,8 +416,9 @@ case "$OS" in
         ;;
 esac
 
-if ! run_logged "home-manager" "$COLOR_WHITE" nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake "$REPO_ROOT#$HOME_MANAGER_TARGET"; then
-    exit 1
-fi
+is_activated "$HOME_STATE" "$TARGET_HASH" || {
+    run_logged "home-manager" "$COLOR_WHITE" nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake "$REPO_ROOT#$HOME_MANAGER_TARGET" \
+        && record_state "$HOME_STATE" "$TARGET_HASH" || exit 1
+}
 
 log_to_system "info" "Configuration updated successfully"
