@@ -73,6 +73,24 @@ repos:
         args:
           - -c
           - "nix-shell -p ruff --run 'ruff format .'"
+      - id: bash-syntax
+        name: bash syntax check
+        entry: bash
+        language: system
+        files: \.(sh|bash)$
+        pass_filenames: false
+        args:
+          - -c
+          - "nix-shell -p fd --run 'fd -e sh -e bash -x bash -n'"
+      - id: fish-syntax
+        name: fish syntax check
+        entry: bash
+        language: system
+        files: \.fish$
+        pass_filenames: false
+        args:
+          - -c
+          - "nix-shell -p fd fish --run 'fd -e fish -x fish --no-execute'"
       - id: shellcheck
         name: shellcheck
         entry: bash
