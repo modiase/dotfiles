@@ -155,12 +155,6 @@ in
         80
         443
       ];
-      allowedUDPPortRanges = [
-        {
-          from = 60000;
-          to = 61000;
-        }
-      ];
     };
 
     environment.variables = {
