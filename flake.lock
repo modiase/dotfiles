@@ -56,6 +56,22 @@
         "type": "github"
       }
     },
+    "llm-server": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "path": "./nix/nixpkgs/llm-server",
+        "type": "path"
+      },
+      "original": {
+        "path": "./nix/nixpkgs/llm-server",
+        "type": "path"
+      },
+      "parent": []
+    },
     "nix-darwin": {
       "inputs": {
         "nixpkgs": [
@@ -96,6 +112,7 @@
       "inputs": {
         "flake-utils": "flake-utils",
         "home-manager": "home-manager",
+        "llm-server": "llm-server",
         "nix-darwin": "nix-darwin",
         "nixpkgs": "nixpkgs",
         "tk700-controller-dashboard": "tk700-controller-dashboard"

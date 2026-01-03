@@ -2,8 +2,28 @@
 
 let
   providerConfig = pkgs.writeTextFile {
-    name = "custom_herakles.json";
-    text = builtins.readFile ./config/custom_herakles.json;
+    name = "herakles.json";
+    text = builtins.toJSON {
+      name = "herakles";
+      engine = "openai";
+      display_name = "herakles";
+      description = "Herakles LLM Server";
+      api_key_env = "HERAKLES_LLM_SERVER_API_KEY";
+      base_url = "http://herakles.home:8000";
+      models = [
+        {
+          name = "cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit";
+          context_limit = 128000;
+          input_token_cost = null;
+          output_token_cost = null;
+          currency = null;
+          supports_cache_control = null;
+        }
+      ];
+      headers = null;
+      timeout_seconds = null;
+      supports_streaming = true;
+    };
   };
 
   gooseConfig = pkgs.writeTextFile {
@@ -32,9 +52,10 @@ in
 pkgs.writeShellScriptBin "coder" ''
   mkdir -p ~/.config/goose/custom_providers
 
-  [ ! -f ~/.config/goose/custom_providers/custom_herakles.json ] || \
-    ! cmp -s ${providerConfig} ~/.config/goose/custom_providers/custom_herakles.json && \
-    cp ${providerConfig} ~/.config/goose/custom_providers/custom_herakles.json
+  [ ! -f ~/.config/goose/custom_providers/herakles.json ] || \
+    ! cmp -s ${providerConfig} ~/.config/goose/custom_providers/herakles.json && \
+    cp -f ${providerConfig} ~/.config/goose/custom_providers/herakles.json && \
+    chmod +w ~/.config/goose/custom_providers/herakles.json
 
   if ${secretsmanager}/bin/secretsmanager get EXA_API_KEY --optional >/dev/null 2>&1; then
     CONFIG_FILE=${gooseConfig}
@@ -44,16 +65,18 @@ pkgs.writeShellScriptBin "coder" ''
 
   [ ! -f ~/.config/goose/config.yaml ] || \
     ! cmp -s "$CONFIG_FILE" ~/.config/goose/config.yaml && \
-    cp "$CONFIG_FILE" ~/.config/goose/config.yaml
+    cp -f "$CONFIG_FILE" ~/.config/goose/config.yaml && \
+    chmod +w ~/.config/goose/config.yaml
 
   [ ! -f ~/.config/goose/.goosehints ] || \
     ! cmp -s ${gooseHints} ~/.config/goose/.goosehints && \
-    cp ${gooseHints} ~/.config/goose/.goosehints
+    cp -f ${gooseHints} ~/.config/goose/.goosehints && \
+    chmod +w ~/.config/goose/.goosehints
 
   export GOOSE_DISABLE_KEYRING=1
-  export GOOSE_PROVIDER="custom_herakles"
+  export GOOSE_PROVIDER="herakles"
   export GOOSE_MODEL="cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
-  export CUSTOM_HERAKLES_API_KEY="dummy"
+  export HERAKLES_LLM_SERVER_API_KEY="dummy"
 
   exec ${goose-cli-patched}/bin/goose "$@"
 ''

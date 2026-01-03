@@ -16,6 +16,10 @@
       url = "github:modiase/tk700-controller-dashboard";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    llm-server = {
+      url = "path:./nix/nixpkgs/llm-server";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -26,6 +30,7 @@
       nix-darwin,
       flake-utils,
       tk700-controller-dashboard,
+      llm-server,
       ...
     }@inputs:
     let
@@ -260,7 +265,14 @@
             ];
           }
         ];
-        specialArgs = { inherit authorizedKeys authorizedKeyLists commonNixSettings; };
+        specialArgs = {
+          inherit
+            authorizedKeys
+            authorizedKeyLists
+            commonNixSettings
+            llm-server
+            ;
+        };
       };
 
       nixosConfigurations."hermes" = nixpkgs.lib.nixosSystem {
