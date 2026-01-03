@@ -43,6 +43,7 @@ const (
 	gptMini = "o4-mini-2025-04-16"
 
 	ollamaURL = "http://localhost:11434"
+	vllmURL   = "http://herakles.home:8000/v1"
 )
 
 var (
@@ -862,7 +863,7 @@ func callLLMWithSystem(systemPrompt, userPrompt string, useFast bool) (string, e
 	switch provider {
 	case "local":
 		return callLocal(systemPrompt, userPrompt, useFast)
-	case "remote":
+	case "herakles":
 		return callRemote(systemPrompt, userPrompt, useFast)
 	case "claude":
 		return callClaude(systemPrompt, userPrompt, useFast)
@@ -1231,65 +1232,61 @@ func callLocal(systemPrompt, userPrompt string, _ bool) (string, error) {
 	return stripTags(result.Choices[0].Message.Content, "think", "drafts"), nil
 }
 
-func detectRemoteServer() error {
+func detectHeraklesLLMServer() error {
 	if remoteURL != "" {
 		return nil
 	}
 
-	hosts := []string{"herakles", "herakles.home"}
 	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(vllmURL + "/models")
+	if err != nil {
+		return fmt.Errorf("herakles LLM server unavailable at %s: %w", vllmURL, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
 
-	for _, host := range hosts {
-		url := fmt.Sprintf("http://%s:11434", host)
-		resp, err := client.Get(url + "/api/tags")
-		if err != nil {
-			continue
-		}
-		_ = resp.Body.Close()
-		if resp.StatusCode == 200 {
-			remoteURL = url
-			return nil
-		}
+	if resp.StatusCode == 200 {
+		remoteURL = vllmURL
+		return nil
 	}
 
-	return fmt.Errorf("remote LLM unavailable: no ollama/vllm server found on herakles or herakles.home:11434")
+	return fmt.Errorf("herakles LLM server unavailable: status %d from %s", resp.StatusCode, vllmURL)
 }
 
-func detectRemoteModel() error {
+func detectHeraklesLLMServerModel() error {
 	if remoteModel != "" {
 		return nil
 	}
 
-	if err := detectRemoteServer(); err != nil {
+	if err := detectHeraklesLLMServer(); err != nil {
 		return err
 	}
 
-	resp, err := http.Get(remoteURL + "/api/tags")
+	resp, err := http.Get(remoteURL + "/models")
 	if err != nil {
-		return fmt.Errorf("remote LLM unavailable: %w", err)
+		return fmt.Errorf("herakles LLM server unavailable: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
-		Models []struct {
-			Name string `json:"name"`
-		} `json:"models"`
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return err
 	}
 
-	if len(result.Models) == 0 {
-		return fmt.Errorf("no models available on remote server")
+	if len(result.Data) == 0 {
+		return fmt.Errorf("no models available on herakles LLM server")
 	}
 
-	remoteModel = result.Models[0].Name
+	remoteModel = result.Data[0].ID
 	return nil
 }
 
 func callRemote(systemPrompt, userPrompt string, _ bool) (string, error) {
-	if err := detectRemoteModel(); err != nil {
+	if err := detectHeraklesLLMServerModel(); err != nil {
 		return "", err
 	}
 
@@ -1312,7 +1309,7 @@ func callRemote(systemPrompt, userPrompt string, _ bool) (string, error) {
 		return "", err
 	}
 
-	req, err := http.NewRequest("POST", remoteURL+"/api/chat", bytes.NewReader(body))
+	req, err := http.NewRequest("POST", remoteURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
 		return "", err
 	}
@@ -1353,8 +1350,8 @@ func callRemote(systemPrompt, userPrompt string, _ bool) (string, error) {
 	return stripTags(result.Choices[0].Message.Content, "think", "drafts"), nil
 }
 
-func isRemoteAvailable() bool {
-	return detectRemoteServer() == nil
+func isHeraklesLLMServerAvailable() bool {
+	return detectHeraklesLLMServer() == nil
 }
 
 func stripTags(s string, tags ...string) string {
@@ -1417,11 +1414,11 @@ func main() {
 		Short: "Generate Anki flashcards using AI",
 		Long: `Generate Anki flashcards using AI models with web search.
 
-Providers: remote (default), local, claude, chatgpt, gemini
+Providers: herakles (default), local, claude, chatgpt, gemini
 
 Examples:
   ankigen "What is Docker?"
-  ankigen remote "What is Docker?"
+  ankigen herakles "What is Docker?"
   ankigen claude -f "Quick question"
   ankigen --no-web "Simple definition"`,
 		Args: cobra.ArbitraryArgs,
@@ -1458,13 +1455,13 @@ func isLocalAvailable() bool {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	providers := map[string]bool{"local": true, "remote": true, "claude": true, "chatgpt": true, "gemini": true}
+	providers := map[string]bool{"local": true, "herakles": true, "claude": true, "chatgpt": true, "gemini": true}
 
 	if len(args) > 0 && providers[args[0]] {
 		provider = args[0]
 		args = args[1:]
-	} else if isRemoteAvailable() {
-		provider = "remote"
+	} else if isHeraklesLLMServerAvailable() {
+		provider = "herakles"
 	} else if isLocalAvailable() {
 		provider = "local"
 	} else {

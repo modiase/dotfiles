@@ -4,6 +4,7 @@
   pkgs,
   authorizedKeyLists,
   commonNixSettings,
+  llm-server,
   ...
 }:
 
@@ -11,7 +12,16 @@
   imports = [
     ./hardware-configuration.nix
     commonNixSettings
+    llm-server.nixosModules.default
   ];
+
+  # Enable the LLM Server service
+  services.llm-server = {
+    enable = true;
+    gpuMemoryUtilization = 0.90;
+    maxModelLen = 24576;
+    maxNumSeqs = 64;
+  };
 
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
