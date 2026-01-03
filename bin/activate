@@ -6,46 +6,74 @@ MAX_CORES=$(($(nproc) - 1))
 LOCK_TIMEOUT=30
 COLOR_ENABLED=true
 PRETTY=${PRETTY:-1}
-USE_MAIN_WORKTREE=0
+USE_LOCAL=0
+USE_DIRTY=0
+FROM_WORKTREE=0
 TARGET_HOST=""
 SUBCOMMAND=""
 SHOW_TARGET=""
 
+# Exit hook system - allows multiple cleanup actions without shadowing
+EXIT_HOOKS=()
+
+add_exit_hook() {
+    EXIT_HOOKS+=("$1")
+}
+
+run_exit_hooks() {
+    local i
+    # Run hooks in reverse order (LIFO)
+    for ((i = ${#EXIT_HOOKS[@]} - 1; i >= 0; i--)); do
+        eval "${EXIT_HOOKS[i]}" || true
+    done
+}
+
+trap run_exit_hooks EXIT
+
 [ -n "${CI:-}" ] && [ "$CI" != "0" ] && PRETTY=0
+
+# Verbose logging - only shown at level 3+
+log_verbose() { [ "$LOG_LEVEL" -ge 3 ] && echo "$@" || :; }
+run_quiet() { if [ "$LOG_LEVEL" -ge 3 ]; then "$@"; else "$@" >/dev/null 2>&1; fi; }
 
 show_usage() {
     local exit_code=${1:-0}
     cat <<EOF
-Usage: $0 [-h] [-l LEVEL] [-c CORES] [-t TIMEOUT] [--no-pretty] [--main] [--host HOST]
+Usage: $0 [-h] [-l LEVEL] [-c CORES] [-t TIMEOUT] [--no-pretty] [--host HOST]
+       $0 --local | --dirty
        $0 show [HOST]
 
 Activate dotfiles configuration for Darwin or NixOS systems.
+By default, fetches and activates from origin/main using a read-only worktree.
 
 Subcommands:
     show [HOST]   Show activation status (origin/main, worktree, system, home hashes)
                   If HOST specified, shows status on that remote machine
 
 Options:
+    -c CORES      Set max cores for parallel builds (default: $(nproc) - 1)
     -h            Show this help message
     -l LEVEL      Set log level (default: 2)
-                  1 = minimal output (errors and completion only)
-                  2 = show stdout from rebuild processes
-                  3+ = enable debug mode (set -x)
-    -c CORES      Set max cores for parallel builds (default: $(nproc) - 1)
+                  1 = minimal (errors and completion only)
+                  2 = normal (rebuild progress)
+                  3 = verbose (git commands, setup messages)
+                  4+ = debug (set -x)
     -t TIMEOUT    Set lock timeout in minutes (default: 30)
                   Prevents concurrent activations and detects hung processes
-    --no-pretty   Disable pretty output (no spinner)
-                  Auto-enabled when CI environment variable is set
-    --main        Run activate from the latest main
-    --host HOST   Run 'activate --main' on remote host(s) via SSH
+    --dirty       Activate with all local changes (including unstaged)
+    --host HOST   Run activate on remote host(s) via SSH
                   Use 'all' to deploy to all remotely-manageable hosts in parallel
                   Manageable hosts are defined by dotfiles.manageRemotely = true
+    --local       Stash unstaged changes, activate staged, then restore
+    --no-pretty   Disable pretty output (no spinner)
+                  Auto-enabled when CI environment variable is set
 
 Examples:
-    $0                  # Activate with default settings
+    $0                  # Activate from latest origin/main (default)
     $0 show             # Show activation status on this machine
     $0 show herakles    # Show activation status on herakles
-    $0 --main           # Activate from latest main branch
+    $0 --local          # Activate staged changes only
+    $0 --dirty          # Activate all local changes
     $0 --host pallas    # Deploy to pallas via SSH
     $0 --host all       # Deploy to all manageable hosts in parallel
     $0 -h               # Show this help
@@ -71,11 +99,11 @@ for i in $(seq 1 $#); do
     fi
     arg="${!i}"
     case "$arg" in
-        --main)
-            USE_MAIN_WORKTREE=1
+        --dirty)
+            USE_DIRTY=1
             ;;
-        --no-pretty)
-            PRETTY=0
+        --help)
+            show_usage 0
             ;;
         --host)
             next_i=$((i + 1))
@@ -90,8 +118,14 @@ for i in $(seq 1 $#); do
         --host=*)
             TARGET_HOST="${arg#--host=}"
             ;;
-        --help)
-            show_usage 0
+        --from-worktree)
+            FROM_WORKTREE=1
+            ;;
+        --local)
+            USE_LOCAL=1
+            ;;
+        --no-pretty)
+            PRETTY=0
             ;;
         show)
             SUBCOMMAND="show"
@@ -106,8 +140,16 @@ set -- "${ARGS[@]+"${ARGS[@]}"}"
 # Handle show subcommand target
 [ "$SUBCOMMAND" = "show" ] && [ ${#ARGS[@]} -gt 0 ] && SHOW_TARGET="${ARGS[0]}" && ARGS=("${ARGS[@]:1}")
 
-while getopts "hl:c:t:" opt; do
+while getopts "c:hl:t:" opt; do
     case $opt in
+        c)
+            if [[ "$OPTARG" =~ ^[0-9]+$ ]]; then
+                MAX_CORES=$OPTARG
+            else
+                echo "Error: -c requires a positive integer" >&2
+                show_usage 1
+            fi
+            ;;
         h)
             show_usage 0
             ;;
@@ -116,14 +158,6 @@ while getopts "hl:c:t:" opt; do
                 LOG_LEVEL=$OPTARG
             else
                 echo "Error: -l requires a positive integer" >&2
-                show_usage 1
-            fi
-            ;;
-        c)
-            if [[ "$OPTARG" =~ ^[0-9]+$ ]]; then
-                MAX_CORES=$OPTARG
-            else
-                echo "Error: -c requires a positive integer" >&2
                 show_usage 1
             fi
             ;;
@@ -167,7 +201,7 @@ if [ -n "$TARGET_HOST" ]; then
     }
 
     MANAGEABLE_HOSTS=$(get_manageable_hosts)
-    [ -z "$MANAGEABLE_HOSTS" ] && echo "Error: Could not determine manageable hosts from flake" >&2 && \
+    [ -z "$MANAGEABLE_HOSTS" ] && echo "Error: Could not determine manageable hosts from flake" >&2 &&
         echo "Ensure dotfiles.manageRemotely = true is set for target hosts" >&2 && exit 1
 
     validate_host() { echo "$MANAGEABLE_HOSTS" | grep -qx "$1"; }
@@ -191,7 +225,7 @@ if [ -n "$TARGET_HOST" ]; then
     echo ""
 
     RESULT_DIR=$(mktemp -d)
-    trap "rm -rf $RESULT_DIR" EXIT
+    add_exit_hook "rm -rf $RESULT_DIR"
 
     for host in $DEPLOY_HOSTS; do
         (
@@ -199,8 +233,8 @@ if [ -n "$TARGET_HOST" ]; then
             ssh "$host" 'cd ~/Dotfiles && git fetch origin main && \
                 ([ -d worktrees/main ] && git -C worktrees/main reset --hard origin/main || \
                 git worktree add --detach worktrees/main origin/main) && \
-                cd worktrees/main && ./bin/activate' 2>&1 | sed "s/^/$prefix/"
-            echo ${PIPESTATUS[0]} > "$RESULT_DIR/$host"
+                cd worktrees/main && ./bin/activate -l 3 --no-pretty' 2>&1 | sed "s/^/$prefix/"
+            echo ${PIPESTATUS[0]} >"$RESULT_DIR/$host"
         ) &
     done
 
@@ -210,7 +244,10 @@ if [ -n "$TARGET_HOST" ]; then
     FAILED=0
     for host in $DEPLOY_HOSTS; do
         result=$(cat "$RESULT_DIR/$host" 2>/dev/null || echo 1)
-        [ "$result" -eq 0 ] && echo "✓ $host: success" || { echo "✗ $host: FAILED"; FAILED=1; }
+        [ "$result" -eq 0 ] && echo "✓ $host: success" || {
+            echo "✗ $host: FAILED"
+            FAILED=1
+        }
     done
 
     echo ""
@@ -238,12 +275,12 @@ show_status() {
     local worktree="$repo_root/worktrees/main"
     local origin_main worktree_head system_hash home_hash
 
-    local c_cyan=$'\033[38;5;116m'    # Nord 8
-    local c_blue=$'\033[38;5;110m'    # Nord 9
-    local c_purple=$'\033[38;5;139m'  # Nord 15
+    local c_cyan=$'\033[38;5;116m'   # Nord 8
+    local c_blue=$'\033[38;5;110m'   # Nord 9
+    local c_purple=$'\033[38;5;139m' # Nord 15
     local c_magenta=$'\033[38;5;175m'
-    local c_green=$'\033[38;5;108m'   # Nord 14
-    local c_yellow=$'\033[38;5;222m'  # Nord 13
+    local c_green=$'\033[38;5;108m'  # Nord 14
+    local c_yellow=$'\033[38;5;222m' # Nord 13
     local c_reset=$'\033[0m'
 
     origin_main=$(git -C "$repo_root" rev-parse origin/main 2>/dev/null || echo "(unknown)")
@@ -275,12 +312,12 @@ if [ "$SUBCOMMAND" = "show" ]; then
     exit 0
 fi
 
-if [ "$USE_MAIN_WORKTREE" -eq 1 ]; then
+if [ "$USE_LOCAL" -eq 0 ] && [ "$USE_DIRTY" -eq 0 ] && [ "$FROM_WORKTREE" -eq 0 ]; then
     REPO_ROOT="$(git rev-parse --show-toplevel)"
     WORKTREE_PATH="${REPO_ROOT}/worktrees/main"
+    source "$REPO_ROOT/lib/lib.sh"
 
-    echo "Fetching latest from origin..."
-    git -C "$REPO_ROOT" fetch origin main
+    run_logged "fetch origin/main" "$COLOR_WHITE" git -C "$REPO_ROOT" fetch origin main
 
     ORIGIN_MAIN=$(git -C "$REPO_ROOT" rev-parse origin/main)
     make_readonly() { find "$WORKTREE_PATH" -type f -not -path '*/.git/*' -exec chmod a-w {} \; 2>/dev/null || true; }
@@ -288,29 +325,37 @@ if [ "$USE_MAIN_WORKTREE" -eq 1 ]; then
     if [ -d "$WORKTREE_PATH" ]; then
         CURRENT_HEAD=$(git -C "$WORKTREE_PATH" rev-parse HEAD)
         if [ "$CURRENT_HEAD" != "$ORIGIN_MAIN" ]; then
-            echo "Updating worktree to origin/main..."
-            git -C "$WORKTREE_PATH" reset --hard origin/main
+            run_logged "update worktree" "$COLOR_WHITE" git -C "$WORKTREE_PATH" reset --hard origin/main
             make_readonly
         fi
     else
-        echo "Creating main worktree..."
         mkdir -p "${REPO_ROOT}/worktrees"
-        git -C "$REPO_ROOT" worktree add --detach "$WORKTREE_PATH" origin/main
+        run_logged "create worktree" "$COLOR_WHITE" git -C "$REPO_ROOT" worktree add --detach "$WORKTREE_PATH" origin/main
         make_readonly
     fi
 
-    is_activated "$SYSTEM_STATE" "$ORIGIN_MAIN" && \
-        is_activated "$HOME_STATE" "$ORIGIN_MAIN" && \
+    is_activated "$SYSTEM_STATE" "$ORIGIN_MAIN" &&
+        is_activated "$HOME_STATE" "$ORIGIN_MAIN" &&
         echo "Already activated ${ORIGIN_MAIN:0:8}, nothing to do" && exit 0
 
-    echo "Running activate from main worktree..."
     PRETTY_FLAG=""
     [ "${PRETTY:-1}" -eq 0 ] && PRETTY_FLAG="--no-pretty"
     cd "$WORKTREE_PATH"
-    exec ./bin/activate -l "$LOG_LEVEL" -c "$MAX_CORES" -t "$LOCK_TIMEOUT" $PRETTY_FLAG
+    exec ./bin/activate --from-worktree -l "$LOG_LEVEL" -c "$MAX_CORES" -t "$LOCK_TIMEOUT" $PRETTY_FLAG
 fi
 
-if [ "$LOG_LEVEL" -ge 3 ]; then
+[ "$USE_LOCAL" -eq 1 ] && [ "$USE_DIRTY" -eq 1 ] && echo "Error: --local and --dirty are mutually exclusive" >&2 && exit 1
+
+if [ "$USE_LOCAL" -eq 1 ]; then
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    if ! git -C "$REPO_ROOT" diff --quiet; then
+        log_verbose "Stashing unstaged changes..."
+        run_quiet git -C "$REPO_ROOT" stash -k -m "activate --local stash"
+        add_exit_hook "git -C '$REPO_ROOT' stash pop >/dev/null 2>&1"
+    fi
+fi
+
+if [ "$LOG_LEVEL" -ge 4 ]; then
     set -x
 fi
 
@@ -387,16 +432,16 @@ record_state() {
     mkdir -p "$STATE_DIR"
     local temp
     temp=$(mktemp "$STATE_DIR/.state.XXXXXX")
-    echo "$hash" > "$temp"
+    echo "$hash" >"$temp"
     mv "$temp" "$state_file"
 }
 
 cleanup_and_exit() {
-    release_lock
+    run_exit_hooks
     exit 130
 }
 
-trap release_lock EXIT
+add_exit_hook 'release_lock'
 trap cleanup_and_exit INT TERM
 
 COLOR_ENABLED=${COLOR_ENABLED:-true}
@@ -434,27 +479,28 @@ done
 
 OS=$(uname -s)
 ARCH=$(uname -m)
-TARGET_HASH=$(git -C "$REPO_ROOT" rev-parse HEAD)
+SKIP_IDEM=0
+[ "$USE_LOCAL" -eq 1 ] || [ "$USE_DIRTY" -eq 1 ] && SKIP_IDEM=1 && TARGET_HASH="~" || TARGET_HASH=$(git -C "$REPO_ROOT" rev-parse HEAD)
 
 case "$OS" in
     "Darwin")
-        if ! is_activated "$SYSTEM_STATE" "$TARGET_HASH"; then
+        if [ "$SKIP_IDEM" -eq 1 ] || ! is_activated "$SYSTEM_STATE" "$TARGET_HASH"; then
             REBUILD_CMD="darwin-rebuild"
             command -v darwin-rebuild >/dev/null 2>&1 || {
                 log_to_system "info" "Installing nix-darwin..."
                 REBUILD_CMD="nix run nix-darwin/master#darwin-rebuild --"
             }
             command -v darwin-rebuild >/dev/null 2>&1 && log_to_system "info" "Updating nix-darwin configuration..."
-            run_logged "darwin-rebuild" "$COLOR_WHITE" sudo NIX_CONFIG="$NIX_CONFIG" $REBUILD_CMD switch --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" \
-                && record_state "$SYSTEM_STATE" "$TARGET_HASH" || exit 1
+            run_logged "darwin-rebuild" "$COLOR_WHITE" sudo NIX_CONFIG="$NIX_CONFIG" $REBUILD_CMD switch --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" &&
+                record_state "$SYSTEM_STATE" "$TARGET_HASH" || exit 1
         fi
         HOME_MANAGER_TARGET="moye-aarch64-darwin"
         ;;
     "Linux")
-        if [ -f /etc/NIXOS ] && ! is_activated "$SYSTEM_STATE" "$TARGET_HASH"; then
+        if [ -f /etc/NIXOS ] && { [ "$SKIP_IDEM" -eq 1 ] || ! is_activated "$SYSTEM_STATE" "$TARGET_HASH"; }; then
             log_to_system "info" "Updating NixOS configuration..."
-            run_logged "nixos-rebuild" "$COLOR_WHITE" sudo nixos-rebuild switch --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" \
-                && record_state "$SYSTEM_STATE" "$TARGET_HASH" || exit 1
+            run_logged "nixos-rebuild" "$COLOR_WHITE" sudo nixos-rebuild switch --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" &&
+                record_state "$SYSTEM_STATE" "$TARGET_HASH" || exit 1
         fi
 
         case "$ARCH" in
@@ -472,9 +518,9 @@ case "$OS" in
         ;;
 esac
 
-is_activated "$HOME_STATE" "$TARGET_HASH" || {
-    run_logged "home-manager" "$COLOR_WHITE" nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake "$REPO_ROOT#$HOME_MANAGER_TARGET" \
-        && record_state "$HOME_STATE" "$TARGET_HASH" || exit 1
+{ [ "$SKIP_IDEM" -eq 1 ] || ! is_activated "$HOME_STATE" "$TARGET_HASH"; } && {
+    run_logged "home-manager" "$COLOR_WHITE" nix shell nixpkgs#home-manager -c home-manager switch -b backup --flake "$REPO_ROOT#$HOME_MANAGER_TARGET" &&
+        record_state "$HOME_STATE" "$TARGET_HASH" || exit 1
 }
 
 log_to_system "info" "Configuration updated successfully"

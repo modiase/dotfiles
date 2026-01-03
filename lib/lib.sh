@@ -236,6 +236,19 @@ process_output() {
     done
 }
 
+verbose_output() {
+    local label="${1:-}"
+    while IFS= read -r line; do
+        [[ -z "$line" ]] && continue
+        [[ ${LOG_LEVEL:-1} -lt 3 ]] && continue
+        if [[ -n "$label" ]]; then
+            _print_log_line "info" "$line" "$label" "$COLOR_CYAN" "$COLOR_WHITE" false
+        else
+            echo "$line"
+        fi
+    done
+}
+
 run_logged() {
     local label="$1"
     local stdout_color="$2"
@@ -267,7 +280,7 @@ run_logged() {
         local i=0
 
         while kill -0 $cmd_pid 2>/dev/null; do
-            local max_width=$((COLUMNS - 5))
+            local max_width=$((${COLUMNS:-80} - 5))
             local latest
             latest=$(cat "$tmpfile" 2>/dev/null | tail -1 || echo "")
             local spinner_display="${COLOR_CYAN}${spinner_chars:$i:1}${COLOR_RESET}"
