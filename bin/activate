@@ -196,7 +196,11 @@ if [ -n "$TARGET_HOST" ]; then
     for host in $DEPLOY_HOSTS; do
         (
             prefix=$(printf "%-16s| " "$host")
-            ssh "$host" "cd ~/Dotfiles && ./bin/activate --main" 2>&1 | sed "s/^/$prefix/"
+            # Update worktree inline (don't rely on remote's --main which may be outdated)
+            ssh "$host" 'cd ~/Dotfiles && git fetch origin main && \
+                ([ -d worktrees/main ] && git -C worktrees/main reset --hard origin/main || \
+                 git worktree add --detach worktrees/main origin/main) && \
+                cd worktrees/main && ./bin/activate' 2>&1 | sed "s/^/$prefix/"
             echo ${PIPESTATUS[0]} > "$RESULT_DIR/$host"
         ) &
     done
@@ -306,7 +310,8 @@ if [ "$USE_MAIN_WORKTREE" -eq 1 ]; then
     echo "Running activate from main worktree..."
     PRETTY_FLAG=""
     [ "${PRETTY:-1}" -eq 0 ] && PRETTY_FLAG="--no-pretty"
-    exec "$WORKTREE_PATH/bin/activate" -l "$LOG_LEVEL" -c "$MAX_CORES" -t "$LOCK_TIMEOUT" $PRETTY_FLAG
+    cd "$WORKTREE_PATH"
+    exec ./bin/activate -l "$LOG_LEVEL" -c "$MAX_CORES" -t "$LOCK_TIMEOUT" $PRETTY_FLAG
 fi
 
 if [ "$LOG_LEVEL" -ge 3 ]; then
