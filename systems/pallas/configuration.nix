@@ -45,6 +45,8 @@
       moye ALL=(ALL) NOPASSWD: ALL
     '';
 
+    environment.etc."resolver/home".text = "nameserver 192.168.1.1\n";
+
     environment.systemPackages = with pkgs; [
       eternal-terminal
       git
