@@ -7,6 +7,7 @@ LOG_LEVEL=2
 MAX_CORES=$(($(nproc) - 1))
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel)"
 source "$SCRIPT_DIR/../lib/lib.sh"
 
 show_usage() {
@@ -182,11 +183,8 @@ do_show() {
 }
 
 deploy_local() {
-    local repo_root
-    repo_root="$(git rev-parse --show-toplevel)"
-
     local origin_main
-    origin_main=$(git -C "$repo_root" rev-parse HEAD)
+    origin_main=$(git -C "$REPO_ROOT" rev-parse HEAD)
 
     is_activated "$SYSTEM_STATE" "$origin_main" && is_activated "$HOME_STATE" "$origin_main" && {
         echo "Already activated ${origin_main:0:8}, nothing to do"
@@ -202,13 +200,10 @@ deploy_remote() {
 }
 
 deploy_all() {
-    local repo_root
-    repo_root="$(git rev-parse --show-toplevel)"
-
     get_manageable_hosts() {
         nix eval --impure --raw --expr "
             let
-                flake = builtins.getFlake \"git+file://$repo_root\";
+                flake = builtins.getFlake \"git+file://$REPO_ROOT\";
                 lib = flake.inputs.nixpkgs.lib;
                 darwin = lib.mapAttrsToList (name: cfg:
                     if cfg.config.dotfiles.manageRemotely or false then name else null
@@ -286,9 +281,6 @@ do_activate() {
     add_exit_hook 'release_lock'
     trap 'exit 130' INT TERM
 
-    local repo_root
-    repo_root="$(git rev-parse --show-toplevel)"
-
     log_to_system "info" "Activation started by $USER (timeout: ${LOCK_TIMEOUT}m, cores: ${MAX_CORES})"
 
     acquire_lock || {
@@ -315,7 +307,7 @@ do_activate() {
     local os arch target_hash
     os=$(uname -s)
     arch=$(uname -m)
-    target_hash=$(git -C "$repo_root" rev-parse HEAD)
+    target_hash=$(git -C "$REPO_ROOT" rev-parse HEAD)
 
     case "$os" in
         Darwin)
@@ -326,7 +318,7 @@ do_activate() {
             }
             # shellcheck disable=SC2086 # rebuild_cmd intentionally word-split for multi-word command
             run_logged "darwin-rebuild" sudo NIX_CONFIG="$NIX_CONFIG" $rebuild_cmd switch \
-                --flake "$repo_root" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" &&
+                --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" &&
                 record_state "$SYSTEM_STATE" "$target_hash" || exit 1
             HOME_MANAGER_TARGET="moye-aarch64-darwin"
             ;;
@@ -334,7 +326,7 @@ do_activate() {
             if [ -f /etc/NIXOS ]; then
                 log_to_system "info" "Updating NixOS configuration..."
                 run_logged "nixos-rebuild" sudo nixos-rebuild switch \
-                    --flake "$repo_root" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" &&
+                    --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" &&
                     record_state "$SYSTEM_STATE" "$target_hash" || exit 1
             fi
             case "$arch" in
@@ -353,7 +345,7 @@ do_activate() {
     esac
 
     run_logged "home-manager" nix shell nixpkgs#home-manager -c home-manager switch \
-        -b backup --flake "$repo_root#$HOME_MANAGER_TARGET" &&
+        -b backup --flake "$REPO_ROOT#$HOME_MANAGER_TARGET" &&
         record_state "$HOME_STATE" "$target_hash" || exit 1
 
     log_to_system "info" "Configuration updated successfully"
