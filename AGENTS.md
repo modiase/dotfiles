@@ -84,6 +84,20 @@
       local output="$default"
   fi
   ```
+- **CRITICAL: `set -e` and `[[ ]] &&` pattern** - When using `set -e`, a bare `[[ condition ]] && cmd` returns exit code 1 if the condition is false, causing script termination. Fix with:
+  ```bash
+  # WRONG: exits with code 1 if LOG_LEVEL < 4 under set -e
+  [[ ${LOG_LEVEL:-2} -ge 4 ]] && set -x
+
+  # CORRECT: use if statement
+  if [[ ${LOG_LEVEL:-2} -ge 4 ]]; then set -x; fi
+
+  # CORRECT: add || true fallback
+  [[ ${LOG_LEVEL:-2} -ge 4 ]] && set -x || true
+  ```
+  This is especially dangerous for:
+  - Top-level code executed when sourcing files
+  - Last statements in functions (function returns non-zero)
 
 ## Fish Functions
 
@@ -114,6 +128,14 @@
 - **Be Precise**: State facts from documentation, not assumptions
 - **Be Thorough**: Research complete solution before acting
 - **Be Efficient**: Learn patterns to anticipate issues rather than discover through trial-and-error
+
+## Planning Requirements
+
+When creating implementation plans, you MUST include an explicit cleanup step at the end:
+
+1. **Final step: "Run pre-commit checks and clean up per AGENTS.md"** - Every plan must end with verification
+2. **Apply code quality guidelines** - Review changes against Shell Scripting Style, Configuration Best Practices, etc.
+3. **Verify no regressions** - Ensure fixes don't introduce new issues (e.g., `set -e` compatibility)
 
 ## **COMPLIANCE VERIFICATION**
 

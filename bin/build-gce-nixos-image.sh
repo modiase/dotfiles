@@ -121,7 +121,7 @@ if [[ -n "$REMOTE_HOST" ]]; then
     nix copy --from "ssh-ng://moye@${REMOTE_HOST}" "$REMOTE_OUT_PATH"
     OUT_PATH="$REMOTE_OUT_PATH"
 else
-    run_logged "nix-build" "$COLOR_WHITE" "${NIX_CMD[@]}"
+    run_logged "nix-build" "${NIX_CMD[@]}"
     OUT_PATH="$(realpath "$TMPDIR/$OUT_LINK")"
 fi
 
