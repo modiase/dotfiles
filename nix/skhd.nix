@@ -5,7 +5,7 @@
 
   home.file.".config/skhd/skhdrc".text = ''
     cmd + shift - b : open -a "Google Chrome"
-    cmd + shift - t : open -a "Alacritty"
+    cmd + shift - t : open -a "Ghostty"
     cmd + shift - c : open -a "Cursor"
     cmd + shift - d : open ~/Downloads/
 
