@@ -215,8 +215,9 @@ deploy_all() {
         " 2>/dev/null || echo ""
     }
 
-    local hosts
-    hosts=$(get_manageable_hosts)
+    local hosts current_host
+    current_host=$(hostname -s)
+    hosts=$(get_manageable_hosts | sed "s/^${current_host}$/localhost/")
     [ -z "$hosts" ] && {
         echo "Error: No manageable hosts found (dotfiles.manageRemotely = true)" >&2
         exit 1
@@ -232,11 +233,14 @@ deploy_all() {
     result_dir=$(mktemp -d)
     add_exit_hook "rm -rf $result_dir"
 
+    local deploy_cmd='cd ~/Dotfiles && git fetch origin main && { [ -d worktrees/main ] && git -C worktrees/main reset --hard origin/main || git worktree add --detach worktrees/main origin/main; } && ./worktrees/main/bin/activate'
     for host in $hosts; do
         (
-            local prefix
+            local prefix runner
             prefix=$(printf "%-16s| " "$host")
-            ssh "$host" 'cd ~/Dotfiles && git fetch origin main && { [ -d worktrees/main ] && git -C worktrees/main reset --hard origin/main || git worktree add --detach worktrees/main origin/main; } && ./worktrees/main/bin/activate' 2>&1 | sed "s/^/$prefix/"
+            runner="ssh $host"
+            [ "$host" = "localhost" ] && runner="bash -c"
+            eval "$runner '$deploy_cmd'" 2>&1 | sed "s/^/$prefix/"
             echo "${PIPESTATUS[0]}" >"$result_dir/$host"
         ) &
     done
