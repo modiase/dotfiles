@@ -63,6 +63,29 @@ in
         '';
       };
 
+      locations."/static/" = {
+        proxyPass = "http://127.0.0.1:${toString ports.homeAssistant}/static/";
+        extraConfig = ''
+          proxy_set_header Host ''$host;
+          proxy_cache_valid 200 1d;
+          add_header Cache-Control "public, max-age=86400";
+        '';
+      };
+
+      locations."/local/" = {
+        proxyPass = "http://127.0.0.1:${toString ports.homeAssistant}/local/";
+        extraConfig = ''
+          proxy_set_header Host ''$host;
+        '';
+      };
+
+      locations."/hacsfiles/" = {
+        proxyPass = "http://127.0.0.1:${toString ports.homeAssistant}/hacsfiles/";
+        extraConfig = ''
+          proxy_set_header Host ''$host;
+        '';
+      };
+
       locations."/lovelace/" = {
         proxyPass = "http://127.0.0.1:${toString ports.homeAssistant}/lovelace/";
         extraConfig = ''
