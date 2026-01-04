@@ -133,7 +133,7 @@ repos:
         language: system
         always_run: true
         pass_filenames: false
-        stages: [post-checkout, post-rewrite]
+        stages: [post-checkout]
         args:
           - -c
           - 'if [ "$(git branch --show-current)" = "main" ]; then git branch --merged main | grep -v main | xargs -r git branch -d; fi'
