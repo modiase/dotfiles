@@ -171,7 +171,6 @@ in
           internal_url = "http://127.0.0.1:8123";
         };
         http = {
-          server_host = "127.0.0.1";
           server_port = 8123;
           use_x_forwarded_for = true;
           trusted_proxies = [
