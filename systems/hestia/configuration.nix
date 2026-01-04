@@ -156,6 +156,9 @@ in
         adaptive_lighting
         localtuya
       ];
+      customLovelaceModules = with pkgs.home-assistant-custom-lovelace-modules; [
+        card-mod
+      ];
       config = {
         default_config = { };
         automation = "!include automations.yaml";
@@ -181,6 +184,9 @@ in
         logger = {
           default = "info";
         };
+        frontend = {
+          themes = "!include_dir_merge_named themes";
+        };
       };
     };
 
@@ -194,6 +200,17 @@ in
         "CAP_NET_RAW"
       ];
     };
+
+    system.activationScripts.homeAssistantThemes = lib.stringAfter [ "var" ] ''
+      install -d -o hass -g hass -m 0755 /var/lib/hass/themes
+      ${pkgs.curl}/bin/curl -sL -o /var/lib/hass/themes/frosted-glass.yaml \
+        "https://raw.githubusercontent.com/wessamlauf/homeassistant-frosted-glass-themes/main/themes/Frosted%20Glass.yaml"
+      ${pkgs.curl}/bin/curl -sL -o /var/lib/hass/themes/frosted-glass-dark.yaml \
+        "https://raw.githubusercontent.com/wessamlauf/homeassistant-frosted-glass-themes/main/themes/Frosted%20Glass%20Dark.yaml"
+      ${pkgs.curl}/bin/curl -sL -o /var/lib/hass/themes/frosted-glass-light.yaml \
+        "https://raw.githubusercontent.com/wessamlauf/homeassistant-frosted-glass-themes/main/themes/Frosted%20Glass%20Light.yaml"
+      chown hass:hass /var/lib/hass/themes/*.yaml
+    '';
 
     users.users.moye = {
       isNormalUser = true;
