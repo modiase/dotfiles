@@ -35,3 +35,13 @@ extensions:
     cmd: uvx
     args:
       - mcp-server-fetch
+  software-planning:
+    enabled: true
+    name: Software Planning Tool
+    description: Interactive software development planning with task management
+    timeout: 300
+    type: stdio
+    cmd: pnpm
+    args:
+      - dlx
+      - software-planning-tool
