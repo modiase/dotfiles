@@ -80,7 +80,7 @@ test $no_tmux -eq 0; and test $has_remote_cmd -eq 0; and test -n "$host"; and se
 
 function __ssh_run_ssh --no-scope-shadowing
     set -l cmd command ssh
-    test $want_tmux -eq 1; and set -a cmd -t
+    test $want_tmux -eq 1; and set -a cmd -q -t
     set -a cmd $args
     set -l tmux_suffix
     test $want_tmux -eq 1; and set tmux_suffix '"tmux attach 2>/dev/null || tmux new"'
@@ -92,12 +92,13 @@ if test $use_et -eq 1
     set -l et_check (command ssh -o BatchMode=yes -o ConnectTimeout=2 $host "command -v etserver" 2>/dev/null)
     if string match -q '*etserver*' "$et_check"
         set -l et_status 0
+        set -lx ET_NO_TELEMETRY YES
         if test $want_tmux -eq 1
             test $debug -eq 1; and echo "Using: et -c 'tmux attach 2>/dev/null || tmux new' $host"
-            et -c 'tmux attach 2>/dev/null || tmux new' $host; or set et_status $status
+            et -c 'tmux attach 2>/dev/null || tmux new; exit' $host 2>/dev/null; or set et_status $status
         else
             test $debug -eq 1; and echo "Using: et $host"
-            et $host; or set et_status $status
+            et $host 2>/dev/null; or set et_status $status
         end
         test $et_status -ne 0; and __ssh_run_ssh
     else
