@@ -47,6 +47,9 @@ let
 
   goose-cli-patched = pkgs.goose-cli.overrideAttrs (oldAttrs: {
     patches = (oldAttrs.patches or [ ]) ++ [ ./goose-prompt.patch ];
+    postInstall = (oldAttrs.postInstall or "") + ''
+      mv $out/bin/goose $out/bin/coder
+    '';
   });
 in
 pkgs.writeShellScriptBin "coder" ''
@@ -59,6 +62,7 @@ pkgs.writeShellScriptBin "coder" ''
 
   if ${secretsmanager}/bin/secretsmanager get EXA_API_KEY --optional >/dev/null 2>&1; then
     CONFIG_FILE=${gooseConfig}
+    export EXA_API_KEY="$(${secretsmanager}/bin/secretsmanager get EXA_API_KEY)"
   else
     CONFIG_FILE=${gooseConfigExaDisabled}
   fi
@@ -78,5 +82,5 @@ pkgs.writeShellScriptBin "coder" ''
   export GOOSE_MODEL="cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
   export HERAKLES_LLM_SERVER_API_KEY="dummy"
 
-  exec ${goose-cli-patched}/bin/goose "$@"
+  exec ${goose-cli-patched}/bin/coder "$@"
 ''
