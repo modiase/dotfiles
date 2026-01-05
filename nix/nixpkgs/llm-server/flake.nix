@@ -347,6 +347,7 @@
             systemd.services.llm-server = {
               description = "vLLM Inference Server";
               after = [ "network-online.target" ];
+              wants = [ "network-online.target" ];
               wantedBy = [ "multi-user.target" ];
 
               serviceConfig = {
