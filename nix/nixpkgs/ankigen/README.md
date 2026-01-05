@@ -57,7 +57,7 @@ ankigen -r "What is a closure?"             # Raw JSON output
 
 ## Configuration
 
-Requires API keys via secretsmanager:
+Requires API keys via `secrets`:
 - `ANTHROPIC_API_KEY` (pass: anthropic-api-key)
 - `OPENAI_API_KEY` (pass: openai-api-key)
 - `GEMINI_API_KEY` (pass: gemini-api-key)

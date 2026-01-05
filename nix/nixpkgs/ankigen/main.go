@@ -749,7 +749,7 @@ func performWebSearch(terms []string) (string, error) {
 		exaAPIKey = os.Getenv("EXA_API_KEY")
 	}
 	if exaAPIKey == "" {
-		cmd := exec.Command("secretsmanager", "get", "EXA_API_KEY", "--pass-path", "exa-api-key")
+		cmd := exec.Command("secrets", "get", "EXA_API_KEY", "--pass-path", "secrets/exa-api-key")
 		output, err := cmd.Output()
 		if err == nil {
 			exaAPIKey = strings.TrimSpace(string(output))
@@ -1047,7 +1047,7 @@ func getAPIKey(name, passPath string) (string, error) {
 	if key := os.Getenv(name); key != "" {
 		return key, nil
 	}
-	cmd := exec.Command("secretsmanager", "get", name, "--pass-path", passPath)
+	cmd := exec.Command("secrets", "get", name, "--pass-path", "secrets/"+passPath)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("%s not found: %w", name, err)

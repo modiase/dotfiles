@@ -23,7 +23,7 @@
     (callPackage ./nixpkgs/ankigen { })
     (callPackage ./nixpkgs/cursor-agent { })
     (callPackage ./nixpkgs/coder { })
-    (callPackage ./nixpkgs/secretsmanager { })
+    (callPackage ./nixpkgs/secrets { })
     cargo
     (writeShellScriptBin "chafa" ''
       if [[ -n "$TMUX" ]]; then

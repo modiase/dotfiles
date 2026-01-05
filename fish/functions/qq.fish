@@ -39,7 +39,7 @@ else
     set pass_key anthropic-api-key
 end
 
-set -l api_key (secretsmanager get $api_key_env --pass-path $pass_key)
+set -l api_key (secrets get $api_key_env --pass-path secrets/$pass_key)
 if test $status -ne 0
     return 1
 end
