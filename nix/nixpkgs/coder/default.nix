@@ -43,7 +43,7 @@ let
     text = builtins.readFile ./config/.goosehints;
   };
 
-  secretsmanager = pkgs.callPackage ../secretsmanager { };
+  secrets = pkgs.callPackage ../secrets { };
 
   goose-cli-patched = pkgs.goose-cli.overrideAttrs (oldAttrs: {
     patches = (oldAttrs.patches or [ ]) ++ [ ./goose-prompt.patch ];
@@ -60,9 +60,9 @@ pkgs.writeShellScriptBin "coder" ''
     cp -f ${providerConfig} ~/.config/goose/custom_providers/herakles.json && \
     chmod +w ~/.config/goose/custom_providers/herakles.json
 
-  if ${secretsmanager}/bin/secretsmanager get EXA_API_KEY --optional >/dev/null 2>&1; then
+  if ${secrets}/bin/secrets get EXA_API_KEY --optional >/dev/null 2>&1; then
     CONFIG_FILE=${gooseConfig}
-    export EXA_API_KEY="$(${secretsmanager}/bin/secretsmanager get EXA_API_KEY)"
+    export EXA_API_KEY="$(${secrets}/bin/secrets get EXA_API_KEY)"
   else
     CONFIG_FILE=${gooseConfigExaDisabled}
   fi

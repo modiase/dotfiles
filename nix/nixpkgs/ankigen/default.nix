@@ -1,7 +1,7 @@
 { pkgs, lib, ... }:
 
 let
-  secretsmanager = pkgs.callPackage ../secretsmanager { };
+  secrets = pkgs.callPackage ../secrets { };
 in
 pkgs.buildGoModule {
   pname = "ankigen";
@@ -15,7 +15,7 @@ pkgs.buildGoModule {
 
   postInstall = ''
     wrapProgram $out/bin/ankigen \
-      --prefix PATH : ${lib.makeBinPath [ secretsmanager ]}
+      --prefix PATH : ${lib.makeBinPath [ secrets ]}
   '';
 
   meta = with lib; {

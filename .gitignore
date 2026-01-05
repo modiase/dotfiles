@@ -4,7 +4,7 @@ gpt-cli/history
 .cache/
 
 # Secrets
-secrets/
+/secrets/
 
 # Editor artifacts
 nvim/sessions/*
