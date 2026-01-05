@@ -142,6 +142,7 @@ in
         "isal"
         "mqtt"
         "ntfy"
+        "open_meteo"
         "sonos"
         "tado"
         "thread"
