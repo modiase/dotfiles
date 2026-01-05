@@ -40,9 +40,9 @@ in
 
     boot.kernelPackages = pkgs.linuxPackages;
     boot.initrd.availableKernelModules = [
-      "xhci_pci"
-      "usbhid"
       "usb_storage"
+      "usbhid"
+      "xhci_pci"
     ];
 
     boot.loader.grub.enable = false;
@@ -155,6 +155,7 @@ in
       customComponents = with pkgs.home-assistant-custom-components; [
         adaptive_lighting
         localtuya
+        octopus_energy
       ];
       customLovelaceModules = with pkgs.home-assistant-custom-lovelace-modules; [
         card-mod
@@ -217,8 +218,8 @@ in
       home = "/home/moye";
       shell = pkgs.bash;
       extraGroups = [
-        "wheel"
         "sudo"
+        "wheel"
       ];
       openssh.authorizedKeys.keys = authorizedKeyLists.moye;
     };
