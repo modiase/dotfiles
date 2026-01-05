@@ -9,7 +9,7 @@ if contains -- -h $argv; or contains -- --help $argv
     echo "WRAPPER FLAGS:"
     echo "  -d, --debug    Show which command will be used"
     echo "  --no-et        Force plain SSH (or set NO_ET=1)"
-    echo "  --no-tmux      Skip tmux auto-attach (or set NO_TMUX=1)"
+    echo "  --no-tmux      Skip tmux auto-attach (auto when inside tmux, or NO_TMUX=1)"
     echo ""
     echo "AUTOMATIC FALLBACK TO SSH:"
     echo "  - et not installed or etserver missing on remote"
@@ -36,6 +36,7 @@ set -l args
 
 test -n "$NO_ET"; and set no_et 1
 test -n "$NO_TMUX"; and set no_tmux 1
+test -n "$TMUX"; and set no_tmux 1
 
 for arg in $argv
     switch $arg
