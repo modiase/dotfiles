@@ -8,20 +8,17 @@ return {
 	config = function()
 		require("telescope").setup({
 			defaults = {
-				-- Default configuration for telescope goes here:
-				-- config_key = value,
 				mappings = {
 					n = {
 						["<c-d>"] = require("telescope.actions").delete_buffer,
-					}, -- n
+					},
 					i = {
 						["<C-h>"] = "which_key",
 						["<c-d>"] = require("telescope.actions").delete_buffer,
-					}, -- i
-				}, -- mappings
-			}, -- defaults
-		}) -- telescope setup
-		-- -- Find files using Telescope command-line sugar.
+					},
+				},
+			},
+		})
 		vim.api.nvim_set_keymap(
 			"n",
 			"<leader>fg",
@@ -42,5 +39,7 @@ return {
 			"<cmd>lua require('telescope.builtin').find_files({ hidden = true })<CR>",
 			{ desc = "Find files" }
 		)
+		vim.api.nvim_set_keymap("n", "<leader>fm", "<cmd>Telescope marks<CR>", { noremap = true })
+		vim.api.nvim_set_keymap("n", "<leader>tc", "<cmd>Telescope colorscheme<CR>", { noremap = true })
 	end,
 }

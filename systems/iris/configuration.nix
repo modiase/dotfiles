@@ -9,12 +9,6 @@
 }:
 
 {
-  options.dotfiles.manageRemotely = pkgs.lib.mkOption {
-    type = pkgs.lib.types.bool;
-    default = false;
-    description = "Whether this host can be managed remotely via activate --host";
-  };
-
   imports = [
     commonNixSettings
     darwinFrontendServices
@@ -23,8 +17,6 @@
   ];
 
   config = {
-    dotfiles.manageRemotely = false;
-
     nixpkgs.hostPlatform = "aarch64-darwin";
     programs.zsh.enable = true;
     system.stateVersion = 6;
