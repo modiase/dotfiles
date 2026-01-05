@@ -14,12 +14,42 @@
 - Apply ALL guidelines during the compacting process
 - Verify compliance after completion
 
-## Existing Workflow Notes
+## Activation and Deployment
 
-- Use `bin/activate` to apply configuration changes. It automatically selects the right rebuild tool (e.g. `darwin-rebuild`, `nixos-rebuild`, `home-manager`) with the correct flags.
-- Do **not** call `darwin-rebuild`, `nixos-rebuild`, or `home-manager` directly; the script handles sequencing, logging, core counts, and sudo prompts for you.
-- Before running, ensure the expected deploy key is available so the helper can access remote builders/hosts if needed.
-- Treat this repository as source-only automation—build, lint, or test inside the activate shell, but avoid out-of-band host mutations.
+Use `bin/activate` to apply configuration changes. Do **not** call `darwin-rebuild`, `nixos-rebuild`, or `home-manager` directly; the script handles sequencing, logging, core counts, and sudo prompts.
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `bin/activate` | Activate current repo state on local machine |
+| `bin/activate deploy` | Deploy origin/main to localhost via worktree |
+| `bin/activate deploy <host>` | Deploy origin/main to remote host via SSH |
+| `bin/activate deploy all` | Deploy to all hosts with `dotfiles.manageRemotely = true` |
+| `bin/activate show` | Show activation status (hashes for origin/main, worktree, system, home) |
+| `bin/activate show <host>` | Show activation status on remote host |
+
+### Options
+
+- `-l LEVEL` - Log level: 1=errors, 2=normal (default), 3=verbose, 4+=debug
+- `-c CORES` - Max cores for parallel builds (default: nproc - 1)
+- `-t TIMEOUT` - Lock timeout in minutes (default: 30)
+
+### When to Use Each
+
+- **`bin/activate`** - Local development: test changes from your working tree immediately
+- **`bin/activate deploy`** - Production: deploy committed, pushed changes from origin/main
+- **`bin/activate deploy hestia`** - Deploy to a specific remote host (e.g., hestia)
+- **`bin/activate deploy all`** - Batch update all managed hosts in parallel
+
+### Important
+
+- **Do NOT commit or deploy unless explicitly instructed** - only run `git commit`, `bin/activate`, or `bin/activate deploy` when the user asks for it
+
+### Notes
+
+- `deploy` and `show` commands use a git worktree at `worktrees/main` to ensure they run from the latest origin/main
+- Treat this repository as source-only automation—build, lint, or test inside the activate shell, but avoid out-of-band host mutations
 
 ## Research Before Implementation
 
