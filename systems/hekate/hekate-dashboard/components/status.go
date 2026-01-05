@@ -46,6 +46,7 @@ func (m StatusModel) fetchStatus() tea.Cmd {
 		serviceNames := []string{
 			"avahi-daemon",
 			"sshd",
+			"systemd-timesyncd",
 			"unbound",
 			"wireguard-wg0",
 		}

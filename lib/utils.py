@@ -18,6 +18,20 @@ from google.cloud import storage
 from loguru import logger
 
 
+def one(iterable):
+    """Return the single item from iterable, or raise if zero/multiple items."""
+    it = iter(iterable)
+    try:
+        value = next(it)
+    except StopIteration:
+        raise ValueError("Expected exactly one item, got zero")
+    try:
+        next(it)
+        raise ValueError("Expected exactly one item, got multiple")
+    except StopIteration:
+        return value
+
+
 def copy_to_clipboard(text: str) -> bool:
     if platform.system() == "Darwin":
         try:
@@ -512,6 +526,7 @@ def build_nix_image(
             line.strip()
             for line in output.split("\n")
             if line.strip().startswith("/nix/store/")
+            and not line.strip().endswith(".drv")
         ),
         None,
     )
