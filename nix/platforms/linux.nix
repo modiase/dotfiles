@@ -1,7 +1,5 @@
-{ pkgs, ... }:
+{ ... }:
 
 {
-  home.packages = with pkgs; [
-    xclip
-  ];
+  home.packages = [ ];
 }

@@ -2,7 +2,9 @@
   writeShellApplication,
   coreutils,
   google-cloud-sdk,
+  gum,
   pass,
+  wl-clipboard,
   stdenv,
   lib,
 }:
@@ -12,8 +14,11 @@ writeShellApplication {
   runtimeInputs = [
     coreutils
     google-cloud-sdk
+    gum
   ]
-  ++ lib.optionals stdenv.isLinux [ pass ];
+  ++ lib.optionals stdenv.isLinux [
+    pass
+  ];
   text = ''
         PREFIX="secrets"
 
@@ -28,30 +33,48 @@ writeShellApplication {
 
     Commands:
       get NAME [OPTIONS]           Retrieve a secret
-      store NAME VALUE [OPTIONS]   Store a secret
+      store NAME [VALUE] [OPTIONS] Store a secret (prompts if VALUE omitted)
       list [OPTIONS]               List available secrets
 
     Backend Flags:
       --local                 Use local backend (default)
       --network               Use Google Cloud Secret Manager
 
-    Get/Store Options:
+    Get Options:
+      --print                 Print to stdout (default if not a tty)
+      --no-env                Skip environment variable check
+      --optional              Don't error if secret not found
+
+    By default, 'get' copies to clipboard when interactive (tty),
+    and prints to stdout when piped or used in scripts.
+
+    Store Options:
+      (VALUE can be omitted to prompt securely)
+
+    Common Options:
       --service SERVICE       Keychain service name (default: secrets/NAME)
       --account ACCOUNT       Keychain account (default: $USER)
       --pass-path PATH        Pass entry path (default: secrets/NAME)
       --project PROJECT       GCP project for --network (default: $GOOGLE_CLOUD_PROJECT)
-      --no-env                Skip environment variable check
-      --optional              Don't error if secret not found
       -h, --help              Show this help
 
     Examples:
-      secrets get GEMINI_API_KEY                         # Local (keychain/pass)
+      secrets get GEMINI_API_KEY                         # Get secret value
+      secrets get GEMINI_API_KEY --print                 # Force print to stdout
+      secrets store GEMINI_API_KEY                       # Prompt for value securely
       secrets get ANTHROPIC_API_KEY --network            # From GCP Secret Manager
-      secrets store GEMINI_API_KEY "your-api-key"        # Store locally
-      secrets store API_KEY "value" --network            # Store in GCP
       secrets list                                       # List local secrets
-      secrets list --network --project my-project        # List GCP secrets
     EOF
+        }
+
+        copy_to_clipboard() {
+          if [[ "$(uname)" == "Darwin" ]]; then
+            pbcopy
+          else
+            local data
+            data=$(base64 | tr -d '\n')
+            printf '\033]52;c;%s\007' "$data"
+          fi
         }
 
         check_gcloud_auth() {
@@ -173,11 +196,13 @@ writeShellApplication {
             CHECK_ENV=true
             REQUIRED=true
             BACKEND="local"
+            FORCE_PRINT=false
 
             while [[ $# -gt 0 ]]; do
               case "$1" in
                 --local) BACKEND="local"; shift ;;
                 --network) BACKEND="network"; shift ;;
+                --print) FORCE_PRINT=true; shift ;;
                 --service) SERVICE="$2"; shift 2 ;;
                 --account) ACCOUNT="$2"; shift 2 ;;
                 --pass-path) PASS_PATH="$2"; shift 2 ;;
@@ -191,15 +216,25 @@ writeShellApplication {
 
             if [ "$BACKEND" = "network" ]; then
               [ -z "$PROJECT" ] && { echo "Error: --project or GOOGLE_CLOUD_PROJECT required for --network" >&2; exit 1; }
-              get_network "$NAME" "$PROJECT" "$REQUIRED"
+              SECRET=$(get_network "$NAME" "$PROJECT" "$REQUIRED")
             else
-              get_local "$NAME" "$SERVICE" "$ACCOUNT" "$PASS_PATH" "$CHECK_ENV" "$REQUIRED"
+              SECRET=$(get_local "$NAME" "$SERVICE" "$ACCOUNT" "$PASS_PATH" "$CHECK_ENV" "$REQUIRED")
+            fi
+
+            if [ -n "$SECRET" ]; then
+              if [ "$FORCE_PRINT" = true ] || [ ! -t 1 ]; then
+                echo "$SECRET"
+              else
+                echo -n "$SECRET" | copy_to_clipboard
+                echo "Copied $NAME to clipboard" >&2
+              fi
             fi
             ;;
 
           store)
-            if [[ $# -lt 2 ]]; then echo "Error: NAME and VALUE required for store command" >&2; usage; exit 1; fi
-            NAME="$1"; VALUE="$2"; shift 2
+            if [[ $# -eq 0 ]]; then echo "Error: NAME required for store command" >&2; usage; exit 1; fi
+            NAME="$1"; shift
+            VALUE=""
             SERVICE="$PREFIX/$NAME"
             ACCOUNT="$USER"
             PASS_PATH="$PREFIX/$NAME"
@@ -215,9 +250,24 @@ writeShellApplication {
                 --pass-path) PASS_PATH="$2"; shift 2 ;;
                 --project) PROJECT="$2"; shift 2 ;;
                 -h|--help) usage; exit 0 ;;
-                *) echo "Unknown option: $1" >&2; usage; exit 1 ;;
+                -*)  echo "Unknown option: $1" >&2; usage; exit 1 ;;
+                *)
+                  if [ -z "$VALUE" ]; then
+                    VALUE="$1"; shift
+                  else
+                    echo "Unknown option: $1" >&2; usage; exit 1
+                  fi
+                  ;;
               esac
             done
+
+            if [ -z "$VALUE" ]; then
+              VALUE=$(gum input --password --placeholder "Enter secret value for $NAME...")
+              if [ -z "$VALUE" ]; then
+                echo "Error: No value provided" >&2
+                exit 1
+              fi
+            fi
 
             if [ "$BACKEND" = "network" ]; then
               [ -z "$PROJECT" ] && { echo "Error: --project or GOOGLE_CLOUD_PROJECT required for --network" >&2; exit 1; }

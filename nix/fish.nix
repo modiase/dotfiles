@@ -26,6 +26,12 @@ let
       ls = "${ezaBase} --git $argv | ${moorFlags}";
       ll = "${ezaBase} -l --git $argv | ${moorFlags}";
       lt = "${ezaBase} --tree  $argv | ${moorFlags}";
+    }
+    // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+      pbcopy = ''
+        set -l data (cat | base64 -w0)
+        printf '\e]52;c;%s\a' $data
+      '';
     };
 in
 {
@@ -38,9 +44,6 @@ in
       du = "dust";
       ps = "procs";
       top = "btop";
-    }
-    // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
-      pbcopy = "xclip -selection clipboard";
     };
     shellAbbrs = {
       csv2json = "python -c 'import csv, json, sys; print(json.dumps([dict(r) for r in csv.DictReader(sys.stdin)]))'";
