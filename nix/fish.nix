@@ -7,7 +7,15 @@ let
   dotfiles = ../.;
   functionFiles = builtins.attrNames (builtins.readDir (dotfiles + /fish/functions));
   toFunctionName = file: pkgs.lib.strings.removeSuffix ".fish" file;
-  displayResolver = import ./lib/resolve-display.nix { inherit pkgs; };
+  displayResolver = pkgs.writeShellScript "resolve-display" ''
+    if [ "$(uname -s)" != "Darwin" ]; then exit 0; fi
+    if ! command -v launchctl >/dev/null 2>&1; then exit 0; fi
+    display="$(launchctl getenv DISPLAY 2>/dev/null)"
+    if [ -z "$display" ]; then
+      display="$(launchctl print gui/$(id -u) 2>/dev/null | sed -n 's/.*DISPLAY => //p' | tail -n 1)"
+    fi
+    [ -n "$display" ] && printf '%s\n' "$display"
+  '';
   ezaBase = "eza --icons=always --color=always";
   moorFlags = "moor --no-linenumbers --no-statusbar --quit-if-one-screen -terminal-fg";
   functions =
@@ -23,15 +31,7 @@ in
 {
   programs.fish = {
     enable = true;
-    functions =
-      lib.genAttrs (map toFunctionName (
-        builtins.attrNames (builtins.readDir (dotfiles + /fish/functions))
-      )) (name: builtins.readFile (dotfiles + /fish/functions + "/${name}.fish"))
-      // {
-        ls = "${ezaBase} --git $argv | ${moorFlags}";
-        ll = "${ezaBase} -l --git $argv | ${moorFlags}";
-        lt = "${ezaBase} --tree  $argv | ${moorFlags}";
-      };
+    inherit functions;
     shellAliases = {
       cat = "bat";
       df = "duf";

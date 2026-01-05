@@ -308,10 +308,13 @@ do_activate() {
         }
     done
 
-    local os arch target_hash
+    local os target_hash
     os=$(uname -s)
-    arch=$(uname -m)
     target_hash=$(git -C "$REPO_ROOT" rev-parse HEAD)
+
+    local hostname
+    hostname=$(hostname -s)
+    HOME_MANAGER_TARGET="moye-$hostname"
 
     case "$os" in
         Darwin)
@@ -324,7 +327,6 @@ do_activate() {
             run_logged "darwin-rebuild" sudo NIX_CONFIG="$NIX_CONFIG" $rebuild_cmd switch \
                 --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" &&
                 record_state "$SYSTEM_STATE" "$target_hash" || exit 1
-            HOME_MANAGER_TARGET="moye-aarch64-darwin"
             ;;
         Linux)
             if [ -f /etc/NIXOS ]; then
@@ -333,14 +335,6 @@ do_activate() {
                     --flake "$REPO_ROOT" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" &&
                     record_state "$SYSTEM_STATE" "$target_hash" || exit 1
             fi
-            case "$arch" in
-                aarch64 | arm64) HOME_MANAGER_TARGET="moye-aarch64-linux" ;;
-                x86_64) HOME_MANAGER_TARGET="moye-x86_64-linux" ;;
-                *)
-                    log_error "Unsupported architecture '$arch'"
-                    exit 1
-                    ;;
-            esac
             ;;
         *)
             log_error "Unsupported OS '$os'"

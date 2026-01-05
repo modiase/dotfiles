@@ -34,20 +34,12 @@ let
 in
 
 {
-  options.dotfiles.manageRemotely = lib.mkOption {
-    type = lib.types.bool;
-    default = false;
-    description = "Whether this host can be managed remotely via activate --host";
-  };
-
   imports = [
     (modulesPath + "/installer/sd-card/sd-image-aarch64.nix")
     "${hardwareRepo}/raspberry-pi/4"
   ];
 
   config = {
-    dotfiles.manageRemotely = false;
-
     nixpkgs.hostPlatform = "aarch64-linux";
 
     boot.kernelPackages = pkgs.linuxPackages_latest;

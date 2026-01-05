@@ -9,12 +9,6 @@
 }:
 
 {
-  options.dotfiles.manageRemotely = lib.mkOption {
-    type = lib.types.bool;
-    default = false;
-    description = "Whether this host can be managed remotely via activate --host";
-  };
-
   imports = [
     ./hardware-configuration.nix
     commonNixSettings
@@ -22,9 +16,6 @@
   ];
 
   config = {
-    dotfiles.manageRemotely = true;
-
-    # Enable the LLM Server service
     services.llm-server = {
       enable = true;
       gpuMemoryUtilization = 0.90;

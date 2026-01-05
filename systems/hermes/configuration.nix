@@ -12,12 +12,6 @@ let
   rootDomain = "modiase.dev";
 in
 {
-  options.dotfiles.manageRemotely = lib.mkOption {
-    type = lib.types.bool;
-    default = false;
-    description = "Whether this host can be managed remotely via activate --host";
-  };
-
   imports = [
     ./hardware-configuration.nix
     ./services/authelia.nix
@@ -30,8 +24,6 @@ in
   ];
 
   config = {
-    dotfiles.manageRemotely = false;
-
     _module.args.rootDomain = rootDomain;
 
     networking.hostName = "hermes";

@@ -41,7 +41,7 @@
         "aarch64-darwin"
       ];
       lib = nixpkgs.lib;
-      authorizedKeys = import ./systems/shared/authorized-keys.nix;
+      authorizedKeys = import ./nix/authorized-keys.nix;
       authorizedKeyLists = lib.mapAttrs (
         _: hostMap:
         let
@@ -127,227 +127,221 @@
           ];
         };
       darwinCommonModules = [ ];
+
+      sharedOverlays = [ ];
+
+      fontOverlays = [
+        (self: super: {
+          space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
+          lato = super.callPackage ./nix/nixpkgs/lato { };
+          aleo = super.callPackage ./nix/nixpkgs/aleo { };
+        })
+      ];
+
+      mkSystem =
+        {
+          name,
+          system,
+          type,
+          modules ? [ ],
+          extraSpecialArgs ? { },
+          extraOverlays ? [ ],
+          isFrontend ? false,
+          manageRemotely ? false,
+        }:
+        let
+          isDarwin = type == "darwin";
+          systemOverlays =
+            sharedOverlays ++ lib.optionals (isDarwin && isFrontend) fontOverlays ++ extraOverlays;
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+            overlays = systemOverlays;
+          };
+
+          baseSpecialArgs = {
+            inherit
+              authorizedKeys
+              authorizedKeyLists
+              commonNixSettings
+              ;
+          }
+          // lib.optionalAttrs isDarwin {
+            inherit darwinFrontendServices heraklesBuildServer;
+          }
+          // extraSpecialArgs;
+
+          dotfilesModule =
+            { lib, ... }:
+            {
+              options.dotfiles = {
+                manageRemotely = lib.mkOption {
+                  type = lib.types.bool;
+                  default = false;
+                };
+                isFrontend = lib.mkOption {
+                  type = lib.types.bool;
+                  default = false;
+                };
+              };
+              config.dotfiles = {
+                inherit manageRemotely isFrontend;
+              };
+            };
+        in
+        if isDarwin then
+          nix-darwin.lib.darwinSystem {
+            inherit system pkgs;
+            specialArgs = baseSpecialArgs;
+            modules = [ dotfilesModule ] ++ darwinCommonModules ++ modules;
+          }
+        else
+          nixpkgs.lib.nixosSystem {
+            inherit system;
+            specialArgs = baseSpecialArgs;
+            modules = [
+              dotfilesModule
+              { nixpkgs.overlays = systemOverlays; }
+            ]
+            ++ modules;
+          };
+
+      mkHomeConfig =
+        {
+          name,
+          system,
+          isFrontend ? false,
+        }:
+        let
+          isDarwin = lib.hasSuffix "darwin" system;
+        in
+        home-manager.lib.homeManagerConfiguration {
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+            overlays = sharedOverlays;
+          };
+          extraSpecialArgs = { inherit isFrontend; };
+          modules = [
+            ./nix/home.nix
+            (if isDarwin then ./nix/platforms/darwin.nix else ./nix/platforms/linux.nix)
+            {
+              home.homeDirectory = if isDarwin then "/Users/${username}" else "/home/${username}";
+              home.stateVersion = "24.05";
+            }
+          ];
+        };
     in
     {
-      homeConfigurations."${username}-x86_64-linux" = home-manager.lib.homeManagerConfiguration {
-        pkgs = import nixpkgs {
-          system = "x86_64-linux";
-          config.allowUnfree = true;
-          overlays = [
-            (self: super: {
-              codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
-              space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
-              lato = super.callPackage ./nix/nixpkgs/lato { };
-              aleo = super.callPackage ./nix/nixpkgs/aleo { };
-            })
-          ];
-        };
-        modules = [
-          ./nix/home.nix
-          ./nix/platforms/linux.nix
-          ./nix/architectures/x86_64.nix
-          {
-            home.homeDirectory = "/home/${username}";
-            home.stateVersion = "24.05";
-          }
-        ];
-      };
-
-      homeConfigurations."${username}-aarch64-linux" = home-manager.lib.homeManagerConfiguration {
-        pkgs = import nixpkgs {
-          system = "aarch64-linux";
-          config.allowUnfree = true;
-          overlays = [
-            (self: super: {
-              codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
-              space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
-              lato = super.callPackage ./nix/nixpkgs/lato { };
-              aleo = super.callPackage ./nix/nixpkgs/aleo { };
-            })
-          ];
-        };
-        modules = [
-          ./nix/home.nix
-          ./nix/platforms/linux.nix
-          ./nix/architectures/aarch64.nix
-          {
-            home.homeDirectory = "/home/${username}";
-            home.stateVersion = "24.05";
-          }
-        ];
-      };
-
-      homeConfigurations."${username}-aarch64-darwin" = home-manager.lib.homeManagerConfiguration {
-        pkgs = import nixpkgs {
-          system = "aarch64-darwin";
-          config.allowUnfree = true;
-          overlays = [
-            (self: super: {
-              codex-cli = super.callPackage ./nix/nixpkgs/codex-cli { };
-              space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
-              lato = super.callPackage ./nix/nixpkgs/lato { };
-              aleo = super.callPackage ./nix/nixpkgs/aleo { };
-            })
-          ];
-        };
-        modules = [
-          ./nix/home.nix
-          ./nix/platforms/darwin.nix
-          ./nix/architectures/aarch64.nix
-          {
-            home.homeDirectory = "/Users/${username}";
-            home.stateVersion = "24.05";
-          }
-        ];
-      };
-
-      darwinConfigurations."iris" = nix-darwin.lib.darwinSystem {
+      homeConfigurations."${username}-iris" = mkHomeConfig {
+        name = "iris";
         system = "aarch64-darwin";
-        pkgs = import nixpkgs {
-          system = "aarch64-darwin";
-          overlays = [
-            (self: super: {
-              space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
-              lato = super.callPackage ./nix/nixpkgs/lato { };
-              aleo = super.callPackage ./nix/nixpkgs/aleo { };
-            })
-          ];
-        };
-        specialArgs = {
-          inherit
-            authorizedKeys
-            authorizedKeyLists
-            commonNixSettings
-            darwinFrontendServices
-            heraklesBuildServer
-            ;
-        };
-        modules = darwinCommonModules ++ [
-          ./systems/iris/configuration.nix
-        ];
+        isFrontend = true;
       };
 
-      darwinConfigurations."pallas" = nix-darwin.lib.darwinSystem {
+      homeConfigurations."${username}-pallas" = mkHomeConfig {
+        name = "pallas";
         system = "aarch64-darwin";
-        pkgs = import nixpkgs {
-          system = "aarch64-darwin";
-          overlays = [
-            (self: super: {
-              space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
-              lato = super.callPackage ./nix/nixpkgs/lato { };
-              aleo = super.callPackage ./nix/nixpkgs/aleo { };
-            })
-          ];
-        };
-        specialArgs = {
-          inherit
-            authorizedKeys
-            authorizedKeyLists
-            commonNixSettings
-            darwinFrontendServices
-            heraklesBuildServer
-            ;
-        };
-        modules = darwinCommonModules ++ [
-          ./systems/pallas/configuration.nix
-        ];
+        isFrontend = true;
       };
 
-      nixosConfigurations."herakles" = nixpkgs.lib.nixosSystem {
+      homeConfigurations."${username}-herakles" = mkHomeConfig {
+        name = "herakles";
         system = "x86_64-linux";
+      };
+
+      homeConfigurations."${username}-hermes" = mkHomeConfig {
+        name = "hermes";
+        system = "x86_64-linux";
+      };
+
+      homeConfigurations."${username}-hekate" = mkHomeConfig {
+        name = "hekate";
+        system = "aarch64-linux";
+      };
+
+      homeConfigurations."${username}-hestia" = mkHomeConfig {
+        name = "hestia";
+        system = "aarch64-linux";
+      };
+
+      darwinConfigurations."iris" = mkSystem {
+        name = "iris";
+        system = "aarch64-darwin";
+        type = "darwin";
+        isFrontend = true;
+        modules = [ ./systems/iris/configuration.nix ];
+      };
+
+      darwinConfigurations."pallas" = mkSystem {
+        name = "pallas";
+        system = "aarch64-darwin";
+        type = "darwin";
+        isFrontend = true;
+        manageRemotely = true;
+        modules = [ ./systems/pallas/configuration.nix ];
+      };
+
+      nixosConfigurations."herakles" = mkSystem {
+        name = "herakles";
+        system = "x86_64-linux";
+        type = "nixos";
+        manageRemotely = true;
+        extraSpecialArgs = { inherit llm-server; };
         modules = [
           ./systems/herakles/configuration.nix
           ./systems/herakles/hardware-configuration.nix
-          {
-            nix.settings.experimental-features = [
-              "nix-command"
-              "flakes"
-            ];
-          }
         ];
-        specialArgs = {
-          inherit
-            authorizedKeys
-            authorizedKeyLists
-            commonNixSettings
-            llm-server
-            ;
-        };
       };
 
-      nixosConfigurations."hermes" = nixpkgs.lib.nixosSystem {
+      nixosConfigurations."hermes" = mkSystem {
+        name = "hermes";
         system = "x86_64-linux";
+        type = "nixos";
         modules = [
           ./systems/hermes/configuration.nix
           ./systems/hermes/hardware-configuration.nix
-          {
-            nix.settings.experimental-features = [
-              "nix-command"
-              "flakes"
-            ];
-            nixpkgs.overlays = [ ];
-          }
         ];
-        specialArgs = { inherit authorizedKeys authorizedKeyLists commonNixSettings; };
       };
 
-      nixosConfigurations."hekate" = nixpkgs.lib.nixosSystem {
+      nixosConfigurations."hekate" = mkSystem {
+        name = "hekate";
         system = "aarch64-linux";
-        modules = [
-          ./systems/hekate/configuration.nix
-          {
-            nix.settings.experimental-features = [
-              "nix-command"
-              "flakes"
-            ];
-          }
-        ];
-        specialArgs = { inherit authorizedKeys authorizedKeyLists commonNixSettings; };
+        type = "nixos";
+        modules = [ ./systems/hekate/configuration.nix ];
       };
 
-      nixosConfigurations."hestia" = nixpkgs.lib.nixosSystem {
+      nixosConfigurations."hestia" = mkSystem {
+        name = "hestia";
         system = "aarch64-linux";
-        modules = [
-          ./systems/hestia/configuration.nix
-          {
-            nix.settings.experimental-features = [
-              "nix-command"
-              "flakes"
-            ];
-            nixpkgs.overlays = [
-              (final: prev: {
-                tk700-controller-dashboard =
-                  tk700-controller-dashboard.packages.${prev.stdenv.hostPlatform.system}.default.overrideAttrs
-                    (old: {
-                      basePath = "/projector/";
-                      nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ prev.pnpm ];
-                      buildPhase = ''
-                        runHook preBuild
-                        export HOME=$TMPDIR
+        type = "nixos";
+        manageRemotely = true;
+        extraSpecialArgs = { inherit heraklesBuildServer; };
+        extraOverlays = [
+          (final: prev: {
+            tk700-controller-dashboard =
+              tk700-controller-dashboard.packages.${prev.stdenv.hostPlatform.system}.default.overrideAttrs
+                (old: {
+                  basePath = "/projector/";
+                  nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ prev.pnpm ];
+                  buildPhase = ''
+                    runHook preBuild
+                    export HOME=$TMPDIR
 
-                        export BASE_PATH="/projector/"
-                        ${prev.pnpm}/bin/pnpm run build
+                    export BASE_PATH="/projector/"
+                    ${prev.pnpm}/bin/pnpm run build
 
-                        ${prev.bun}/bin/bun build src/index.ts \
-                          --target=bun \
-                          --outfile=server.js \
-                          --minify
+                    ${prev.bun}/bin/bun build src/index.ts \
+                      --target=bun \
+                      --outfile=server.js \
+                      --minify
 
-                        runHook postBuild
-                      '';
-                    });
-              })
-            ];
-          }
+                    runHook postBuild
+                  '';
+                });
+          })
         ];
-        specialArgs = {
-          inherit
-            authorizedKeys
-            authorizedKeyLists
-            commonNixSettings
-            heraklesBuildServer
-            ;
-        };
+        modules = [ ./systems/hestia/configuration.nix ];
       };
     }
     // flake-utils.lib.eachDefaultSystem (
