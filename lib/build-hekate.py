@@ -14,6 +14,7 @@ from utils import (
     check_nix,
     check_ssh_access,
     copy_to_clipboard,
+    one,
     run_command_env_context,
     setup_logging,
 )
@@ -83,6 +84,37 @@ def _run_disk_command(cmd: list, action: str) -> bool:
         return False
 
 
+def _get_zstd_decompressed_size(
+    image_path: str, remote_host: str | None = None
+) -> int | None:
+    """Get decompressed size from zstd file metadata."""
+    import re
+
+    try:
+        if remote_host:
+            cmd = ["ssh", f"moye@{remote_host}", f"zstd -l --no-progress {image_path}"]
+        else:
+            cmd = ["zstd", "-l", "--no-progress", image_path]
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+        for line in result.stdout.strip().split("\n"):
+            if image_path.split("/")[-1] in line:
+                matches = list(re.finditer(r"(\d+\.?\d*)\s*(GiB|MiB|GB|MB)", line))
+                if len(matches) >= 2:
+                    size_val = float(matches[1].group(1))
+                    unit = matches[1].group(2)
+                    multiplier = {
+                        "GiB": 1024**3,
+                        "MiB": 1024**2,
+                        "GB": 1000**3,
+                        "MB": 1000**2,
+                    }.get(unit, 1)
+                    return int(size_val * multiplier)
+    except Exception as e:
+        logger.debug(f"Could not get decompressed size: {e}")
+    return None
+
+
 def flash_image_to_device(
     image_path: str, device_path: str, remote_host: str | None = None
 ) -> bool:
@@ -96,17 +128,26 @@ def flash_image_to_device(
         else:
             _run_disk_command(["sudo", "umount", f"{device_path}*"], "Unmount")
 
-        logger.info("Starting flash process...")
+        decompressed_size = _get_zstd_decompressed_size(image_path, remote_host)
+        if decompressed_size:
+            size_gb = decompressed_size / 1_000_000_000
+            logger.info(f"Starting flash process ({size_gb:.1f} GB)...")
+            pv_size_arg = f"-s {decompressed_size}"
+        else:
+            logger.info("Starting flash process...")
+            pv_size_arg = ""
 
         if remote_host:
             flash_cmd = (
                 f"ssh moye@{remote_host} 'zstd -d -c {image_path}' | "
-                f"sudo dd of={device_path} bs=4M status=progress"
+                f"pv {pv_size_arg} | "
+                f"sudo dd of={device_path} bs=4M"
             )
         else:
             flash_cmd = (
                 f"zstd -d -c {image_path} | "
-                f"sudo dd of={device_path} bs=4M status=progress"
+                f"pv {pv_size_arg} | "
+                f"sudo dd of={device_path} bs=4M"
             )
 
         result = subprocess.run(flash_cmd, shell=True, check=False)
@@ -254,29 +295,25 @@ def cli(
             ["--verbose"] if verbose >= 2 else None,
         )
 
-        if remote_host:
-            result = subprocess.run(
-                [
-                    "ssh",
-                    f"moye@{remote_host}",
-                    f"find {build_output} -type f -name '*.img.zst'",
-                ],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            image_path = result.stdout.strip()
-            if not image_path:
-                logger.error(
-                    f"No .img.zst file found in {build_output} on {remote_host}"
+        try:
+            if remote_host:
+                result = subprocess.run(
+                    [
+                        "ssh",
+                        f"moye@{remote_host}",
+                        f"find {build_output} -type f -name '*.img.zst'",
+                    ],
+                    capture_output=True,
+                    text=True,
+                    check=True,
                 )
-                sys.exit(1)
-        else:
-            found_images = list(Path(build_output).glob("**/*.img.zst"))
-            if not found_images:
-                logger.error(f"No .img.zst file found in {build_output}")
-                sys.exit(1)
-            image_path = str(found_images[0])
+                found_images = [p for p in result.stdout.strip().split("\n") if p]
+                image_path = one(found_images)
+            else:
+                image_path = str(one(Path(build_output).glob("**/*.img.zst")))
+        except ValueError as e:
+            logger.error(f"Expected exactly one .img.zst in {build_output}: {e}")
+            sys.exit(1)
 
     with logger.contextualize(task="preparing-flash-command"):
         logger.success("Hekate image built successfully")

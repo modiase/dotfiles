@@ -14,6 +14,7 @@ from utils import (
     check_nix,
     check_ssh_access,
     copy_to_clipboard,
+    one,
     run_command_env_context,
     setup_logging,
 )
@@ -235,7 +236,7 @@ def cli(
 
     with logger.contextualize(task="building-image"):
         logger.info("Building hestia image")
-        image_file = Path(
+        build_output = Path(
             build_nix_image(
                 repo_root,
                 "nixosConfigurations.hestia.config.system.build.sdImage",
@@ -244,7 +245,11 @@ def cli(
                 ["--verbose"] if verbose >= 2 else None,
             )
         )
-        image_file = list(image_file.glob("**/*.img.zst"))[0]
+        try:
+            image_file = one(build_output.glob("**/*.img.zst"))
+        except ValueError as e:
+            logger.error(f"Expected exactly one .img.zst in {build_output}: {e}")
+            sys.exit(1)
 
     with logger.contextualize(task="preparing-flash-command"):
         image_size = subprocess.run(

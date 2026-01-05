@@ -147,7 +147,7 @@ func (m HealthModel) renderMemory() string {
 }
 
 func (m HealthModel) renderSystem() string {
-	borderStyle := healthBorderStyle.Copy().Width(72)
+	borderStyle := healthBorderStyle.Copy().Width(68)
 
 	labelStyle := healthLabelStyle.Copy().Width(12)
 	valueStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("255"))

@@ -39,8 +39,10 @@ let
     "OUTPUT -d 172.16.0.0/12 -j ACCEPT"
     "OUTPUT -o lo -j ACCEPT"
     "OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT"
-    "OUTPUT -p udp -d 162.159.200.1 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT"
-    "OUTPUT -p udp -d 162.159.200.123 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT"
+    "OUTPUT -p udp -d 162.159.200.1 --dport 123 -j ACCEPT"
+    "OUTPUT -p udp -d 162.159.200.123 --dport 123 -j ACCEPT"
+    "OUTPUT -p udp -d 216.239.35.0 --dport 123 -j ACCEPT"
+    "OUTPUT -p udp -d 216.239.35.4 --dport 123 -j ACCEPT"
     "OUTPUT -p tcp -d 1.1.1.1 --dport 853 -j ACCEPT"
     "OUTPUT -p tcp -d 1.0.0.1 --dport 853 -j ACCEPT"
     "OUTPUT -p tcp -d 8.8.8.8 --dport 853 -j ACCEPT"
@@ -375,10 +377,11 @@ in
 
     services.timesyncd = {
       enable = true;
-      servers = [ "time.cloudflare.com" ];
-      fallbackServers = [
+      servers = [
         "162.159.200.1"
         "162.159.200.123"
+        "216.239.35.0"
+        "216.239.35.4"
       ];
     };
 
