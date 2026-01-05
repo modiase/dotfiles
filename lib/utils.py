@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # vim: set filetype=python:
 
+import base64
 import os
+import platform
 import re
 import shlex
 import subprocess
@@ -14,6 +16,21 @@ from typing import Iterator
 
 from google.cloud import storage
 from loguru import logger
+
+
+def copy_to_clipboard(text: str) -> bool:
+    if platform.system() == "Darwin":
+        try:
+            subprocess.run(["pbcopy"], input=text, text=True, check=True)
+            return True
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            return False
+    else:
+        encoded = base64.b64encode(text.encode()).decode()
+        sys.stdout.write(f"\033]52;c;{encoded}\a")
+        sys.stdout.flush()
+        return True
+
 
 try:
     import pexpect

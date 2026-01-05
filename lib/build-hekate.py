@@ -13,6 +13,7 @@ from utils import (
     build_nix_image,
     check_nix,
     check_ssh_access,
+    copy_to_clipboard,
     run_command_env_context,
     setup_logging,
 )
@@ -307,17 +308,10 @@ def cli(
 
         if copy_answers and copy_answers["copy_command"]:
             flash_cmd = get_flash_instructions(image_path, remote_host)
-            for clip_cmd in [["pbcopy"], ["xclip", "-selection", "clipboard"]]:
-                try:
-                    subprocess.run(clip_cmd, input=flash_cmd, text=True, check=True)
-                    logger.info("Flash command copied to clipboard!")
-                    break
-                except (subprocess.CalledProcessError, FileNotFoundError):
-                    continue
+            if copy_to_clipboard(flash_cmd):
+                logger.info("Flash command copied to clipboard!")
             else:
-                logger.warning(
-                    "Could not copy to clipboard (pbcopy/xclip not available)"
-                )
+                logger.warning("Could not copy to clipboard")
 
 
 if __name__ == "__main__":
