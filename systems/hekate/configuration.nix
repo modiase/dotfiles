@@ -31,6 +31,22 @@ let
     -----END PGP MESSAGE-----
   '';
   hekate-dashboard = pkgs.callPackage ./hekate-dashboard { };
+  firewallRules = [
+    "FORWARD -i wg0 -o end0 -j ACCEPT"
+    "FORWARD -i end0 -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT"
+    "OUTPUT -d 192.168.0.0/16 -j ACCEPT"
+    "OUTPUT -d 10.0.0.0/8 -j ACCEPT"
+    "OUTPUT -d 172.16.0.0/12 -j ACCEPT"
+    "OUTPUT -o lo -j ACCEPT"
+    "OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT"
+    "OUTPUT -p udp -d 162.159.200.1 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT"
+    "OUTPUT -p udp -d 162.159.200.123 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT"
+    "OUTPUT -p tcp -d 1.1.1.1 --dport 853 -j ACCEPT"
+    "OUTPUT -p tcp -d 1.0.0.1 --dport 853 -j ACCEPT"
+    "OUTPUT -p tcp -d 8.8.8.8 --dport 853 -j ACCEPT"
+    "OUTPUT -p tcp -d 8.8.4.4 --dport 853 -j ACCEPT"
+    "OUTPUT -j DROP"
+  ];
 in
 
 {
@@ -124,40 +140,12 @@ in
       ];
       allowedTCPPorts = [
         22
+        53
       ];
-      extraCommands = ''
-        iptables -A FORWARD -i wg0 -o end0 -j ACCEPT
-        iptables -A FORWARD -i end0 -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT
-
-        iptables -A OUTPUT -d 192.168.0.0/16 -j ACCEPT
-        iptables -A OUTPUT -d 10.0.0.0/8 -j ACCEPT
-        iptables -A OUTPUT -d 172.16.0.0/12 -j ACCEPT
-        iptables -A OUTPUT -o lo -j ACCEPT
-        iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-
-        iptables -A OUTPUT -p udp -d 162.159.200.1 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT
-        iptables -A OUTPUT -p udp -d 162.159.200.123 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT
-
-        iptables -A OUTPUT -p udp -d 1.1.1.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT
-        iptables -A OUTPUT -p udp -d 1.0.0.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT
-
-        iptables -A OUTPUT -j DROP
-      '';
-      extraStopCommands = ''
-        iptables -D FORWARD -i wg0 -o end0 -j ACCEPT 2>/dev/null || true
-        iptables -D FORWARD -i end0 -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
-
-        iptables -D OUTPUT -d 192.168.0.0/16 -j ACCEPT 2>/dev/null || true
-        iptables -D OUTPUT -d 10.0.0.0/8 -j ACCEPT 2>/dev/null || true
-        iptables -D OUTPUT -d 172.16.0.0/12 -j ACCEPT 2>/dev/null || true
-        iptables -D OUTPUT -o lo -j ACCEPT 2>/dev/null || true
-        iptables -D OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT 2>/dev/null || true
-        iptables -D OUTPUT -p udp -d 162.159.200.1 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT 2>/dev/null || true
-        iptables -D OUTPUT -p udp -d 162.159.200.123 --dport 123 -m owner --uid-owner systemd-timesync -j ACCEPT 2>/dev/null || true
-        iptables -D OUTPUT -p udp -d 1.1.1.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT 2>/dev/null || true
-        iptables -D OUTPUT -p udp -d 1.0.0.1 --dport 53 -m owner --uid-owner unbound -j ACCEPT 2>/dev/null || true
-        iptables -D OUTPUT -j DROP 2>/dev/null || true
-      '';
+      extraCommands = lib.concatMapStringsSep "\n" (r: "iptables -A ${r}") firewallRules;
+      extraStopCommands = lib.concatMapStringsSep "\n" (
+        r: "iptables -D ${r} 2>/dev/null || true"
+      ) firewallRules;
     };
 
     networking.nat = {
@@ -212,8 +200,10 @@ in
 
     services.unbound = {
       enable = true;
+      enableRootTrustAnchor = false;
       settings = {
         server = {
+          tls-cert-bundle = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
           interface = [
             "10.0.0.1"
             "192.168.1.110"
@@ -232,9 +222,12 @@ in
         forward-zone = [
           {
             name = ".";
+            forward-tls-upstream = "yes";
             forward-addr = [
-              "1.1.1.1"
-              "1.0.0.1"
+              "1.1.1.1@853#cloudflare-dns.com"
+              "1.0.0.1@853#cloudflare-dns.com"
+              "8.8.8.8@853#dns.google"
+              "8.8.4.4@853#dns.google"
             ];
           }
         ];

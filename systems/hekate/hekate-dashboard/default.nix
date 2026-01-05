@@ -9,7 +9,7 @@ pkgs.buildGoModule {
   src = ./.;
 
   proxyVendor = true;
-  vendorHash = "sha256-KKqsk6WN1eL3sCZY2U/v6UG9giayfY/SbvfA/Z6IXko=";
+  vendorHash = "sha256-83YEIbFmsDLTB6uEhvF1q5xAITVy9DWWxEOy+JhGuRE=";
 
   meta = with pkgs.lib; {
     description = "Secure monitoring dashboard for Hekate VPN gateway";
