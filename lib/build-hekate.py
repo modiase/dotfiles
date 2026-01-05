@@ -265,8 +265,17 @@ def cli(
                 check=True,
             )
             image_path = result.stdout.strip()
+            if not image_path:
+                logger.error(
+                    f"No .img.zst file found in {build_output} on {remote_host}"
+                )
+                sys.exit(1)
         else:
-            image_path = str(list(Path(build_output).glob("**/*.img.zst"))[0])
+            found_images = list(Path(build_output).glob("**/*.img.zst"))
+            if not found_images:
+                logger.error(f"No .img.zst file found in {build_output}")
+                sys.exit(1)
+            image_path = str(found_images[0])
 
     with logger.contextualize(task="preparing-flash-command"):
         logger.success("Hekate image built successfully")
