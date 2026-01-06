@@ -83,8 +83,8 @@ return {
 
 		local coclist_mappings = {
 			{ "a", "diagnostics", "Show all diagnostics" },
-			{ "e", "extensions", "Manage extensions" },
 			{ "c", "commands", "Show commands" },
+			{ "m", "extensions", "Manage extensions" },
 			{ "o", "outline", "Find symbol of current document" },
 			{ "s", "-I symbols", "Search workspace symbols" },
 			{ "j", "next", "Do default action for next item" },
@@ -102,7 +102,7 @@ return {
 			)
 		end
 
-		vim.keymap.set("n", "<space>ee", ":CocCommand explorer --focus --position floating<CR>", { silent = true })
+		vim.keymap.set("n", "<leader>of", ":CocCommand explorer --focus --position floating<CR>", { silent = true })
 		vim.keymap.set(
 			"n",
 			"<space>ef",
@@ -110,10 +110,10 @@ return {
 			{ silent = true }
 		)
 
-		vim.keymap.set("n", "<leader>en", function()
+		vim.keymap.set("n", "<leader>dn", function()
 			vim.fn.CocAction("diagnosticNext")
 		end, { silent = true })
-		vim.keymap.set("n", "<leader>ep", function()
+		vim.keymap.set("n", "<leader>dp", function()
 			vim.fn.CocAction("diagnosticPrevious")
 		end, { silent = true })
 
