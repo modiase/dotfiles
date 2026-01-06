@@ -1,3 +1,0 @@
-Defaults!/run/current-system/sw/bin/darwin-rebuild env_keep += "NIX_CONFIG"
-${USER} ALL=(ALL) NOPASSWD: /run/current-system/sw/bin/darwin-rebuild
-

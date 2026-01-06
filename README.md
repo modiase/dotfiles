@@ -7,37 +7,24 @@ This repository contains:
 - Infrastructure-as-code (OpenTofu) to provision Google Cloud resources for Hermes.
 - Helper scripts to build Google Compute Engine images from the Nix flake.
 
-## Building and Deploying Hermes
+## Building System Images
 
-The `bin/build-hermes` tool provides a complete workflow for building and deploying Hermes:
+The `bin/build-image` tool provides a unified workflow for building system images:
 
-**Build + Upload + Deploy (recommended):**
 ```bash
-./bin/build-hermes deploy
+./bin/build-image           # Select system interactively with gum
+./bin/build-image hermes    # Build hermes directly
 ```
 
-This builds the GCE image on herakles, uploads it to GCS, taints the Terraform resources, and runs `tofu apply -auto-approve` to recreate the instance with the new image.
+System-specific build scripts are located at `systems/<name>/build-image.py`.
 
-**Build + Upload only:**
+**Hermes example (GCE image):**
 ```bash
-./bin/build-hermes build
+./bin/build-image hermes deploy        # Build + Upload + Deploy
+./bin/build-image hermes build         # Build + Upload only
+./bin/build-image hermes deploy --no-build  # Deploy existing image
+./bin/build-image hermes check         # Validate prerequisites
 ```
-
-Builds the image and uploads to `gs://modiase-infra/images/hermes-nixos-latest.tar.gz` without deploying.
-
-**Deploy only (skip build):**
-```bash
-./bin/build-hermes deploy --no-build
-```
-
-Uses the existing image in GCS and redeploys the instance.
-
-**Check prerequisites:**
-```bash
-./bin/build-hermes check
-```
-
-Validates Nix flake, Terraform config, gcloud auth, and SSH access to herakles.
 
 **Options:**
 - `-v` / `-vv` - Increase verbosity
