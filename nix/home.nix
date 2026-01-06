@@ -50,6 +50,7 @@ let
     google-cloud-sdk
     gopls
     httpie
+    imagemagick
     jwt-cli
     kubectl
     ncdu
