@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+system="$1"
+shift 2>/dev/null || true
+
+if [[ -z "$system" ]]; then
+    systems=$(find "$REPO_ROOT/systems" -name "build-image.py" -exec dirname {} \; | xargs -n1 basename)
+    system=$(echo "$systems" | gum choose --header "Select system:")
+    [[ -z "$system" ]] && exit 1
+fi
+
+[[ -f "$REPO_ROOT/systems/$system/build-image.py" ]] || { echo "No build-image.py for $system"; exit 1; }
+
+exec nix run "$REPO_ROOT#build-$system" -- "$@"
