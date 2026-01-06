@@ -32,6 +32,7 @@ let
 
   frontendPackages = with pkgs; [
     (callPackage ./nixpkgs/ankigen { })
+    (callPackage ./nixpkgs/awrit { })
     (callPackage ./nixpkgs/coder { })
     cargo
     (writeShellScriptBin "chafa" ''
