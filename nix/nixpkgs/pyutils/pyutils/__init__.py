@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# vim: set filetype=python:
 
 import base64
 import os
@@ -188,7 +187,6 @@ def run_command(
                 except Exception as e:
                     logger.warning(f"Pexpect failed ({e}), falling back to subprocess")
 
-            # Fallback to subprocess implementation
             with subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -371,7 +369,7 @@ def check_nix(repo_root: Path, nix_attr: str | None = None) -> bool:
             logger.error(f"Nix attribute {nix_attr} not found or invalid")
             return False
 
-    logger.info("✓ Nix flake configuration is valid")
+    logger.info("Nix flake configuration is valid")
     return True
 
 
@@ -455,7 +453,7 @@ def check_gcloud_config(project_id: str) -> bool:
         logger.error(f"Cannot access GCS bucket: gs://{bucket_name}/")
         return False
 
-    logger.info("✓ gcloud configuration is valid")
+    logger.info("gcloud configuration is valid")
     return True
 
 
@@ -485,7 +483,7 @@ def check_ssh_access(remote_host: str) -> bool:
         )
         return False
 
-    logger.info(f"✓ SSH access to {remote_host} is working")
+    logger.info(f"SSH access to {remote_host} is working")
     return True
 
 
@@ -544,12 +542,33 @@ def build_gce_image(
     """Build a GCE image using the custom build script and return the tarball path."""
     logger.info(f"Building GCE image for {nix_attr}")
 
-    build_script = repo_root / "bin" / "build-gce-nixos-image.sh"
+    git_root = subprocess.run(
+        ["git", "rev-parse", "--show-toplevel"],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+
+    result = subprocess.run(
+        [
+            "nix",
+            "build",
+            f"{git_root}#build-gce-nixos-image",
+            "--print-out-paths",
+            "--no-link",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    build_script = Path(result.stdout.strip()) / "bin" / "build-gce-nixos-image"
 
     cmd = [
         "env",
         "LOGGING_NO_PREFIX=1",
         str(build_script),
+        "--flake",
+        git_root,
         "--attr",
         nix_attr,
         "--remote-host",
@@ -569,7 +588,7 @@ def build_gce_image(
 
     for line in output.split("\n"):
         if line.startswith("BUILD_RESULT: "):
-            tarball_path = line[14:]  # Skip "BUILD_RESULT: "
+            tarball_path = line[14:]
             if Path(tarball_path).exists():
                 logger.info(f"Built GCE image: {tarball_path}")
                 return tarball_path
@@ -636,7 +655,7 @@ def check_terraform(repo_root: Path) -> bool:
         logger.error("Terraform plan failed")
         return False
 
-    logger.info("✓ Terraform configuration is valid")
+    logger.info("Terraform configuration is valid")
     return True
 
 

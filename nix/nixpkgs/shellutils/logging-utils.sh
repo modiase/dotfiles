@@ -1,22 +1,9 @@
 #!/usr/bin/env bash
-
+# shellcheck disable=SC2034
 EXIT_FAILURE=1
 LOG_LEVEL=${LOG_LEVEL:-2}
 COLOR_ENABLED=${COLOR_ENABLED:-true}
 LOGGING_NO_PREFIX=${LOGGING_NO_PREFIX:-0}
-
-EXIT_HOOKS=()
-
-add_exit_hook() { EXIT_HOOKS+=("$1"); }
-
-run_exit_hooks() {
-    local i
-    for ((i = ${#EXIT_HOOKS[@]} - 1; i >= 0; i--)); do
-        eval "${EXIT_HOOKS[i]}" || true
-    done
-}
-
-trap run_exit_hooks EXIT
 
 COLOR_RESET='\033[0m'
 COLOR_CYAN='\033[0;36m'
@@ -177,7 +164,6 @@ run_logged() {
     shift
     local status=0
 
-    # Verbose mode at level >= 3
     [[ ${LOG_LEVEL:-2} -ge 3 ]] && {
         log_info "${label} started"
         (
@@ -264,62 +250,6 @@ run_logged() {
     log_to_system "error" "${label} failed (exit ${status})"
     log_error "${label} failed (exit ${status})"
     return $status
-}
-
-get_profile_file() {
-    local platform=$1
-    case "${platform}" in
-        Darwin) printf ".zprofile" ;;
-        *)
-            log_error "Unsupported platform"
-            exit $EXIT_FAILURE
-            ;;
-    esac
-}
-
-get_rc_file() {
-    local platform=$1
-    case "${platform}" in
-        Darwin) printf ".zshrc" ;;
-        *)
-            log_error "Unsupported platform"
-            exit $EXIT_FAILURE
-            ;;
-    esac
-}
-
-ensure_profile() {
-    [[ ! -f "$HOME/${PROFILE_FILE}" ]] && touch "$HOME/${PROFILE_FILE}"
-}
-
-profile_add() {
-    local statement="$1"
-    log_debug "profile add: ${statement}"
-
-    ensure_profile
-    grep -q "${statement}" "$HOME/${PROFILE_FILE}" 2>/dev/null && {
-        log_debug "statement already found in ${PROFILE_FILE}"
-        return
-    }
-    log_debug "Adding '${statement}' to ${PROFILE_FILE}"
-    echo "${statement}" >>"$HOME/${PROFILE_FILE}"
-}
-
-ensure_rc() {
-    [[ ! -f "$HOME/${RC_FILE}" ]] && touch "$HOME/${RC_FILE}"
-}
-
-rc_add() {
-    local statement="$1"
-    log_debug "rc add: ${statement}"
-
-    ensure_rc
-    grep -q "${statement}" "$HOME/${RC_FILE}" 2>/dev/null && {
-        log_debug "statement already found in ${RC_FILE}"
-        return
-    }
-    log_debug "Adding '${statement}' to ${RC_FILE}"
-    echo "${statement}" >>"$HOME/${RC_FILE}"
 }
 
 if [[ ${LOG_LEVEL:-2} -ge 4 ]]; then set -x; fi

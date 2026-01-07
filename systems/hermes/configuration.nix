@@ -14,11 +14,11 @@ in
 {
   imports = [
     ./hardware-configuration.nix
-    ./services/authelia.nix
-    ./services/fail2ban.nix
-    ./services/ntfy.nix
-    ./services/n8n.nix
-    ./services/nginx.nix
+    ./run/services/authelia.nix
+    ./run/services/fail2ban.nix
+    ./run/services/ntfy.nix
+    ./run/services/n8n.nix
+    ./run/services/nginx.nix
     (modulesPath + "/virtualisation/google-compute-image.nix")
     commonNixSettings
   ];

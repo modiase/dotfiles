@@ -81,7 +81,7 @@ repos:
         pass_filenames: false
         args:
           - -c
-          - "nix-shell -p fd --run 'fd -e sh -e bash -x bash -n'"
+          - "nix-shell -p fd --run 'fd -e sh -e bash -E worktrees -x bash -n'"
       - id: fish-syntax
         name: fish syntax check
         entry: bash
@@ -99,7 +99,7 @@ repos:
         pass_filenames: false
         args:
           - -c
-          - "nix-shell -p shellcheck --run 'find . -name \"*.sh\" -o -name \"*.bash\" | xargs shellcheck'"
+          - "nix-shell -p shellcheck fd --run 'fd -e sh -e bash -E worktrees | xargs shellcheck'"
       - id: shfmt
         name: shfmt
         entry: bash

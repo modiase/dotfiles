@@ -22,8 +22,8 @@ in
     "${hardwareRepo}/raspberry-pi/4"
     commonNixSettings
     (heraklesBuildServer "hestia")
-    ./services/nginx.nix
-    ./services/tk700-dashboard.nix
+    ./run/services/nginx.nix
+    ./run/services/tk700-dashboard.nix
   ];
 
   config = {

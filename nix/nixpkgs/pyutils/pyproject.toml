@@ -1,0 +1,11 @@
+[project]
+name = "pyutils"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["pyutils*"]

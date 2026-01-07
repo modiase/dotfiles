@@ -8,7 +8,7 @@ MAX_CORES=$(($(nproc) - 1))
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel)"
-source "$SCRIPT_DIR/../lib/lib.sh"
+source "$(nix build "$REPO_ROOT#logging-utils" --print-out-paths --no-link 2>/dev/null)/lib/logging-utils.sh"
 
 show_usage() {
     local exit_code=${1:-0}

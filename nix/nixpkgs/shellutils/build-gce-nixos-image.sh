@@ -1,13 +1,10 @@
-#!/usr/bin/env nix-shell
-#!nix-shell -i bash -p git google-cloud-sdk coreutils cacert
 # shellcheck shell=bash
-
 set -euo pipefail
 
 usage() {
     cat <<'USAGE'
-Usage: build-gce-nixos-image.sh --attr ATTR [--flake FLAKE-URI]
-                                [--keep-build] [--remote-host HOST] [-v LEVEL]
+Usage: build-gce-nixos-image --attr ATTR [--flake FLAKE-URI]
+                             [--keep-build] [--remote-host HOST] [-v LEVEL]
 
 Builds a NixOS GCE image and outputs the path to the built tarball.
 
@@ -15,27 +12,22 @@ Required:
   --attr ATTR        Nix attribute to build (e.g. nixosConfigurations.hermes.config.system.build.googleComputeImage)
 
 Optional:
-  --flake FLAKE      Flake URI to build (default: repo root)
+  --flake FLAKE      Flake URI to build (default: auto-detect from git)
   --keep-build       Leave the temporary build directory on disk
   --remote-host HOST Optional log hint that a remote builder HOST will execute the build
   -v LEVEL           Verbosity level: 1 (print build logs), 2 (bash tracing)
 
 Example:
-  ./bin/build-gce-nixos-image.sh \\
-    --attr nixosConfigurations.hermes.config.system.build.googleComputeImage \\
+  build-gce-nixos-image \
+    --attr nixosConfigurations.hermes.config.system.build.googleComputeImage \
+    --flake /path/to/dotfiles \
     --remote-host herakles -v 1
 
 Outputs the path to the built tarball on stdout.
 USAGE
 }
 
-REPO_ROOT="$(git rev-parse --show-toplevel)"
-
-LOG_LEVEL=${LOG_LEVEL:-2}
-COLOR_ENABLED=${COLOR_ENABLED:-true}
-source "$REPO_ROOT/lib/lib.sh"
-
-FLAKE_URI="$REPO_ROOT"
+FLAKE_URI=""
 IMAGE_ATTR=""
 KEEP_BUILD=0
 REMOTE_HOST=""
@@ -79,6 +71,15 @@ if [[ -z "$IMAGE_ATTR" ]]; then
     echo "Error: --attr is required" >&2
     usage
     exit 1
+fi
+
+if [[ -z "$FLAKE_URI" ]]; then
+    FLAKE_URI="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+    if [[ -z "$FLAKE_URI" ]]; then
+        echo "Error: --flake is required (not in a git repository)" >&2
+        usage
+        exit 1
+    fi
 fi
 
 if [[ $VERBOSE_LEVEL -ge 2 ]]; then

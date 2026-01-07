@@ -5,8 +5,8 @@ from pathlib import Path
 import click
 from loguru import logger
 
-sys.path.insert(0, str(Path(__file__).parent))
-from utils import (
+# Imports from build_utils package
+from pyutils import (
     setup_logging,
     image_up_to_date,
     upload_to_gcs,

@@ -12,15 +12,7 @@ let
     url = "https://github.com/NixOS/nixos-hardware/archive/9c0ee5dfa186e10efe9b53505b65d22c81860fde.tar.gz";
     sha256 = "092yc6rp7xj4rygldv5i693xnhz7nqnrwrz1ky1kq9rxy2f5kl10";
   };
-  wg-status-server = pkgs.writeShellScript "wg-status-server.sh" (
-    builtins.readFile ./wg-status-server.sh
-  );
-  health-status-server = pkgs.writeShellScript "health-status-server.sh" (
-    builtins.readFile ./health-status-server.sh
-  );
-  dns-logs-server = pkgs.writeShellScript "dns-logs-server.sh" (
-    builtins.readFile ./dns-logs-server.sh
-  );
+  dashboard = pkgs.callPackage ./run/dashboard { };
   encryptedKey = ''
     -----BEGIN PGP MESSAGE-----
 
@@ -30,7 +22,6 @@ let
     =GlBK
     -----END PGP MESSAGE-----
   '';
-  hekate-dashboard = pkgs.callPackage ./hekate-dashboard { };
   firewallRules = [
     "FORWARD -i wg0 -o end0 -j ACCEPT"
     "FORWARD -i end0 -o wg0 -m state --state RELATED,ESTABLISHED -j ACCEPT"
@@ -55,6 +46,10 @@ in
   imports = [
     (modulesPath + "/installer/sd-card/sd-image-aarch64.nix")
     "${hardwareRepo}/raspberry-pi/4"
+    ./run/services/ssh-logger.nix
+    ./run/services/wg-status-server.nix
+    ./run/services/health-status-server.nix
+    ./run/services/dns-logs-server.nix
   ];
 
   config = {
@@ -174,7 +169,7 @@ in
       };
       extraConfig = ''
         Match User admin
-          ForceCommand ${hekate-dashboard}/bin/hekate-dashboard
+          ForceCommand ${dashboard}/bin/hekate-dashboard
           AllowTcpForwarding no
           AllowAgentForwarding no
           X11Forwarding no
@@ -296,85 +291,6 @@ in
 
     nix.settings.allowed-users = [ "root" ];
 
-    systemd.services.ssh-logger = {
-      description = "SSH connection logger";
-      wantedBy = [ "multi-user.target" ];
-      serviceConfig = {
-        ExecStart = "${pkgs.bash}/bin/bash -c 'journalctl -f -u sshd | tee -a /var/log/ssh-access.log'";
-        Restart = "always";
-        RestartSec = "5s";
-      };
-    };
-
-    services.logrotate = {
-      enable = true;
-      settings = {
-        "/var/log/ssh-access.log" = {
-          frequency = "daily";
-          rotate = 7;
-          compress = true;
-          delaycompress = true;
-          missingok = true;
-          notifempty = true;
-          postrotate = "systemctl reload rsyslog";
-        };
-      };
-    };
-
-    systemd.services.wg-status-server = {
-      description = "WireGuard status server for dashboard";
-      wantedBy = [ "multi-user.target" ];
-      path = [
-        pkgs.wireguard-tools
-        pkgs.coreutils
-        pkgs.gawk
-        pkgs.socat
-      ];
-      serviceConfig = {
-        ExecStart = "${wg-status-server}";
-        Restart = "always";
-        RestartSec = "5s";
-        RuntimeDirectory = "wg-status";
-      };
-    };
-
-    systemd.services.health-status-server = {
-      description = "System health status server for dashboard";
-      wantedBy = [ "multi-user.target" ];
-      path = [
-        pkgs.coreutils
-        pkgs.procps
-        pkgs.gawk
-        pkgs.socat
-      ];
-      serviceConfig = {
-        ExecStart = "${health-status-server}";
-        Restart = "always";
-        RestartSec = "5s";
-        User = "nobody";
-        RuntimeDirectory = "health-status";
-        NoNewPrivileges = true;
-        PrivateTmp = true;
-        ProtectSystem = "strict";
-        ProtectHome = true;
-      };
-    };
-
-    systemd.services.dns-logs-server = {
-      description = "DNS logs server for dashboard";
-      wantedBy = [ "multi-user.target" ];
-      path = [
-        pkgs.coreutils
-        pkgs.socat
-      ];
-      serviceConfig = {
-        ExecStart = "${dns-logs-server}";
-        Restart = "always";
-        RestartSec = "5s";
-        RuntimeDirectory = "dns-logs";
-      };
-    };
-
     services.timesyncd = {
       enable = true;
       servers = [
@@ -387,7 +303,6 @@ in
 
     systemd.tmpfiles.rules = [
       "d /var/log 0755 root root - -"
-      "f /var/log/ssh-access.log 0644 root root - -"
       "d /home/admin 0555 root root - -"
       "Z /tmp 0700 root root - -"
       "Z /var/tmp 0700 root root - -"
