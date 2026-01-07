@@ -94,7 +94,7 @@ Backend Flags:
 
 Get Options:
   --print                 Print to stdout (default if not a tty)
-  --raw                   Return raw value without unwrapping JSON
+  --raw                   Skip JSON unwrapping (return stored value as-is)
   --no-env                Skip environment variable check
   --optional              Don't error if secret not found
 

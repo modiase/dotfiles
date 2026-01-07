@@ -129,6 +129,19 @@ Use `bin/activate` to apply configuration changes. Do **not** call `darwin-rebui
   - Top-level code executed when sourcing files
   - Last statements in functions (function returns non-zero)
 
+## Nix Shell Packages
+
+- **Prefer separate script files** over inline scripts in `default.nix` so they can be properly linted by shellcheck
+- **Structure**: Create `script-name.sh` alongside `default.nix`, then read it in Nix:
+  ```nix
+  writeShellApplication {
+    name = "my-script";
+    runtimeInputs = [ ... ];
+    text = builtins.readFile ./my-script.sh;
+  }
+  ```
+- **Exception**: Only inline trivial scripts (< 10 lines) when explicitly requested
+
 ## Fish Functions
 
 - **Do NOT include function wrapper** - home-manager's `programs.fish.functions` automatically wraps the body
