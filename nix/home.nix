@@ -7,6 +7,9 @@
 }:
 
 let
+  secrets = pkgs.callPackage ./nixpkgs/secrets { };
+  ntfy-me = pkgs.callPackage ./nixpkgs/ntfy-me { inherit secrets; };
+
   commonPackages = with pkgs; [
     coreutils
     delta
@@ -19,15 +22,17 @@ let
     fd
     fzf
     gnused
+    google-cloud-sdk
     jq
     lsof
     moor
+    ntfy-me
     procs
     pstree
     ripgrep
     sd
+    secrets
     watch
-    (callPackage ./nixpkgs/secrets { })
   ];
 
   frontendPackages = with pkgs; [
@@ -48,7 +53,6 @@ let
     gemini-cli
     gh
     go
-    google-cloud-sdk
     gopls
     httpie
     imagemagick
