@@ -193,7 +193,7 @@ in
     virtualHosts."hermes.${rootDomain}" = commonVhostConfig // {
       root = pkgs.runCommand "hermes-static" { } ''
         mkdir -p $out
-        cp ${../static}/* $out/
+        cp ${../../static}/* $out/
       '';
       locations."/internal/authelia/authz" = autheliaEndpointConfig;
       locations."/" = {

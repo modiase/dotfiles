@@ -16,7 +16,7 @@ The `bin/build-image` tool provides a unified workflow for building system image
 ./bin/build-image hermes    # Build hermes directly
 ```
 
-System-specific build scripts are located at `systems/<name>/build-image.py`.
+System-specific build scripts are located at `systems/<name>/build/image`.
 
 **Hermes example (GCE image):**
 ```bash

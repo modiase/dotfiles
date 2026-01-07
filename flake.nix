@@ -368,9 +368,9 @@
             pkgs.pv
           ];
           text = ''
-            export PYTHONPATH="${./lib}:''${PYTHONPATH:-}"
+            export PYTHONPATH="${./nix/nixpkgs/pyutils}:''${PYTHONPATH:-}"
             export REPO_ROOT="${./.}"
-            exec ${deployPythonEnv}/bin/python ${./lib/build-hekate.py} "$@"
+            exec ${deployPythonEnv}/bin/python ${./systems/hekate/build/image} "$@"
           '';
         };
 
@@ -381,9 +381,9 @@
             pkgs.google-cloud-sdk
           ];
           text = ''
-            export PYTHONPATH="${./lib}:''${PYTHONPATH:-}"
+            export PYTHONPATH="${./nix/nixpkgs/pyutils}:''${PYTHONPATH:-}"
             export REPO_ROOT="${./.}"
-            exec ${deployPythonEnv}/bin/python ${./lib/build-hermes.py} "$@"
+            exec ${deployPythonEnv}/bin/python ${./systems/hermes/build/image} "$@"
           '';
         };
 
@@ -394,16 +394,21 @@
             pkgs.google-cloud-sdk
           ];
           text = ''
-            export PYTHONPATH="${./lib}:''${PYTHONPATH:-}"
+            export PYTHONPATH="${./nix/nixpkgs/pyutils}:''${PYTHONPATH:-}"
             export REPO_ROOT="${./.}"
-            exec ${deployPythonEnv}/bin/python ${./lib/build-hestia.py} "$@"
+            exec ${deployPythonEnv}/bin/python ${./systems/hestia/build/image} "$@"
           '';
         };
+
+        shellutils = pkgs.callPackage ./nix/nixpkgs/shellutils { };
       in
       {
         packages = {
           inherit build-hekate build-hermes build-hestia;
+          inherit (shellutils) hook-utils logging-utils build-gce-nixos-image;
         };
+
+        shellutils = shellutils;
 
         apps = {
           build-hekate = {

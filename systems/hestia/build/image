@@ -8,8 +8,8 @@ import click
 import inquirer
 from loguru import logger
 
-sys.path.insert(0, str(Path(__file__).parent))
-from utils import (
+# Imports from build_utils package
+from pyutils import (
     build_nix_image,
     check_nix,
     check_ssh_access,
@@ -20,10 +20,8 @@ from utils import (
 )
 
 
-def get_flash_instructions(image_path: str, remote_host: str | None = None) -> str:
-    if remote_host:
-        return f"ssh moye@{remote_host} 'zstd -d -c {image_path}' | sudo dd of=/dev/sdX bs=4M status=progress"
-    return f"zstd -d -c {image_path} | sudo dd of=/dev/sdX bs=4M status=progress"
+def get_flash_instructions(image_file: Path) -> str:
+    return f"zstd -d -c {image_file} | sudo dd of=/dev/sdX bs=4M status=progress"
 
 
 def _check_removable_darwin(device_path: str) -> bool:
@@ -54,7 +52,6 @@ def is_removable_device(device_path: str) -> bool:
 
 
 def validate_flash_device(device_path: str) -> bool:
-    """Validate that the device is safe to flash."""
     device = Path(device_path)
 
     if not device.exists():
@@ -77,49 +74,16 @@ def validate_flash_device(device_path: str) -> bool:
 def _run_disk_command(cmd: list, action: str) -> bool:
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode == 0:
-        logger.info(f"✅ {action} successful")
+        logger.info(f"{action} successful")
         return True
     else:
         logger.warning(f"Failed to {action.lower()}: {result.stderr}")
         return False
 
 
-def _get_zstd_decompressed_size(
-    image_path: str, remote_host: str | None = None
-) -> int | None:
-    """Get decompressed size from zstd file metadata."""
-    import re
-
-    try:
-        if remote_host:
-            cmd = ["ssh", f"moye@{remote_host}", f"zstd -l --no-progress {image_path}"]
-        else:
-            cmd = ["zstd", "-l", "--no-progress", image_path]
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-
-        for line in result.stdout.strip().split("\n"):
-            if image_path.split("/")[-1] in line:
-                matches = list(re.finditer(r"(\d+\.?\d*)\s*(GiB|MiB|GB|MB)", line))
-                if len(matches) >= 2:
-                    size_val = float(matches[1].group(1))
-                    unit = matches[1].group(2)
-                    multiplier = {
-                        "GiB": 1024**3,
-                        "MiB": 1024**2,
-                        "GB": 1000**3,
-                        "MB": 1000**2,
-                    }.get(unit, 1)
-                    return int(size_val * multiplier)
-    except Exception as e:
-        logger.debug(f"Could not get decompressed size: {e}")
-    return None
-
-
-def flash_image_to_device(
-    image_path: str, device_path: str, remote_host: str | None = None
-) -> bool:
-    logger.warning(f"⚠️  About to flash {image_path} to {device_path}")
-    logger.warning("⚠️  This will DESTROY ALL DATA on the target device!")
+def flash_image_to_device(image_file: Path, device_path: str) -> bool:
+    logger.warning(f"About to flash {image_file} to {device_path}")
+    logger.warning("This will DESTROY ALL DATA on the target device!")
 
     try:
         logger.info("Unmounting device before flashing...")
@@ -128,55 +92,39 @@ def flash_image_to_device(
         else:
             _run_disk_command(["sudo", "umount", f"{device_path}*"], "Unmount")
 
-        decompressed_size = _get_zstd_decompressed_size(image_path, remote_host)
-        if decompressed_size:
-            size_gb = decompressed_size / 1_000_000_000
-            logger.info(f"Starting flash process ({size_gb:.1f} GB)...")
-            pv_size_arg = f"-s {decompressed_size}"
-        else:
-            logger.info("Starting flash process...")
-            pv_size_arg = ""
-
-        if remote_host:
-            flash_cmd = (
-                f"ssh moye@{remote_host} 'zstd -d -c {image_path}' | "
-                f"pv {pv_size_arg} | "
-                f"sudo dd of={device_path} bs=4M"
-            )
-        else:
-            flash_cmd = (
-                f"zstd -d -c {image_path} | "
-                f"pv {pv_size_arg} | "
-                f"sudo dd of={device_path} bs=4M"
-            )
-
-        result = subprocess.run(flash_cmd, shell=True, check=False)
+        logger.info("Starting flash process...")
+        flash_cmd = (
+            f"zstd -d -c {image_file} | sudo dd of={device_path} bs=4M status=progress"
+        )
+        result = subprocess.run(flash_cmd, shell=True, check=False, text=True)
 
         if result.returncode == 0:
-            logger.success(f"✅ Successfully flashed {image_path} to {device_path}")
+            logger.success(f"Successfully flashed {image_file} to {device_path}")
+
             logger.info("Ejecting device...")
             if platform.system() == "Darwin":
                 _run_disk_command(["diskutil", "eject", device_path], "Device eject")
             else:
                 _run_disk_command(["sudo", "eject", device_path], "Device eject")
-            return True
 
-        logger.error(f"❌ Flash failed with exit code {result.returncode}")
-        return False
+            return True
+        else:
+            logger.error(f"Flash failed with exit code {result.returncode}")
+            return False
 
     except Exception as e:
-        logger.error(f"❌ Flash failed with exception: {e}")
+        logger.error(f"Flash failed with exception: {e}")
         return False
 
 
-def perform_hekate_dry_run(repo_root: Path, remote_host: str) -> bool:
-    logger.info("🔍 Performing hekate dry run checks...")
+def perform_hestia_dry_run(repo_root: Path, remote_host: str) -> bool:
+    logger.info("Performing hestia dry run checks")
 
     checks = [
         (
             "Nix flake",
             lambda: check_nix(
-                repo_root, "nixosConfigurations.hekate.config.system.build.sdImage"
+                repo_root, "nixosConfigurations.hestia.config.system.build.sdImage"
             ),
         ),
         ("SSH access", lambda: check_ssh_access(remote_host)),
@@ -193,9 +141,9 @@ def perform_hekate_dry_run(repo_root: Path, remote_host: str) -> bool:
             all_passed = False
 
     if all_passed:
-        logger.success("✅ All hekate dry run checks passed!")
+        logger.success("All hestia dry run checks passed")
     else:
-        logger.error("❌ Some hekate dry run checks failed")
+        logger.error("Some hestia dry run checks failed")
 
     return all_passed
 
@@ -232,22 +180,23 @@ def cli(
     )
 
     if device:
-        logger.info(f"Validating specified {device=} ")
+        logger.info(f"Validating specified device {device}")
         if not validate_flash_device(device):
-            logger.error(f"❌ Device validation failed for {device}")
+            logger.error(f"Device validation failed for {device}")
             logger.error("Fix the device issue before proceeding with build")
             sys.exit(1)
-        logger.info(f"✅ Device {device} validated successfully")
+        logger.info(f"Device {device} validated successfully")
 
     with run_command_env_context(
         CI="1", TERM="dumb", NO_COLOR=os.environ.get("NO_COLOR", "false")
     ):
         if verify:
             with logger.contextualize(task="checking-prerequisites"):
-                logger.info("🔍 Running hekate dry run checks")
-                sys.exit(0 if perform_hekate_dry_run(repo_root, remote_host) else 1)
+                logger.info("Running hestia dry run checks")
+                sys.exit(0 if perform_hestia_dry_run(repo_root, remote_host) else 1)
 
     action = "build"
+    copy_command = False
 
     if interactive:
         questions = [
@@ -255,7 +204,7 @@ def cli(
                 "action",
                 message="What would you like to do?",
                 choices=[
-                    ("Build hekate image", "build"),
+                    ("Build hestia image", "build"),
                     ("Verify (check only)", "verify"),
                 ],
             )
@@ -279,58 +228,48 @@ def cli(
 
     if action == "verify":
         with logger.contextualize(task="checking-prerequisites"):
-            sys.exit(0 if perform_hekate_dry_run(repo_root, remote_host) else 1)
+            sys.exit(0 if perform_hestia_dry_run(repo_root, remote_host) else 1)
 
     if action != "build":
         logger.info("Build cancelled")
         return
 
     with logger.contextualize(task="building-image"):
-        logger.info("Building hekate image")
-        build_output = build_nix_image(
-            repo_root,
-            "nixosConfigurations.hekate.config.system.build.sdImage",
-            "aarch64-linux",
-            remote_host,
-            ["--verbose"] if verbose >= 2 else None,
+        logger.info("Building hestia image")
+        build_output = Path(
+            build_nix_image(
+                repo_root,
+                "nixosConfigurations.hestia.config.system.build.sdImage",
+                "aarch64-linux",
+                remote_host,
+                ["--verbose"] if verbose >= 2 else None,
+            )
         )
-
         try:
-            if remote_host:
-                result = subprocess.run(
-                    [
-                        "ssh",
-                        f"moye@{remote_host}",
-                        f"find {build_output} -type f -name '*.img.zst'",
-                    ],
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                )
-                found_images = [p for p in result.stdout.strip().split("\n") if p]
-                image_path = one(found_images)
-            else:
-                image_path = str(one(Path(build_output).glob("**/*.img.zst")))
+            image_file = one(build_output.glob("**/*.img.zst"))
         except ValueError as e:
             logger.error(f"Expected exactly one .img.zst in {build_output}: {e}")
             sys.exit(1)
 
     with logger.contextualize(task="preparing-flash-command"):
-        logger.success("Hekate image built successfully")
-        logger.info(f"Image location: {image_path}")
+        image_size = subprocess.run(
+            ["du", "-h", str(image_file)], capture_output=True, text=True
+        ).stdout.split()[0]
+
+        logger.success("Hestia image built successfully")
+        logger.info(f"Image location: {image_file}")
+        logger.info(f"Image size: {image_size}")
 
         if device:
             with logger.contextualize(task="flashing-device"):
-                if flash_image_to_device(image_path, device, remote_host):
-                    logger.success(f"✅ Image successfully flashed to {device}")
+                if flash_image_to_device(image_file, device):
+                    logger.success(f"Image successfully flashed to {device}")
                     return
                 else:
-                    logger.error(f"❌ Failed to flash image to {device}")
+                    logger.error(f"Failed to flash image to {device}")
                     sys.exit(1)
         else:
-            logger.info(
-                f"Flash with: {get_flash_instructions(image_path, remote_host)}"
-            )
+            logger.info(f"Flash with: {get_flash_instructions(image_file)}")
 
     if interactive and not device:
         copy_answers = inquirer.prompt(
@@ -342,10 +281,10 @@ def cli(
                 ),
             ]
         )
+        copy_command = copy_answers and copy_answers["copy_command"]
 
-        if copy_answers and copy_answers["copy_command"]:
-            flash_cmd = get_flash_instructions(image_path, remote_host)
-            if copy_to_clipboard(flash_cmd):
+        if copy_command:
+            if copy_to_clipboard(get_flash_instructions(image_file)):
                 logger.info("Flash command copied to clipboard!")
             else:
                 logger.warning("Could not copy to clipboard")
