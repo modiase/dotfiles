@@ -19,8 +19,12 @@
     services.llm-server = {
       enable = true;
       gpuMemoryUtilization = 0.90;
-      maxModelLen = 24576;
+      maxModelLen = 524288;
       maxNumSeqs = 64;
+      lmcache = {
+        enable = true;
+        maxCpuSize = 64;
+      };
     };
 
     boot.loader.systemd-boot.enable = true;
