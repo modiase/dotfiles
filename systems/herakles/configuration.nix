@@ -19,7 +19,7 @@
     services.llm-server = {
       enable = true;
       gpuMemoryUtilization = 0.90;
-      maxModelLen = 32768;
+      maxModelLen = 131072;
       maxNumSeqs = 64;
       lmcache = {
         enable = true;
