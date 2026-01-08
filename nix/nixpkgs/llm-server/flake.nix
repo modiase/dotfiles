@@ -57,6 +57,7 @@
             preBuild = ''
               export CUDA_HOME=${pkgs.cudaPackages.cudatoolkit}
               export PATH="${pkgs.cudaPackages.cuda_nvcc}/bin:$PATH"
+              export TORCH_CUDA_ARCH_LIST="8.6"
             '';
 
             dependencies = with pkgs.python312Packages; [
