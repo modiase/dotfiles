@@ -20,6 +20,45 @@
             config.cudaSupport = true;
           };
 
+          lmcache = pkgs.python312Packages.buildPythonPackage rec {
+            pname = "lmcache";
+            version = "0.3.12";
+            pyproject = true;
+
+            src = pkgs.fetchPypi {
+              inherit pname version;
+              hash = "sha256-nmepTr6qQY3kgcAFP47GwgFZMhIv55kjYErxnQ9F3W4=";
+            };
+
+            build-system = with pkgs.python312Packages; [
+              setuptools
+              setuptools-scm
+            ];
+
+            dependencies = with pkgs.python312Packages; [
+              numpy
+              torch
+              transformers
+              safetensors
+              pyyaml
+              redis
+              pyzmq
+              msgspec
+              prometheus-client
+              psutil
+              py-cpuinfo
+              sortedcontainers
+              aiohttp
+              aiofiles
+              httpx
+              fastapi
+              uvicorn
+            ];
+
+            pythonImportsCheck = [ "lmcache" ];
+            doCheck = false;
+          };
+
           pythonEnv = pkgs.python312.withPackages (
             ps: with ps; [
               (pkgs.python312Packages.vllm.overridePythonAttrs (old: {
@@ -35,6 +74,7 @@
               }))
               huggingface-hub
               uvloop
+              lmcache
             ]
           );
 
@@ -58,16 +98,30 @@
             ${commonEnv}
             mkdir -p "$HF_HOME" "$VLLM_CACHE_ROOT" "$TRITON_CACHE_DIR"
 
+            CPU_OFFLOAD_ARGS=""
+            if [ -n "''${CPU_OFFLOAD_GB:-}" ] && [ "''${CPU_OFFLOAD_GB:-0}" != "0" ]; then
+              CPU_OFFLOAD_ARGS="--cpu-offload-gb ''${CPU_OFFLOAD_GB}"
+            fi
+
+            KV_TRANSFER_ARGS=""
+            if [ "''${LMCACHE_LOCAL_CPU:-}" = "True" ]; then
+              KV_TRANSFER_ARGS="--kv-transfer-config {\"kv_connector\":\"LMCacheConnectorV1\",\"kv_role\":\"kv_both\"}"
+            fi
+
             exec ${pythonEnv}/bin/python -m vllm.entrypoints.openai.api_server \
                 --model "$MODEL" \
-                --max-model-len "''${MAX_MODEL_LEN:-30720}" \
+                --max-model-len "''${MAX_MODEL_LEN:-131072}" \
                 --gpu-memory-utilization "''${GPU_MEMORY_UTIL:-0.90}" \
                 --max-num-seqs "''${MAX_NUM_SEQS:-256}" \
                 --host "''${HOST:-0.0.0.0}" \
                 --port "''${PORT:-8000}" \
                 --trust-remote-code \
                 --enable-auto-tool-choice \
-                --tool-call-parser qwen3_coder
+                --tool-call-parser qwen3_coder \
+                --enable-prefix-caching \
+                --enable-chunked-prefill \
+                $CPU_OFFLOAD_ARGS \
+                $KV_TRANSFER_ARGS
           '';
 
           service-download-script = pkgs.writeShellScriptBin "llm-server-download" ''
@@ -312,14 +366,36 @@
 
             maxModelLen = mkOption {
               type = types.int;
-              default = 30720;
-              description = "Maximum model length";
+              default = 131072;
+              description = "Maximum context length (128K default, increase with lmcache.enable)";
             };
 
             maxNumSeqs = mkOption {
               type = types.int;
               default = 256;
               description = "Maximum number of sequences per iteration";
+            };
+
+            cpuOffloadGb = mkOption {
+              type = types.int;
+              default = 0;
+              description = "GB of model weights to offload to CPU RAM (0 = disabled)";
+            };
+
+            lmcache = {
+              enable = mkEnableOption "LMCache for KV cache offloading to CPU";
+
+              maxCpuSize = mkOption {
+                type = types.int;
+                default = 64;
+                description = "GB of CPU RAM for KV cache offloading";
+              };
+
+              chunkSize = mkOption {
+                type = types.int;
+                default = 256;
+                description = "Token chunk size for LMCache";
+              };
             };
           };
 
@@ -370,9 +446,15 @@
                 GPU_MEMORY_UTIL = toString cfg.gpuMemoryUtilization;
                 MAX_MODEL_LEN = toString cfg.maxModelLen;
                 MAX_NUM_SEQS = toString cfg.maxNumSeqs;
+                CPU_OFFLOAD_GB = toString cfg.cpuOffloadGb;
                 HF_HOME = "/var/lib/llm-server/huggingface";
                 VLLM_CACHE_ROOT = "/var/lib/llm-server/vllm";
                 TRITON_CACHE_DIR = "/var/lib/llm-server/vllm/triton";
+              }
+              // lib.optionalAttrs cfg.lmcache.enable {
+                LMCACHE_LOCAL_CPU = "True";
+                LMCACHE_CHUNK_SIZE = toString cfg.lmcache.chunkSize;
+                LMCACHE_MAX_LOCAL_CPU_SIZE = toString cfg.lmcache.maxCpuSize;
               };
             };
           };
