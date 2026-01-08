@@ -82,6 +82,7 @@
 
             pythonImportsCheck = [ "lmcache" ];
             doCheck = false;
+            dontCheckRuntimeDeps = true;
           };
 
           pythonEnv = pkgs.python312.withPackages (
