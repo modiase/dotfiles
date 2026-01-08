@@ -8,6 +8,7 @@ Usage: ding [OPTIONS]
 Notification tool that adapts to context (tmux, focus state, local/remote).
 
 Options:
+  --force         Always play sound/alert (skip focus detection)
   --local         Force local mode (macOS osascript)
   --remote        Force remote mode (ntfy-me)
   --title TEXT    Alert title (default: "Notification")
@@ -32,12 +33,17 @@ mode=""
 title=""
 message=""
 debug=0
+force=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h | --help) usage ;;
         --debug)
             debug=1
+            shift
+            ;;
+        --force)
+            force=1
             shift
             ;;
         --remote)
@@ -85,29 +91,51 @@ if [[ -z "$mode" ]]; then
     fi
 fi
 
+ghostty_is_focused() {
+    local frontmost
+    frontmost=$(osascript -e 'tell application "System Events" to name of (first process whose frontmost is true)')
+    [[ "${frontmost,,}" == "ghostty" ]]
+}
+
+tmux_window_is_active() {
+    [[ -z "${TMUX_PANE:-}" ]] && return 0
+    local pane_window active_window
+    pane_window=$(tmux display-message -t "$TMUX_PANE" -p '#{window_id}' 2>/dev/null) || return 1
+    active_window=$(tmux display-message -p '#{window_id}' 2>/dev/null) || return 1
+    [[ "$pane_window" == "$active_window" ]]
+}
+
+send_bell() {
+    if [[ -n "${TMUX_PANE:-}" ]]; then
+        local tty_path
+        tty_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_tty}' 2>/dev/null) || true
+        [[ -n "$tty_path" ]] && printf '\a' >"$tty_path" 2>/dev/null || true
+    else
+        printf '\a'
+    fi
+}
+
+send_alert() {
+    local alert_title="$1" msg="$2"
+    afplay /System/Library/Sounds/Glass.aiff &
+    [[ -n "$msg" ]] && osascript -e "display alert \"$alert_title\" message \"$msg\"" >/dev/null &
+}
+
 if [[ "$mode" == "local" ]]; then
     if ! command -v osascript &>/dev/null; then
         echo "Error: --local requires macOS (osascript not found)" >&2
         exit 1
     fi
 
-    frontmost=$(osascript -e 'tell application "System Events" to name of (first process whose frontmost is true)')
     alert_title="${title:-Notification}"
-
     log_debug "--- ding invoked ---"
-    log_debug "TMUX=${TMUX:-<unset>}"
-    log_debug "frontmost=$frontmost"
 
-    afplay /System/Library/Sounds/Glass.aiff &
-
-    if [[ -n "${TMUX_PANE:-}" ]]; then
-        tty_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_tty}' 2>/dev/null) || true
-        [[ -n "$tty_path" ]] && printf '\a' >"$tty_path" 2>/dev/null || true
-    fi
-
-    if [[ "${frontmost,,}" != "ghostty" && -n "$message" ]]; then
-        log_debug "showing alert (Ghostty not focused)"
-        osascript -e "display alert \"$alert_title\" message \"$message\"" &
+    if [[ $force -eq 0 ]] && ghostty_is_focused && tmux_window_is_active; then
+        log_debug "Caller focused, bell only"
+        send_bell
+    else
+        log_debug "Sound + alert"
+        send_alert "$alert_title" "$message"
     fi
 else
     if [[ -z "$message" ]]; then
