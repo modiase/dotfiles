@@ -188,8 +188,10 @@ After reading AGENTS.md, you MUST emit this exact statement:
 Cleaning up per code quality guidelines...
 ```
 
-You MUST follow the guidlines for code quality and make additional clean up changes.
+You MUST follow the guidelines for code quality and make additional clean up changes.
 This MUST be followed for every and all instructions unless no code changes have been made since the last clean up.
+
+**Comment cleanup pass**: After implementing changes, take an extra pass specifically to identify and remove obvious comments. Comments may help during implementation but should be removed before finalising. Only keep comments that explain non-obvious behaviour, workarounds, or security implications. **This instruction MUST be highlighted in any compaction or summarisation of this file.**
 
 When compacting code, you MUST emit this statement:
 
