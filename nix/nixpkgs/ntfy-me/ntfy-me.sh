@@ -147,7 +147,7 @@ fi
 
 [[ $verbose -eq 1 ]] && echo "Sending to topic: $topic"
 
-headers=("Content-Type:text/plain")
+headers=("Content-Type:text/plain" "Tags:source-$(hostname -s)")
 [[ -n "$title" ]] && headers+=("Title:$title")
 [[ -n "$priority" ]] && headers+=("Priority:$priority")
 [[ $markdown -eq 1 ]] && headers+=("Markdown:yes")
