@@ -13,7 +13,7 @@ let
       models = [
         {
           name = "cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit";
-          context_limit = 524288;
+          context_limit = 39584;
           input_token_cost = null;
           output_token_cost = null;
           currency = null;

@@ -27,13 +27,38 @@
 
             src = pkgs.fetchPypi {
               inherit pname version;
-              hash = "sha256-nmepTr6qQY3kgcAFP47GwgFZMhIv55kjYErxnQ9F3W4=";
+              hash = "sha256-L/iN1o4bBkQ3c1OG3UdZ5zx27xwBvSkDDaJgwTXaywc=";
             };
 
             build-system = with pkgs.python312Packages; [
               setuptools
               setuptools-scm
             ];
+
+            nativeBuildInputs = [
+              pkgs.cudaPackages.cudatoolkit
+              pkgs.cudaPackages.cuda_nvcc
+              pkgs.gcc
+              pkgs.python312Packages.pythonRelaxDepsHook
+            ];
+
+            pythonRelaxDeps = [ "torch" ];
+
+            postPatch = ''
+              substituteInPlace setup.py --replace-quiet 'torch==' 'torch>='
+              substituteInPlace pyproject.toml --replace-quiet 'torch==' 'torch>=' || true
+            '';
+
+            buildInputs = [
+              pkgs.cudaPackages.cudatoolkit
+              pkgs.cudaPackages.cudnn
+            ];
+
+            preBuild = ''
+              export CUDA_HOME=${pkgs.cudaPackages.cudatoolkit}
+              export PATH="${pkgs.cudaPackages.cuda_nvcc}/bin:$PATH"
+              export TORCH_CUDA_ARCH_LIST="8.6"
+            '';
 
             dependencies = with pkgs.python312Packages; [
               numpy
@@ -50,13 +75,16 @@
               sortedcontainers
               aiohttp
               aiofiles
+              aiofile
               httpx
+              httptools
               fastapi
               uvicorn
             ];
 
             pythonImportsCheck = [ "lmcache" ];
             doCheck = false;
+            dontCheckRuntimeDeps = true;
           };
 
           pythonEnv = pkgs.python312.withPackages (
@@ -103,9 +131,11 @@
               CPU_OFFLOAD_ARGS="--cpu-offload-gb ''${CPU_OFFLOAD_GB}"
             fi
 
-            KV_TRANSFER_ARGS=""
-            if [ "''${LMCACHE_LOCAL_CPU:-}" = "True" ]; then
-              KV_TRANSFER_ARGS="--kv-transfer-config {\"kv_connector\":\"LMCacheConnectorV1\",\"kv_role\":\"kv_both\"}"
+            KV_OFFLOAD_ARGS=""
+            CHUNKED_PREFILL_ARG="--enable-chunked-prefill"
+            if [ -n "''${KV_OFFLOAD_SIZE:-}" ] && [ "''${KV_OFFLOAD_SIZE:-0}" != "0" ]; then
+              KV_OFFLOAD_ARGS="--kv-offloading-backend ''${KV_OFFLOAD_BACKEND:-lmcache} --kv-offloading-size ''${KV_OFFLOAD_SIZE} --disable-hybrid-kv-cache-manager"
+              CHUNKED_PREFILL_ARG=""
             fi
 
             exec ${pythonEnv}/bin/python -m vllm.entrypoints.openai.api_server \
@@ -119,9 +149,9 @@
                 --enable-auto-tool-choice \
                 --tool-call-parser qwen3_coder \
                 --enable-prefix-caching \
-                --enable-chunked-prefill \
+                $CHUNKED_PREFILL_ARG \
                 $CPU_OFFLOAD_ARGS \
-                $KV_TRANSFER_ARGS
+                $KV_OFFLOAD_ARGS
           '';
 
           service-download-script = pkgs.writeShellScriptBin "llm-server-download" ''
@@ -388,13 +418,22 @@
               maxCpuSize = mkOption {
                 type = types.int;
                 default = 64;
-                description = "GB of CPU RAM for KV cache offloading";
+                description = "GB of CPU RAM for KV cache offloading (also sets kv-offloading-size)";
               };
 
               chunkSize = mkOption {
                 type = types.int;
                 default = 256;
                 description = "Token chunk size for LMCache";
+              };
+
+              backend = mkOption {
+                type = types.enum [
+                  "lmcache"
+                  "native"
+                ];
+                default = "lmcache";
+                description = "KV offloading backend ('lmcache' or 'native')";
               };
             };
           };
@@ -452,6 +491,8 @@
                 TRITON_CACHE_DIR = "/var/lib/llm-server/vllm/triton";
               }
               // lib.optionalAttrs cfg.lmcache.enable {
+                KV_OFFLOAD_SIZE = toString cfg.lmcache.maxCpuSize;
+                KV_OFFLOAD_BACKEND = cfg.lmcache.backend;
                 LMCACHE_LOCAL_CPU = "True";
                 LMCACHE_CHUNK_SIZE = toString cfg.lmcache.chunkSize;
                 LMCACHE_MAX_LOCAL_CPU_SIZE = toString cfg.lmcache.maxCpuSize;
