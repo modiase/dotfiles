@@ -134,7 +134,7 @@
             KV_OFFLOAD_ARGS=""
             CHUNKED_PREFILL_ARG="--enable-chunked-prefill"
             if [ -n "''${KV_OFFLOAD_SIZE:-}" ] && [ "''${KV_OFFLOAD_SIZE:-0}" != "0" ]; then
-              KV_OFFLOAD_ARGS="--kv-offloading-backend ''${KV_OFFLOAD_BACKEND:-lmcache} --kv-offloading-size ''${KV_OFFLOAD_SIZE}"
+              KV_OFFLOAD_ARGS="--kv-offloading-backend ''${KV_OFFLOAD_BACKEND:-lmcache} --kv-offloading-size ''${KV_OFFLOAD_SIZE} --disable-hybrid-kv-cache-manager"
               CHUNKED_PREFILL_ARG=""
             fi
 
