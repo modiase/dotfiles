@@ -27,6 +27,10 @@ let
     set -g default-command ${pkgs.fish}/bin/fish
     set -g allow-passthrough all
     set -s set-clipboard on
+
+    set -g monitor-bell on
+    set -g bell-action other
+    set -g window-status-bell-style 'fg=red,bold'
   '';
 in
 {
