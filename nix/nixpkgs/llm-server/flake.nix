@@ -35,6 +35,22 @@
               setuptools-scm
             ];
 
+            nativeBuildInputs = [
+              pkgs.cudaPackages.cudatoolkit
+              pkgs.cudaPackages.cuda_nvcc
+              pkgs.gcc
+            ];
+
+            buildInputs = [
+              pkgs.cudaPackages.cudatoolkit
+              pkgs.cudaPackages.cudnn
+            ];
+
+            preBuild = ''
+              export CUDA_HOME=${pkgs.cudaPackages.cudatoolkit}
+              export PATH="${pkgs.cudaPackages.cuda_nvcc}/bin:$PATH"
+            '';
+
             dependencies = with pkgs.python312Packages; [
               numpy
               torch
