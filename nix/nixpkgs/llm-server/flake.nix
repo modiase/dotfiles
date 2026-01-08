@@ -39,7 +39,10 @@
               pkgs.cudaPackages.cudatoolkit
               pkgs.cudaPackages.cuda_nvcc
               pkgs.gcc
+              pkgs.python312Packages.pythonRelaxDepsHook
             ];
+
+            pythonRelaxDeps = [ "torch" ];
 
             buildInputs = [
               pkgs.cudaPackages.cudatoolkit
