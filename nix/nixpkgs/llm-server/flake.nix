@@ -75,7 +75,9 @@
               sortedcontainers
               aiohttp
               aiofiles
+              aiofile
               httpx
+              httptools
               fastapi
               uvicorn
             ];
