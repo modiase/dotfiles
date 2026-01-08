@@ -44,6 +44,11 @@
 
             pythonRelaxDeps = [ "torch" ];
 
+            postPatch = ''
+              substituteInPlace setup.py --replace-quiet 'torch==' 'torch>='
+              substituteInPlace pyproject.toml --replace-quiet 'torch==' 'torch>=' || true
+            '';
+
             buildInputs = [
               pkgs.cudaPackages.cudatoolkit
               pkgs.cudaPackages.cudnn
