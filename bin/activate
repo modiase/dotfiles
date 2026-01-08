@@ -182,6 +182,8 @@ do_show() {
     printf "${c_magenta}%-20s${c_reset} ${val_color}%s${c_reset}\n" "home activated:" "$home_hash"
 }
 
+DEPLOY_CMD='cd ~/Dotfiles && git fetch origin main && (git diff --quiet && git diff --cached --quiet && git reset --hard origin/main) || true; { [ -d worktrees/main ] && git -C worktrees/main reset --hard origin/main || git worktree add --detach worktrees/main origin/main; } && ./worktrees/main/bin/activate'
+
 deploy_local() {
     local origin_main
     origin_main=$(git -C "$REPO_ROOT" rev-parse HEAD)
@@ -196,7 +198,7 @@ deploy_local() {
 
 deploy_remote() {
     local host="$1"
-    ssh "$host" 'cd ~/Dotfiles && git fetch origin main && { [ -d worktrees/main ] && git -C worktrees/main reset --hard origin/main || git worktree add --detach worktrees/main origin/main; } && ./worktrees/main/bin/activate'
+    ssh "$host" "$DEPLOY_CMD"
 }
 
 deploy_all() {
@@ -233,14 +235,13 @@ deploy_all() {
     result_dir=$(mktemp -d)
     add_exit_hook "rm -rf $result_dir"
 
-    local deploy_cmd='cd ~/Dotfiles && git fetch origin main && { [ -d worktrees/main ] && git -C worktrees/main reset --hard origin/main || git worktree add --detach worktrees/main origin/main; } && ./worktrees/main/bin/activate'
     for host in $hosts; do
         (
             local prefix runner
             prefix=$(printf "%-16s| " "$host")
             runner="ssh $host"
             [ "$host" = "localhost" ] && runner="bash -c"
-            eval "$runner '$deploy_cmd'" 2>&1 | sed "s/^/$prefix/"
+            eval "$runner '$DEPLOY_CMD'" 2>&1 | sed "s/^/$prefix/"
             echo "${PIPESTATUS[0]}" >"$result_dir/$host"
         ) &
     done
