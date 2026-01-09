@@ -56,6 +56,38 @@
         "type": "github"
       }
     },
+    "litellm-proxy": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "path": "./nix/nixpkgs/litellm-proxy",
+        "type": "path"
+      },
+      "original": {
+        "path": "./nix/nixpkgs/litellm-proxy",
+        "type": "path"
+      },
+      "parent": []
+    },
+    "llm-orchestrator": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "path": "./nix/nixpkgs/llm-orchestrator",
+        "type": "path"
+      },
+      "original": {
+        "path": "./nix/nixpkgs/llm-orchestrator",
+        "type": "path"
+      },
+      "parent": []
+    },
     "llm-server": {
       "inputs": {
         "nixpkgs": [
@@ -112,6 +144,8 @@
       "inputs": {
         "flake-utils": "flake-utils",
         "home-manager": "home-manager",
+        "litellm-proxy": "litellm-proxy",
+        "llm-orchestrator": "llm-orchestrator",
         "llm-server": "llm-server",
         "nix-darwin": "nix-darwin",
         "nixpkgs": "nixpkgs",
