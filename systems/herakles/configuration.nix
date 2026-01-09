@@ -5,6 +5,8 @@
   authorizedKeyLists,
   commonNixSettings,
   llm-server,
+  litellm-proxy,
+  llm-orchestrator,
   ...
 }:
 
@@ -13,17 +15,62 @@
     ./hardware-configuration.nix
     commonNixSettings
     llm-server.nixosModules.default
+    litellm-proxy.nixosModules.default
+    llm-orchestrator.nixosModules.default
   ];
 
   config = {
-    services.llm-server = {
+    services.llm-server.enable = false;
+
+    services.llm-orchestrator = {
       enable = true;
+      host = "127.0.0.1";
+      chatModel = "cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit";
+      embedModel = "Qwen/Qwen3-Embedding-0.6B";
       gpuMemoryUtilization = 0.90;
       maxModelLen = 39584;
       maxNumSeqs = 64;
       lmcache = {
         enable = true;
         maxCpuSize = 64;
+      };
+    };
+
+    services.litellm-proxy = {
+      enable = true;
+      port = 4000;
+      environmentFile = "/var/lib/litellm/env";
+      settings = {
+        model_list = [
+          {
+            model_name = "qwen-coder";
+            litellm_params = {
+              model = "openai/cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit";
+              api_base = "http://127.0.0.1:8000/v1";
+              api_key = "not-needed";
+            };
+          }
+          {
+            model_name = "qwen-embed";
+            litellm_params = {
+              model = "openai/Qwen/Qwen3-Embedding-0.6B";
+              api_base = "http://127.0.0.1:8000/v1";
+              api_key = "not-needed";
+            };
+          }
+          {
+            model_name = "sonnet";
+            litellm_params = {
+              model = "anthropic/claude-sonnet-4-5-20250929";
+              api_key = "os.environ/ANTHROPIC_API_KEY";
+            };
+          }
+        ];
+        litellm_settings = {
+          num_retries = 2;
+          request_timeout = 120;
+          fallbacks = [ { "qwen-coder" = [ "sonnet" ]; } ];
+        };
       };
     };
 

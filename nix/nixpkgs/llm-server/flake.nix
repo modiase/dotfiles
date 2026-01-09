@@ -388,6 +388,12 @@
               description = "Port to listen on";
             };
 
+            host = mkOption {
+              type = types.str;
+              default = "0.0.0.0";
+              description = "Host/IP to bind to (use 127.0.0.1 for localhost only)";
+            };
+
             gpuMemoryUtilization = mkOption {
               type = types.float;
               default = 0.90;
@@ -479,7 +485,7 @@
               };
 
               environment = {
-                HOST = "0.0.0.0";
+                HOST = cfg.host;
                 PORT = toString cfg.port;
                 MODEL = cfg.model;
                 GPU_MEMORY_UTIL = toString cfg.gpuMemoryUtilization;

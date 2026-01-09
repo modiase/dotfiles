@@ -20,6 +20,14 @@
       url = "path:./nix/nixpkgs/llm-server";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    litellm-proxy = {
+      url = "path:./nix/nixpkgs/litellm-proxy";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    llm-orchestrator = {
+      url = "path:./nix/nixpkgs/llm-orchestrator";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -31,6 +39,8 @@
       flake-utils,
       tk700-controller-dashboard,
       llm-server,
+      litellm-proxy,
+      llm-orchestrator,
       ...
     }@inputs:
     let
@@ -288,7 +298,7 @@
         system = "x86_64-linux";
         type = "nixos";
         manageRemotely = true;
-        extraSpecialArgs = { inherit llm-server; };
+        extraSpecialArgs = { inherit llm-server litellm-proxy llm-orchestrator; };
         modules = [
           ./systems/herakles/configuration.nix
           ./systems/herakles/hardware-configuration.nix
