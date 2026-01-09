@@ -1,6 +1,9 @@
 {
+  lib,
+  stdenv,
   writeShellApplication,
   symlinkJoin,
+  callPackage,
   curl,
   httpie,
   jq,
@@ -8,6 +11,8 @@
 }:
 
 let
+  swiftdialog = callPackage ../swiftdialog { };
+
   ntfy-me = writeShellApplication {
     name = "ntfy-me";
     runtimeInputs = [
@@ -20,7 +25,7 @@ let
 
   ding = writeShellApplication {
     name = "ding";
-    runtimeInputs = [ ntfy-me ];
+    runtimeInputs = [ ntfy-me ] ++ lib.optionals stdenv.hostPlatform.isDarwin [ swiftdialog ];
     text = builtins.readFile ./ding.sh;
   };
 

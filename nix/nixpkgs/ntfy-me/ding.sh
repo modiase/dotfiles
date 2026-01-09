@@ -8,13 +8,15 @@ Usage: ding [OPTIONS]
 Notification tool that adapts to context (tmux, focus state, local/remote).
 
 Options:
-  --force         Always play sound/alert (skip focus detection)
-  --local         Force local mode (macOS osascript)
-  --remote        Force remote mode (ntfy-me)
-  --title TEXT    Alert title (default: "Notification")
-  -m, --message   Alert message body
-  --debug         Log debug info to /tmp/ding-debug.log
-  -h, --help      Show this help
+  -c, --command CMD    Run command, alert success/error based on exit code
+  -f, --force-alert    Always play sound/alert (skip focus detection)
+  --local            Force local mode (macOS osascript)
+  --remote           Force remote mode (ntfy-me)
+  -i, --title TEXT   Alert title (default: "Notification")
+  -m, --message      Alert message body
+  -t, --type TYPE    Alert type: success, warning, error, request (default: none)
+  --debug            Log debug info to /tmp/ding-debug.log
+  -h, --help         Show this help
 
 Behaviour:
   Local mode (macOS):
@@ -32,6 +34,8 @@ EOF
 mode=""
 title=""
 message=""
+alert_type=""
+command=""
 debug=0
 force=0
 
@@ -42,7 +46,7 @@ while [[ $# -gt 0 ]]; do
             debug=1
             shift
             ;;
-        --force)
+        -f | --force-alert)
             force=1
             shift
             ;;
@@ -54,7 +58,7 @@ while [[ $# -gt 0 ]]; do
             mode="local"
             shift
             ;;
-        --title)
+        -i | --title)
             title="$2"
             shift 2
             ;;
@@ -70,6 +74,22 @@ while [[ $# -gt 0 ]]; do
             message="${1#--message=}"
             shift
             ;;
+        -t | --type)
+            alert_type="$2"
+            shift 2
+            ;;
+        --type=*)
+            alert_type="${1#--type=}"
+            shift
+            ;;
+        -c | --command)
+            command="$2"
+            shift 2
+            ;;
+        --command=*)
+            command="${1#--command=}"
+            shift
+            ;;
         -*)
             echo "Unknown option: $1" >&2
             exit 1
@@ -82,13 +102,28 @@ log_debug() {
     [[ $debug -eq 1 ]] && echo "[$(date '+%H:%M:%S')] $*" >>/tmp/ding-debug.log || true
 }
 
-# Auto-detect: local if osascript available, remote otherwise
 if [[ -z "$mode" ]]; then
     if command -v osascript &>/dev/null; then
         mode="local"
     else
         mode="remote"
     fi
+fi
+
+if [[ -n "$command" ]]; then
+    set +e
+    bash -c "$command"
+    exit_code=$?
+    set -e
+    title="${title:-$command}"
+    if [[ $exit_code -eq 0 ]]; then
+        alert_type="success"
+        message="${message:-Command succeeded}"
+    else
+        alert_type="error"
+        message="${message:-Command failed (exit $exit_code)}"
+    fi
+    force=1
 fi
 
 ghostty_is_focused() {
@@ -115,10 +150,55 @@ send_bell() {
     fi
 }
 
+get_alert_style() {
+    local icon colour
+    case "${1:-}" in
+        success)
+            icon="SF=checkmark.circle.fill"
+            colour="#A3BE8C"
+            ;;
+        warning)
+            icon="SF=exclamationmark.triangle.fill"
+            colour="#EBCB8B"
+            ;;
+        error)
+            icon="SF=xmark.octagon.fill"
+            colour="#B48EAD"
+            ;;
+        request)
+            icon="SF=questionmark.circle.fill"
+            colour="#88C0D0"
+            ;;
+        *)
+            icon=""
+            colour="#81A1C1"
+            ;;
+    esac
+    echo "$icon" "$colour"
+}
+
 send_alert() {
     local alert_title="$1" msg="$2"
     afplay /System/Library/Sounds/Glass.aiff &
-    [[ -n "$msg" ]] && osascript -e "display alert \"$alert_title\" message \"$msg\"" >/dev/null &
+    if [[ -n "$msg" ]]; then
+        if command -v dialog &>/dev/null; then
+            local icon colour
+            read -r icon colour < <(get_alert_style "$alert_type")
+            local args=(
+                --title "$alert_title"
+                --message "$msg"
+                --mini
+                --ontop
+                --titlefont "weight=bold,size=18"
+                --messagefont "size=14"
+                --messageposition center
+            )
+            [[ -n "$icon" ]] && args+=(--icon "$icon,colour=$colour")
+            dialog "${args[@]}" &
+        else
+            osascript -e "display alert \"$alert_title\" message \"$msg\"" >/dev/null &
+        fi
+    fi
 }
 
 if [[ "$mode" == "local" ]]; then
