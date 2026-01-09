@@ -46,6 +46,6 @@ while read -r line; do
 
     if [[ -n "$message" ]]; then
         log "  -> Alert sent"
-        ding --local -f -m "$message" --title "$title" >/dev/null
+        ding --local -f -i "$title" -m "$message" >/dev/null
     fi
 done < <(curl -sN --proto =https --fail-with-body -u "ntfy:$password" "https://ntfy.modiase.dev/ding,builds,important/sse" 2>/dev/null)

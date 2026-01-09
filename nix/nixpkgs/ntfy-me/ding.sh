@@ -8,15 +8,16 @@ Usage: ding [OPTIONS]
 Notification tool that adapts to context (tmux, focus state, local/remote).
 
 Options:
-  -c, --command CMD    Run command, alert success/error based on exit code
-  -f, --force-alert    Always play sound/alert (skip focus detection)
-  --local            Force local mode (macOS osascript)
-  --remote           Force remote mode (ntfy-me)
-  -i, --title TEXT   Alert title (default: "Notification")
-  -m, --message      Alert message body
-  -t, --type TYPE    Alert type: success, warning, error, request (default: none)
-  --debug            Log debug info to /tmp/ding-debug.log
-  -h, --help         Show this help
+  -c, --command CMD       Run command, alert success/error based on exit code
+  -f, --force-alert       Always play sound/alert (skip focus detection)
+  -i, --title TEXT        Bold header in message body
+  -m, --message TEXT      Message body text
+  -t, --type TYPE         Alert type: success, warning, error, request
+  -w, --window-title TEXT Notification window title (default: hostname)
+  --local                 Force local mode (macOS)
+  --remote                Force remote mode (ntfy-me)
+  --debug                 Log debug info to /tmp/ding-debug.log
+  -h, --help              Show this help
 
 Behaviour:
   Local mode (macOS):
@@ -26,13 +27,13 @@ Behaviour:
 
   Remote mode (Linux/SSH):
     - Sends notification via ntfy-me
-    - Prefixes hostname to title automatically
 EOF
     exit 0
 }
 
 mode=""
 title=""
+window_title=""
 message=""
 alert_type=""
 command=""
@@ -64,6 +65,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --title=*)
             title="${1#--title=}"
+            shift
+            ;;
+        -w | --window-title)
+            window_title="$2"
+            shift 2
+            ;;
+        --window-title=*)
+            window_title="${1#--window-title=}"
             shift
             ;;
         -m | --message)
@@ -103,7 +112,9 @@ log_debug() {
 }
 
 if [[ -z "$mode" ]]; then
-    if command -v osascript &>/dev/null; then
+    if [[ -n "${SSH_TTY:-}${SSH_CLIENT:-}${SSH_CONNECTION:-}" ]]; then
+        mode="remote"
+    elif command -v osascript &>/dev/null; then
         mode="local"
     else
         mode="remote"
@@ -187,11 +198,9 @@ send_alert() {
             local args=(
                 --title "$alert_title"
                 --message "$msg"
-                --mini
+                --small
                 --ontop
-                --titlefont "weight=bold,size=18"
-                --messagefont "size=14"
-                --messageposition center
+                --messagefont "size=11"
             )
             [[ -n "$icon" ]] && args+=(--icon "$icon,colour=$colour")
             dialog "${args[@]}" &
@@ -201,31 +210,37 @@ send_alert() {
     fi
 }
 
+build_message() {
+    local body=""
+    [[ -n "$title" ]] && body="## $title"
+    if [[ -n "$message" ]]; then
+        [[ -n "$body" ]] && body="$body"$'\n\n'"$message" || body="$message"
+    fi
+    echo "$body"
+}
+
+host="${HOSTNAME:-$(hostname -s)}"
+win_title="${window_title:-$host}"
+
 if [[ "$mode" == "local" ]]; then
     if ! command -v osascript &>/dev/null; then
         echo "Error: --local requires macOS (osascript not found)" >&2
         exit 1
     fi
 
-    alert_title="${title:-Notification}"
     log_debug "--- ding invoked ---"
+    msg=$(build_message)
 
     if [[ $force -eq 0 ]] && ghostty_is_focused && tmux_window_is_active; then
         log_debug "Caller focused, bell only"
         send_bell
     else
         log_debug "Sound + alert"
-        send_alert "$alert_title" "$message"
+        send_alert "$win_title" "$msg"
     fi
 else
-    if [[ -z "$message" ]]; then
-        echo "Warning: --remote without --message does nothing" >&2
-        exit 0
-    fi
+    msg=$(build_message)
+    [[ -z "$msg" ]] && msg="ding"
 
-    alert_title="${title:-Notification}"
-    host="${HOSTNAME:-$(hostname -s)}"
-    alert_title="$host:$alert_title"
-
-    ntfy-me --topic ding --title "$alert_title" "$message"
+    ntfy-me --topic ding --title "$win_title" "$msg"
 fi
