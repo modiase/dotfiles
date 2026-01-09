@@ -84,7 +84,7 @@ function __ssh_run_ssh --no-scope-shadowing
     test $want_tmux -eq 1; and set -a cmd -q -t
     set -a cmd $args
     set -l tmux_suffix
-    test $want_tmux -eq 1; and set tmux_suffix '"tmux attach 2>/dev/null || tmux new"'
+    test $want_tmux -eq 1; and set tmux_suffix '"tmux new-session -A -s remote"'
     test $debug -eq 1; and echo "Using: $cmd $tmux_suffix"
     eval $cmd $tmux_suffix
 end
@@ -95,8 +95,8 @@ if test $use_et -eq 1
         set -l et_status 0
         set -lx ET_NO_TELEMETRY YES
         if test $want_tmux -eq 1
-            test $debug -eq 1; and echo "Using: et -c 'tmux attach 2>/dev/null || tmux new' $host"
-            et -c 'tmux attach 2>/dev/null || tmux new; exit' $host 2>/dev/null; or set et_status $status
+            test $debug -eq 1; and echo "Using: et -c 'tmux new-session -A -s remote' $host"
+            et -c 'tmux new-session -A -s remote; exit' $host 2>/dev/null; or set et_status $status
         else
             test $debug -eq 1; and echo "Using: et $host"
             et $host 2>/dev/null; or set et_status $status
