@@ -5,21 +5,25 @@ usage() {
     echo "Usage: ntfy-me [OPTIONS] <message>"
     echo ""
     echo "Options:"
-    echo "  -c, --command CMD    Run command and report result"
-    echo "  -m, --markdown       Enable markdown formatting"
-    echo "  --max-tries N        Max retry attempts (default: 3)"
-    echo "  --max-wait S         Max wait between retries (default: 300)"
-    echo "  -p, --priority N     Priority 1-5 (default: 3)"
-    echo "  -r, --refresh        Force refresh password from network"
-    echo "  -t, --topic TOPIC    Topic to publish to (default: general)"
-    echo "  -T, --title TITLE    Notification title"
-    echo "  -v, --verbose        Verbose output"
+    echo "  -a, --alert-type TYPE  Alert type tag (success, warning, error, request)"
+    echo "  -c, --command CMD      Run command and report result"
+    echo "  -m, --markdown         Enable markdown formatting"
+    echo "  --max-tries N          Max retry attempts (default: 3)"
+    echo "  --max-wait S           Max wait between retries (default: 300)"
+    echo "  -p, --priority N       Priority 1-5 (default: 3)"
+    echo "  -r, --refresh          Force refresh password from network"
+    echo "  -R, --recipient HOST   Target recipient hostname (default: * for all)"
+    echo "  -t, --topic TOPIC      Topic to publish to (default: general)"
+    echo "  -T, --title TITLE      Notification title"
+    echo "  -v, --verbose          Verbose output"
     exit 1
 }
 
 topic="general"
 title=""
 priority=""
+alert_type=""
+recipient="*"
 command=""
 markdown=0
 verbose=0
@@ -30,6 +34,14 @@ message=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        -a | --alert-type)
+            alert_type="$2"
+            shift 2
+            ;;
+        --alert-type=*)
+            alert_type="${1#--alert-type=}"
+            shift
+            ;;
         -t | --topic)
             topic="$2"
             shift 2
@@ -72,6 +84,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         -r | --refresh)
             refresh=1
+            shift
+            ;;
+        -R | --recipient)
+            recipient="$2"
+            shift 2
+            ;;
+        --recipient=*)
+            recipient="${1#--recipient=}"
             shift
             ;;
         --max-tries)
@@ -147,7 +167,9 @@ fi
 
 [[ $verbose -eq 1 ]] && echo "Sending to topic: $topic"
 
-headers=("Content-Type:text/plain" "Tags:source-$(hostname -s)")
+tags="source-$(hostname -s),recipient-$recipient"
+[[ -n "$alert_type" ]] && tags="$tags,type-$alert_type"
+headers=("Content-Type:text/plain" "Tags:$tags")
 [[ -n "$title" ]] && headers+=("Title:$title")
 [[ -n "$priority" ]] && headers+=("Priority:$priority")
 [[ $markdown -eq 1 ]] && headers+=("Markdown:yes")

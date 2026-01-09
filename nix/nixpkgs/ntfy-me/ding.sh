@@ -12,6 +12,7 @@ Options:
   -f, --force-alert       Always play sound/alert (skip focus detection)
   -i, --title TEXT        Bold header in message body
   -m, --message TEXT      Message body text
+  -R, --recipient HOST    Target recipient for remote (default: * for all)
   -t, --type TYPE         Alert type: success, warning, error, request
   -w, --window-title TEXT Notification window title (default: hostname)
   --local                 Force local mode (macOS)
@@ -20,23 +21,25 @@ Options:
   -h, --help              Show this help
 
 Behaviour:
-  Local mode (macOS):
+  Local mode:
     - Always plays a sound and sends bell to terminal
     - Shows modal alert dialog only if Ghostty is not focused
     - In tmux: bell triggers window flag via monitor-bell
 
-  Remote mode (Linux/SSH):
+  Remote mode (over SSH):
     - Sends notification via ntfy-me
 EOF
     exit 0
 }
 
-mode=""
-title=""
-window_title=""
-message=""
 alert_type=""
 command=""
+message=""
+mode=""
+recipient="*"
+title=""
+window_title=""
+
 debug=0
 force=0
 
@@ -83,6 +86,14 @@ while [[ $# -gt 0 ]]; do
             message="${1#--message=}"
             shift
             ;;
+        -R | --recipient)
+            recipient="$2"
+            shift 2
+            ;;
+        --recipient=*)
+            recipient="${1#--recipient=}"
+            shift
+            ;;
         -t | --type)
             alert_type="$2"
             shift 2
@@ -117,7 +128,8 @@ if [[ -z "$mode" ]]; then
     elif command -v osascript &>/dev/null; then
         mode="local"
     else
-        mode="remote"
+        echo "Warning: no sink exists for notifications" >&2
+        exit 0
     fi
 fi
 
@@ -242,5 +254,7 @@ else
     msg=$(build_message)
     [[ -z "$msg" ]] && msg="ding"
 
-    ntfy-me --topic ding --title "$win_title" "$msg"
+    ntfy_args=(--topic ding --title "$win_title" --recipient "$recipient")
+    [[ -n "$alert_type" ]] && ntfy_args+=(--alert-type "$alert_type")
+    ntfy-me "${ntfy_args[@]}" "$msg"
 fi
