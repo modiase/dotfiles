@@ -73,7 +73,7 @@ class ModelManager:
         )
 
         logger.info("Sleeping embed model, waking chat model")
-        self.embed_llm.sleep(level=2)
+        self.embed_llm.sleep(level=1)
         self.chat_llm.wake_up()
         self.active_model = ModelType.CHAT
         self._initialized = True
@@ -97,7 +97,7 @@ class ModelManager:
     async def _swap_to(self, model_type: ModelType) -> None:
         if model_type == ModelType.CHAT:
             logger.info("Swapping to chat model")
-            self.embed_llm.sleep(level=2)
+            self.embed_llm.sleep(level=1)
             self.chat_llm.wake_up()
             logger.info("Chat model woke up")
             self.active_model = ModelType.CHAT
