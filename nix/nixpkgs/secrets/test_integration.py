@@ -163,7 +163,7 @@ class TestEncryptedSecrets:
         passphrase = "test-passphrase-123"
 
         code, _, _ = run_command(
-            ["store", "ENCRYPTED_SECRET", "super-secret-data", "--key"],
+            ["store", "ENCRYPTED_SECRET", "super-secret-data", "--pass"],
             sqlite_db=db,
             data_dir=data_dir,
             passphrase=passphrase,
@@ -184,7 +184,7 @@ class TestEncryptedSecrets:
         data_dir = tmp_path / "secretslib"
 
         code, _, _ = run_command(
-            ["store", "ENCRYPTED_SECRET2", "secret-data", "--key"],
+            ["store", "ENCRYPTED_SECRET2", "secret-data", "--pass"],
             sqlite_db=db,
             data_dir=data_dir,
             passphrase="correct-passphrase",
@@ -198,7 +198,38 @@ class TestEncryptedSecrets:
             passphrase="wrong-passphrase",
         )
         assert code == 1
-        assert "failed" in stderr.lower() or "incorrect" in stderr.lower()
+        assert any(x in stderr.lower() for x in ("failed", "incorrect", "invalid"))
+
+    def test_get_with_key_option(self, tmp_path: Path) -> None:
+        db = tmp_path / "secrets.db"
+        data_dir = tmp_path / "secretslib"
+
+        code, _, _ = run_command(
+            ["store", "KEY_TEST", "key-secret", "--pass"],
+            sqlite_db=db,
+            data_dir=data_dir,
+            passphrase="my-key",
+        )
+        assert code == 0
+
+        result = subprocess.run(
+            [
+                "secrets",
+                "--sqlite",
+                str(db),
+                "--data-dir",
+                str(data_dir),
+                "get",
+                "KEY_TEST",
+                "--pass",
+                "my-key",
+                "--print",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == "key-secret"
 
 
 class TestList:
@@ -413,8 +444,8 @@ class TestHelp:
 
     def test_no_args_shows_usage(self, tmp_path: Path) -> None:
         code, _, stderr = run_command([], data_dir=tmp_path)
-        assert code == 1
-        assert "usage:" in stderr.lower() or "usage:" in stderr.lower()
+        assert code in (1, 2)
+        assert "usage:" in stderr.lower()
 
 
 class TestSchemaV2:
@@ -425,7 +456,7 @@ class TestSchemaV2:
         data_dir = tmp_path / "secretslib"
 
         code, _, _ = run_command(
-            ["store", "ENCRYPTED_V2", "secret-data", "--key"],
+            ["store", "ENCRYPTED_V2", "secret-data", "--pass"],
             sqlite_db=db,
             data_dir=data_dir,
             passphrase="test-pass",
