@@ -48,7 +48,6 @@ in
       }
     ];
     shellAliases = {
-      cat = "bat";
       df = "duf";
       du = "dust";
       icat = "chafa";
