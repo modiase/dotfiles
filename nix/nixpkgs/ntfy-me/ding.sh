@@ -15,6 +15,7 @@ Options:
   -R, --recipient HOST    Target recipient for remote (default: * for all)
   -t, --type TYPE         Alert type: success, warning, error, request
   -w, --window-title TEXT Notification window title (default: hostname)
+  --focus-pane            Capture tmux pane; add Focus button to dialog
   --local                 Force local mode (macOS)
   --remote                Force remote mode (ntfy-me)
   --debug                 Log debug info to /tmp/ding-debug.log
@@ -41,6 +42,7 @@ title=""
 window_title=""
 
 debug=0
+focus_pane=""
 force=0
 
 while [[ $# -gt 0 ]]; do
@@ -48,10 +50,21 @@ while [[ $# -gt 0 ]]; do
         -h | --help) usage ;;
         --debug)
             debug=1
+            exec 3>>/tmp/ding-debug.log
+            BASH_XTRACEFD=3
+            set -x
             shift
             ;;
         -f | --force-alert)
             force=1
+            shift
+            ;;
+        --focus-pane)
+            if [[ -n "${TMUX_PANE:-}" ]]; then
+                window_idx=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
+                pane_idx=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_index}' 2>/dev/null) || true
+                [[ -n "$window_idx" && -n "$pane_idx" ]] && focus_pane="$window_idx:$pane_idx" || true
+            fi
             shift
             ;;
         --remote)
@@ -221,7 +234,18 @@ send_alert() {
                 --ontop
             )
             [[ -n "$icon" ]] && args+=(--icon "$icon,colour=$colour")
-            dialog "${args[@]}" &
+            if [[ -n "$focus_pane" ]]; then
+                args+=(--button1text "Ignore" --button2text "Focus")
+                local dialog_exit=0
+                dialog "${args[@]}" || dialog_exit=$?
+                if [[ $dialog_exit -eq 2 ]]; then
+                    osascript -e 'tell application "Ghostty" to activate'
+                    IFS=':' read -r win pane <<<"$focus_pane"
+                    tmux select-window -t ":$win" && tmux select-pane -t ":$win.$pane"
+                fi
+            else
+                dialog "${args[@]}" &
+            fi
         else
             osascript -e "display alert \"$alert_title\" message \"$msg\"" >/dev/null &
         fi
