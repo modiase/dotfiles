@@ -2,14 +2,22 @@
 
 let
   secrets = pkgs.callPackage ../secrets { };
+
+  # Create combined source with semsearch in the right relative location
+  combinedSrc = pkgs.runCommand "ankigen-src" { } ''
+    mkdir -p $out/ankigen $out/semsearch
+    cp -r ${./.}/* $out/ankigen/
+    cp -r ${../semsearch}/* $out/semsearch/
+  '';
 in
 pkgs.buildGoModule {
   pname = "ankigen";
   version = "2.0.0";
 
-  src = ./.;
+  src = combinedSrc;
+  sourceRoot = "${combinedSrc.name}/ankigen";
 
-  vendorHash = "sha256-8D+zjbn8SuJTDJeqVCr56E9fcwIL3pv93wj4VJaEIcc=";
+  vendorHash = "sha256-QtQakVn6aNlHMr/Fu9biVdm4rsrU14ADySPEU3XOH68=";
 
   nativeBuildInputs = [ pkgs.makeWrapper ];
 

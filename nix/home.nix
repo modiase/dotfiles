@@ -37,6 +37,8 @@ let
 
   frontendPackages = with pkgs; [
     (callPackage ./nixpkgs/ankigen { })
+    (callPackage ./nixpkgs/semsearch { })
+    (callPackage ./nixpkgs/swiftdialog { })
     (callPackage ./nixpkgs/awrit { })
     (callPackage ./nixpkgs/coder { })
     cargo
