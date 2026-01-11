@@ -77,7 +77,9 @@ while read -r line; do
 
     if [[ -n "$message" ]]; then
         log "  -> Alert sent"
-        ding_args=(--local -f -i "$title" -m "$message")
+        source_host="unknown"
+        [[ "$tags" =~ source-([^,]+) ]] && source_host="${BASH_REMATCH[1]}"
+        ding_args=(--local -f -w "Remote: $source_host" -i "$title" -m "$message")
         if [[ "$tags" =~ type-([a-z]+) ]]; then
             ding_args+=(-t "${BASH_REMATCH[1]}")
         fi
