@@ -228,7 +228,7 @@ send_alert() {
                 --messagefont "name=Aleo,colour=#d8dee9,size=14"
                 --background "colour=#12161a"
                 --width 500
-                --height 200
+                --height 250
                 --buttonstyle center
                 --appearance dark
                 --ontop
