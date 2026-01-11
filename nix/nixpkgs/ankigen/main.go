@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -21,16 +22,18 @@ import (
 )
 
 var (
-	exaAPIKey   string
-	fastMode    bool
-	localSearch bool
-	maxTokens   int
-	maxTries    int
-	noCache     bool
-	provider    string
-	question    string
-	rawOutput   bool
-	webMode     bool
+	exaAPIKey      string
+	fastMode       bool
+	focusThreshold float64
+	localSearch    bool
+	maxTokens      int
+	maxTries       int
+	noCache        bool
+	provider       string
+	question       string
+	rawOutput      bool
+	useExa         bool
+	webMode        bool
 )
 
 const (
@@ -75,10 +78,13 @@ func (searchTermsStage) Name() string { return "Generating search terms" }
 func (searchTermsStage) Next() Stage  { return webSearchStage{} }
 
 func (searchTermsStage) Execute(ctx *PipelineContext) error {
+	ctx.Logf("Generating search terms for: %s", ctx.Question)
 	terms, err := generateSearchTerms(ctx.Question)
 	if err != nil {
+		ctx.Logf("Error: %v", err)
 		return err
 	}
+	ctx.Logf("Generated %d search terms", len(terms))
 	ctx.SearchTerms = terms
 	return nil
 }
@@ -95,13 +101,16 @@ func (searchTermsStage) Validate(ctx *PipelineContext) error {
 type webSearchStage struct{}
 
 func (webSearchStage) Name() string { return "Searching web" }
-func (webSearchStage) Next() Stage  { return summariseStage{} }
+func (webSearchStage) Next() Stage  { return focusResultsStage{} }
 
 func (webSearchStage) Execute(ctx *PipelineContext) error {
+	ctx.Logf("Searching web with %d terms", len(ctx.SearchTerms))
 	result, err := performWebSearch(ctx.SearchTerms)
 	if err != nil {
+		ctx.Logf("Error: %v", err)
 		return err
 	}
+	ctx.Logf("Received %d bytes of search results", len(result))
 	ctx.SearchResult = result
 	return nil
 }
@@ -113,6 +122,37 @@ func (webSearchStage) Validate(ctx *PipelineContext) error {
 	return nil
 }
 
+// --- Stage 2.5: Focus Results (semantic filtering) ---
+
+type focusResultsStage struct{}
+
+func (focusResultsStage) Name() string { return "Focusing results" }
+func (focusResultsStage) Next() Stage  { return summariseStage{} }
+
+func (focusResultsStage) Execute(ctx *PipelineContext) error {
+	if useExa {
+		ctx.Logf("Skipping focus stage (using Exa)")
+		return nil
+	}
+	if !isHeraklesLLMServerAvailable() {
+		ctx.Logf("Skipping focus stage (herakles unavailable)")
+		return nil
+	}
+
+	ctx.Logf("Focusing results with threshold %.2f", focusThreshold)
+	focused, err := focusSearchResults(ctx.Question, ctx.SearchResult, focusThreshold, ctx)
+	if err != nil {
+		ctx.Logf("Focus failed, using original results: %v", err)
+		return nil
+	}
+	ctx.SearchResult = focused
+	return nil
+}
+
+func (focusResultsStage) Validate(ctx *PipelineContext) error {
+	return nil
+}
+
 // --- Stage 3: Summarise ---
 
 type summariseStage struct{}
@@ -121,10 +161,13 @@ func (summariseStage) Name() string { return "Summarising results" }
 func (summariseStage) Next() Stage  { return generateStage{} }
 
 func (summariseStage) Execute(ctx *PipelineContext) error {
+	ctx.Logf("Summarising %d bytes of search results", len(ctx.SearchResult))
 	summary, err := summariseResults(ctx.Question, ctx.SearchResult)
 	if err != nil {
+		ctx.Logf("Error: %v", err)
 		return err
 	}
+	ctx.Logf("Generated %d byte summary", len(summary))
 	ctx.Summary = summary
 	return nil
 }
@@ -144,17 +187,22 @@ func (generateStage) Name() string { return "Generating card" }
 func (generateStage) Next() Stage  { return nil }
 
 func (generateStage) Execute(ctx *PipelineContext) error {
+	ctx.Logf("Generating card from %d byte summary", len(ctx.Summary))
 	ctx.FailedAttempts = nil
 	for attempt := 1; attempt <= maxTries; attempt++ {
+		ctx.Logf("Attempt %d/%d", attempt, maxTries)
 		card, err := generateCard(ctx.Question, ctx.Summary)
 		if err != nil {
+			ctx.Logf("Attempt %d failed: %v", attempt, err)
 			ctx.FailedAttempts = append(ctx.FailedAttempts, fmt.Sprintf("Attempt %d error: %v", attempt, err))
 			continue
 		}
 		if card.Error != "" || strings.TrimSpace(card.Front) == "" || strings.TrimSpace(card.Back) == "" {
+			ctx.Logf("Attempt %d: invalid card response", attempt)
 			ctx.FailedAttempts = append(ctx.FailedAttempts, fmt.Sprintf("Attempt %d:\n%s", attempt, card.RawResponse))
 			continue
 		}
+		ctx.Logf("Card generated successfully")
 		ctx.Card = card
 		return nil
 	}
@@ -181,6 +229,7 @@ type PipelineContext struct {
 	FailedAttempts []string
 	CardHistory    []Card
 	HistoryIndex   int
+	Logs           strings.Builder
 }
 
 type model struct {
@@ -202,7 +251,7 @@ type model struct {
 }
 
 type debugModel struct {
-	activeTab int // 0=Card, 1=SearchTerms, 2=SearchResults, 3=Summary
+	activeTab int // 0=Card, 1=SearchTerms, 2=SearchResults, 3=Summary, 4=Logs
 	viewport  viewport.Model
 	contents  []string
 	titles    []string
@@ -297,8 +346,8 @@ func initDebugModel(ctx *PipelineContext, width, height int) *debugModel {
 	vpWidth, vpHeight := max(width-4, 40), max(height-8, 10)
 	return &debugModel{
 		viewport: viewport.New(vpWidth, vpHeight),
-		titles:   []string{"Card", "Search Terms", "Search Results", "Summary"},
-		contents: []string{"", formatSearchTerms(ctx.SearchTerms), ctx.SearchResult, ctx.Summary},
+		titles:   []string{"Card", "Search Terms", "Search Results", "Summary", "Logs"},
+		contents: []string{"", formatSearchTerms(ctx.SearchTerms), ctx.SearchResult, ctx.Summary, ctx.Logs.String()},
 		width:    vpWidth,
 		height:   vpHeight,
 	}
@@ -310,6 +359,10 @@ func formatSearchTerms(terms []string) string {
 		b.WriteString(fmt.Sprintf("%d. %s\n", i+1, term))
 	}
 	return b.String()
+}
+
+func (ctx *PipelineContext) Logf(format string, args ...interface{}) {
+	ctx.Logs.WriteString(fmt.Sprintf(format+"\n", args...))
 }
 
 func initialModel(question string) model {
@@ -391,14 +444,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.iterInput.Focus()
 				return m, textarea.Blink
 			}
-		case "left", "h":
+		case "h":
 			if m.done && m.context.HistoryIndex > 0 {
 				m.context.HistoryIndex--
 				m.context.Card = m.context.CardHistory[m.context.HistoryIndex]
 				m.copied = false
 				m.substage = fmt.Sprintf("history %d/%d", m.context.HistoryIndex+1, len(m.context.CardHistory))
 			}
-		case "right", "l":
+		case "l":
 			if m.done && m.context.HistoryIndex < len(m.context.CardHistory)-1 {
 				m.context.HistoryIndex++
 				m.context.Card = m.context.CardHistory[m.context.HistoryIndex]
@@ -427,7 +480,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.substage = "copied back"
 				}
 			}
-		case "1", "2", "3", "4":
+		case "1", "2", "3", "4", "5":
 			if m.done && m.tabView != nil {
 				tab := int(msg.String()[0] - '1')
 				m.tabView.activeTab = tab
@@ -438,7 +491,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "tab":
 			if m.done && m.tabView != nil {
-				m.tabView.activeTab = (m.tabView.activeTab + 1) % 4
+				m.tabView.activeTab = (m.tabView.activeTab + 1) % 5
 				if m.tabView.activeTab > 0 {
 					m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
 					m.tabView.viewport.GotoTop()
@@ -446,7 +499,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "shift+tab":
 			if m.done && m.tabView != nil {
-				m.tabView.activeTab = (m.tabView.activeTab + 3) % 4
+				m.tabView.activeTab = (m.tabView.activeTab + 4) % 5
+				if m.tabView.activeTab > 0 {
+					m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
+					m.tabView.viewport.GotoTop()
+				}
+			}
+		case "left":
+			if m.done && m.tabView != nil {
+				m.tabView.activeTab = (m.tabView.activeTab + 4) % 5
+				if m.tabView.activeTab > 0 {
+					m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
+					m.tabView.viewport.GotoTop()
+				}
+			}
+		case "right":
+			if m.done && m.tabView != nil {
+				m.tabView.activeTab = (m.tabView.activeTab + 1) % 5
 				if m.tabView.activeTab > 0 {
 					m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
 					m.tabView.viewport.GotoTop()
@@ -1521,6 +1590,161 @@ func isHeraklesLLMServerAvailable() bool {
 	return detectHeraklesLLMServer() == nil
 }
 
+type SearchResult struct {
+	Title string
+	Text  string
+	URL   string
+}
+
+func parseSearchResults(raw string) []SearchResult {
+	var results []SearchResult
+	sections := strings.Split(raw, "---\n")
+	for _, section := range sections {
+		section = strings.TrimSpace(section)
+		if section == "" {
+			continue
+		}
+		var r SearchResult
+		lines := strings.Split(section, "\n")
+		for _, line := range lines {
+			if strings.HasPrefix(line, "## ") {
+				r.Title = strings.TrimPrefix(line, "## ")
+			} else if strings.HasPrefix(line, "URL: ") {
+				r.URL = strings.TrimPrefix(line, "URL: ")
+			} else if line != "" && r.Title != "" {
+				if r.Text != "" {
+					r.Text += " "
+				}
+				r.Text += line
+			}
+		}
+		if r.Title != "" || r.Text != "" {
+			results = append(results, r)
+		}
+	}
+	return results
+}
+
+func formatSearchResults(results []SearchResult) string {
+	var b strings.Builder
+	for i, r := range results {
+		if i > 0 {
+			b.WriteString("---\n")
+		}
+		if r.Title != "" {
+			b.WriteString("## " + r.Title + "\n")
+		}
+		if r.URL != "" {
+			b.WriteString("URL: " + r.URL + "\n")
+		}
+		if r.Text != "" {
+			b.WriteString(r.Text + "\n")
+		}
+	}
+	return b.String()
+}
+
+type embeddingResponse struct {
+	Data []struct {
+		Embedding []float64 `json:"embedding"`
+		Index     int       `json:"index"`
+	} `json:"data"`
+}
+
+func getEmbeddings(texts []string) ([][]float64, error) {
+	payload := map[string]interface{}{
+		"model": "qwen-embed",
+		"input": texts,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.Post(vllmURL+"/embeddings", "application/json", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != 200 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("embedding API error %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result embeddingResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	embeddings := make([][]float64, len(texts))
+	for _, d := range result.Data {
+		embeddings[d.Index] = d.Embedding
+	}
+	return embeddings, nil
+}
+
+func dotProduct(a, b []float64) float64 {
+	var sum float64
+	for i := range a {
+		if i < len(b) {
+			sum += a[i] * b[i]
+		}
+	}
+	return sum
+}
+
+func magnitude(v []float64) float64 {
+	var sum float64
+	for _, x := range v {
+		sum += x * x
+	}
+	return math.Sqrt(sum)
+}
+
+func cosineSimilarity(a, b []float64) float64 {
+	magA, magB := magnitude(a), magnitude(b)
+	if magA == 0 || magB == 0 {
+		return 0
+	}
+	return dotProduct(a, b) / (magA * magB)
+}
+
+func focusSearchResults(question, rawResults string, threshold float64, ctx *PipelineContext) (string, error) {
+	results := parseSearchResults(rawResults)
+	if len(results) == 0 {
+		return rawResults, nil
+	}
+
+	texts := make([]string, len(results)+1)
+	texts[0] = question
+	for i, r := range results {
+		texts[i+1] = r.Title + " " + r.Text
+	}
+
+	embeddings, err := getEmbeddings(texts)
+	if err != nil {
+		return "", err
+	}
+
+	questionEmb := embeddings[0]
+	var focused []SearchResult
+	for i, r := range results {
+		similarity := cosineSimilarity(questionEmb, embeddings[i+1])
+		ctx.Logf("  [%.3f] %s", similarity, r.Title)
+		if similarity >= threshold {
+			focused = append(focused, r)
+		}
+	}
+
+	ctx.Logf("Kept %d/%d results above threshold", len(focused), len(results))
+	if len(focused) == 0 {
+		ctx.Logf("No results above threshold, keeping all")
+		return rawResults, nil
+	}
+	return formatSearchResults(focused), nil
+}
+
 func stripTags(s string, tags ...string) string {
 	for _, tag := range tags {
 		open, close := "<"+tag+">", "</"+tag+">"
@@ -1593,7 +1817,6 @@ Examples:
 	}
 
 	var noWeb bool
-	var useExa bool
 	rootCmd.Flags().BoolVarP(&fastMode, "fast", "f", false, "Use faster/cheaper model")
 	rootCmd.Flags().BoolVar(&noWeb, "no-web", false, "Disable web search pipeline")
 	rootCmd.Flags().BoolVar(&useExa, "exa", false, "Use Exa API for search (default: DuckDuckGo)")
@@ -1601,6 +1824,7 @@ Examples:
 	rootCmd.Flags().BoolVarP(&rawOutput, "raw", "r", false, "Output raw response")
 	rootCmd.Flags().IntVarP(&maxTokens, "tokens", "t", 2000, "Max tokens")
 	rootCmd.Flags().IntVarP(&maxTries, "max-tries", "m", 3, "Max generation attempts on parse failure")
+	rootCmd.Flags().Float64Var(&focusThreshold, "focus-threshold", 0.7, "Minimum similarity for focused results (0-1)")
 
 	rootCmd.PreRun = func(cmd *cobra.Command, args []string) {
 		webMode = !noWeb
