@@ -44,7 +44,7 @@ const (
 	gptMini = "o4-mini-2025-04-16"
 
 	ollamaURL = "http://localhost:11434"
-	vllmURL   = "http://herakles.home:8000/v1"
+	vllmURL   = "http://herakles.home:4000/v1"
 )
 
 var (
@@ -749,7 +749,7 @@ func performWebSearch(terms []string) (string, error) {
 		exaAPIKey = os.Getenv("EXA_API_KEY")
 	}
 	if exaAPIKey == "" {
-		cmd := exec.Command("secrets", "get", "EXA_API_KEY", "--pass-path", "secrets/exa-api-key")
+		cmd := exec.Command("secrets", "get", "EXA_API_KEY")
 		output, err := cmd.Output()
 		if err == nil {
 			exaAPIKey = strings.TrimSpace(string(output))
@@ -1043,11 +1043,11 @@ func callLLMWithSystem(systemPrompt, userPrompt string, useFast bool) (string, e
 	}
 }
 
-func getAPIKey(name, passPath string) (string, error) {
+func getAPIKey(name string) (string, error) {
 	if key := os.Getenv(name); key != "" {
 		return key, nil
 	}
-	cmd := exec.Command("secrets", "get", name, "--pass-path", "secrets/"+passPath)
+	cmd := exec.Command("secrets", "get", name)
 	output, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("%s not found: %w", name, err)
@@ -1056,7 +1056,7 @@ func getAPIKey(name, passPath string) (string, error) {
 }
 
 func callClaude(systemPrompt, userPrompt string, useFast bool) (string, error) {
-	apiKey, err := getAPIKey("ANTHROPIC_API_KEY", "anthropic-api-key")
+	apiKey, err := getAPIKey("ANTHROPIC_API_KEY")
 	if err != nil {
 		return "", err
 	}
@@ -1127,7 +1127,7 @@ func callClaude(systemPrompt, userPrompt string, useFast bool) (string, error) {
 }
 
 func callOpenAI(systemPrompt, userPrompt string, useFast bool) (string, error) {
-	apiKey, err := getAPIKey("OPENAI_API_KEY", "openai-api-key")
+	apiKey, err := getAPIKey("OPENAI_API_KEY")
 	if err != nil {
 		return "", err
 	}
@@ -1217,7 +1217,7 @@ func callOpenAI(systemPrompt, userPrompt string, useFast bool) (string, error) {
 }
 
 func callGemini(systemPrompt, userPrompt string, useFast bool) (string, error) {
-	apiKey, err := getAPIKey("GEMINI_API_KEY", "gemini-api-key")
+	apiKey, err := getAPIKey("GEMINI_API_KEY")
 	if err != nil {
 		return "", err
 	}
