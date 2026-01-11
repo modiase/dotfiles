@@ -30,7 +30,6 @@ let
 
     set -g monitor-bell on
     set -g bell-action other
-    set -g window-status-bell-style 'fg=red,bold'
   '';
 in
 {
@@ -52,6 +51,10 @@ in
       set -g default-terminal "tmux-256color"
       set -ga terminal-overrides ",xterm-ghostty:Tc,xterm-256color:Tc,tmux-256color:Tc"
       set -as terminal-features ',xterm-256color:clipboard,xterm-ghostty:clipboard,tmux-256color:clipboard'
+
+      # Override nord's window-status-format to support bell flag styling
+      # (inline #[...] styles override window-status-bell-style, so use conditional)
+      set -g window-status-format "#[fg=black,bg=brightblack,nobold,noitalics,nounderscore] #{?window_bell_flag,#[fg=#ebcb8b#,bg=brightblack],#[fg=white#,bg=brightblack]}#I #[fg=white,bg=brightblack,nobold,noitalics,nounderscore] #{?window_bell_flag,#[fg=#ebcb8b],#[fg=white]}#W #F #[fg=brightblack,bg=black,nobold,noitalics,nounderscore]"
     '';
   };
 
