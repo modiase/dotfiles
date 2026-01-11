@@ -5,9 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
-	urlPkg "net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -20,13 +18,13 @@ import (
 	"github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
+	"semsearch/semsearch"
 )
 
 var (
 	exaAPIKey      string
 	fastMode       bool
 	focusThreshold float64
-	localSearch    bool
 	maxTokens      int
 	maxTries       int
 	noCache        bool
@@ -108,7 +106,7 @@ func (semanticSearchStage) Execute(ctx *PipelineContext) error {
 	if useExa {
 		return performExaSearch(ctx)
 	}
-	return performSemanticDuckDuckGoSearch(ctx)
+	return performSemanticGoogleSearch(ctx)
 }
 
 func (semanticSearchStage) Validate(ctx *PipelineContext) error {
@@ -130,10 +128,19 @@ func performExaSearch(ctx *PipelineContext) error {
 	return nil
 }
 
-func performSemanticDuckDuckGoSearch(ctx *PipelineContext) error {
+func performSemanticGoogleSearch(ctx *PipelineContext) error {
 	allTerms := ctx.SearchTerms
 
-	if isHeraklesLLMServerAvailable() {
+	cfg := semsearch.Config{
+		GoogleAPIKey: getEnvOrSecret("SEMSEARCH_GOOGLE_API_KEY", "custom-search-api-key"),
+		GoogleCX:     getEnvOrSecret("SEMSEARCH_GOOGLE_CX", "custom-search-api-id"),
+		EmbedURL:     vllmURL,
+		EmbedModel:   "qwen-embed",
+		Threshold:    focusThreshold,
+		NumResults:   5,
+	}
+
+	if semsearch.IsEmbedServerAvailable(cfg) {
 		creativeTerms, err := generateCreativeSearchTerms(ctx.Question)
 		if err != nil {
 			ctx.Logf("Creative term generation failed: %v", err)
@@ -143,8 +150,8 @@ func performSemanticDuckDuckGoSearch(ctx *PipelineContext) error {
 		}
 	}
 
-	ctx.Logf("Searching DuckDuckGo with %d terms", len(allTerms))
-	result, err := performDuckDuckGoSearch(allTerms)
+	ctx.Logf("Searching Google with %d terms", len(allTerms))
+	result, err := semsearch.SearchRaw(allTerms, cfg)
 	if err != nil {
 		ctx.Logf("Error: %v", err)
 		return err
@@ -152,19 +159,27 @@ func performSemanticDuckDuckGoSearch(ctx *PipelineContext) error {
 	ctx.Logf("Received %d bytes of search results", len(result))
 	ctx.SearchResult = result
 
-	if !isHeraklesLLMServerAvailable() {
-		ctx.Logf("Skipping semantic filtering (herakles unavailable)")
+	if !semsearch.IsEmbedServerAvailable(cfg) {
+		ctx.Logf("Skipping semantic filtering (embed server unavailable)")
 		return nil
 	}
 
 	ctx.Logf("Filtering results with threshold %.2f", focusThreshold)
-	focused, err := focusSearchResultsByParagraph(ctx.Question, ctx.SearchResult, focusThreshold, ctx)
+	focused, err := semsearch.FilterRaw(ctx.Question, ctx.SearchResult, cfg, pipelineLogger{ctx})
 	if err != nil {
 		ctx.Logf("Filtering failed, using original results: %v", err)
 		return nil
 	}
 	ctx.SearchResult = focused
 	return nil
+}
+
+type pipelineLogger struct {
+	ctx *PipelineContext
+}
+
+func (l pipelineLogger) Logf(format string, args ...any) {
+	l.ctx.Logf(format, args...)
 }
 
 // --- Stage 3: Summarise ---
@@ -896,10 +911,6 @@ Example: For "Why is the sky blue?" you might generate:
 }
 
 func performWebSearch(terms []string) (string, error) {
-	if localSearch {
-		return performDuckDuckGoSearch(terms)
-	}
-
 	if exaAPIKey == "" {
 		exaAPIKey = os.Getenv("EXA_API_KEY")
 	}
@@ -931,126 +942,6 @@ func performWebSearch(terms []string) (string, error) {
 	}
 
 	return results.String(), nil
-}
-
-func performDuckDuckGoSearch(terms []string) (string, error) {
-	var results strings.Builder
-
-	for _, term := range terms {
-		result, err := searchDuckDuckGo(term)
-		if err != nil {
-			continue
-		}
-		results.WriteString(result)
-		results.WriteString("\n---\n")
-	}
-
-	if results.Len() == 0 {
-		return "", fmt.Errorf("all web searches failed")
-	}
-
-	return results.String(), nil
-}
-
-func searchDuckDuckGo(query string) (string, error) {
-	req, err := http.NewRequest("POST", "https://html.duckduckgo.com/html/",
-		strings.NewReader("q="+strings.ReplaceAll(query, " ", "+")))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36")
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	return extractDuckDuckGoResults(string(body)), nil
-}
-
-func extractDuckDuckGoResults(html string) string {
-	var results strings.Builder
-	count := 0
-	var currentTitle, currentURL string
-
-	for _, line := range strings.Split(html, "\n") {
-		if count >= 5 {
-			break
-		}
-		if strings.Contains(line, "result__a") && strings.Contains(line, "href=") {
-			currentTitle = extractText(line)
-			currentURL = extractHref(line)
-		}
-		if strings.Contains(line, "result__snippet") {
-			if snippet := extractText(line); snippet != "" {
-				title := currentTitle
-				if title == "" {
-					title = "Search Result"
-				}
-				if currentURL != "" {
-					results.WriteString(fmt.Sprintf("## [%s](%s)\n%s\n\n", title, currentURL, snippet))
-				} else {
-					results.WriteString(fmt.Sprintf("## %s\n%s\n\n", title, snippet))
-				}
-				currentTitle = ""
-				currentURL = ""
-				count++
-			}
-		}
-	}
-
-	return results.String()
-}
-
-func extractHref(html string) string {
-	idx := strings.Index(html, `href="`)
-	if idx == -1 {
-		return ""
-	}
-	start := idx + 6
-	end := strings.Index(html[start:], `"`)
-	if end == -1 {
-		return ""
-	}
-	url := html[start : start+end]
-	if strings.HasPrefix(url, "//duckduckgo.com/l/?uddg=") {
-		url = strings.TrimPrefix(url, "//duckduckgo.com/l/?uddg=")
-		if decoded, err := urlPkg.QueryUnescape(url); err == nil {
-			if ampIdx := strings.Index(decoded, "&"); ampIdx != -1 {
-				decoded = decoded[:ampIdx]
-			}
-			return decoded
-		}
-	}
-	return url
-}
-
-func extractText(html string) string {
-	result := html
-	for strings.Contains(result, "<") {
-		start := strings.Index(result, "<")
-		end := strings.Index(result, ">")
-		if start != -1 && end != -1 && end > start {
-			result = result[:start] + result[end+1:]
-		} else {
-			break
-		}
-	}
-	result = strings.ReplaceAll(result, "&amp;", "&")
-	result = strings.ReplaceAll(result, "&lt;", "<")
-	result = strings.ReplaceAll(result, "&gt;", ">")
-	result = strings.ReplaceAll(result, "&quot;", "\"")
-	result = strings.ReplaceAll(result, "&#x27;", "'")
-	result = strings.ReplaceAll(result, "&nbsp;", " ")
-	return strings.TrimSpace(result)
 }
 
 func searchExa(query string) (string, error) {
@@ -1246,6 +1137,24 @@ func getAPIKey(name string) (string, error) {
 		return "", fmt.Errorf("%s not found: %w", name, err)
 	}
 	return strings.TrimSpace(string(output)), nil
+}
+
+func getEnvOrSecret(envName, defaultSecret string) string {
+	if val := os.Getenv(envName); val != "" {
+		return val
+	}
+	secretName := os.Getenv(envName + "_SECRET_NAME")
+	if secretName == "" {
+		secretName = defaultSecret
+	}
+	if secretName == "" {
+		return ""
+	}
+	out, err := exec.Command("secrets", "get", secretName, "--read-through").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func callClaude(systemPrompt, userPrompt string, useFast bool) (string, error) {
@@ -1714,226 +1623,6 @@ func isHeraklesLLMServerAvailable() bool {
 	return detectHeraklesLLMServer() == nil
 }
 
-type SearchResult struct {
-	Title string
-	Text  string
-	URL   string
-}
-
-func parseSearchResults(raw string) []SearchResult {
-	var results []SearchResult
-	sections := strings.Split(raw, "---\n")
-	for _, section := range sections {
-		section = strings.TrimSpace(section)
-		if section == "" {
-			continue
-		}
-		var r SearchResult
-		lines := strings.Split(section, "\n")
-		for _, line := range lines {
-			if strings.HasPrefix(line, "## ") {
-				header := strings.TrimPrefix(line, "## ")
-				if strings.HasPrefix(header, "[") {
-					if end := strings.Index(header, "]("); end != -1 {
-						r.Title = header[1:end]
-						rest := header[end+2:]
-						if urlEnd := strings.Index(rest, ")"); urlEnd != -1 {
-							r.URL = rest[:urlEnd]
-						}
-					}
-				} else {
-					r.Title = header
-				}
-			} else if line != "" && r.Title != "" {
-				if r.Text != "" {
-					r.Text += " "
-				}
-				r.Text += line
-			}
-		}
-		if r.Title != "" || r.Text != "" {
-			results = append(results, r)
-		}
-	}
-	return results
-}
-
-func formatSearchResults(results []SearchResult) string {
-	var b strings.Builder
-	for i, r := range results {
-		if i > 0 {
-			b.WriteString("---\n")
-		}
-		if r.Title != "" {
-			if r.URL != "" {
-				b.WriteString(fmt.Sprintf("## [%s](%s)\n", r.Title, r.URL))
-			} else {
-				b.WriteString("## " + r.Title + "\n")
-			}
-		}
-		if r.Text != "" {
-			b.WriteString(r.Text + "\n")
-		}
-	}
-	return b.String()
-}
-
-type embeddingResponse struct {
-	Data []struct {
-		Embedding []float64 `json:"embedding"`
-		Index     int       `json:"index"`
-	} `json:"data"`
-}
-
-func getEmbeddings(texts []string) ([][]float64, error) {
-	payload := map[string]interface{}{
-		"model": "qwen-embed",
-		"input": texts,
-	}
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := http.Post(vllmURL+"/embeddings", "application/json", bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != 200 {
-		respBody, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("embedding API error %d: %s", resp.StatusCode, string(respBody))
-	}
-
-	var result embeddingResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, err
-	}
-
-	embeddings := make([][]float64, len(texts))
-	for _, d := range result.Data {
-		embeddings[d.Index] = d.Embedding
-	}
-	return embeddings, nil
-}
-
-func dotProduct(a, b []float64) float64 {
-	var sum float64
-	for i := range a {
-		if i < len(b) {
-			sum += a[i] * b[i]
-		}
-	}
-	return sum
-}
-
-func magnitude(v []float64) float64 {
-	var sum float64
-	for _, x := range v {
-		sum += x * x
-	}
-	return math.Sqrt(sum)
-}
-
-func cosineSimilarity(a, b []float64) float64 {
-	magA, magB := magnitude(a), magnitude(b)
-	if magA == 0 || magB == 0 {
-		return 0
-	}
-	return dotProduct(a, b) / (magA * magB)
-}
-
-func focusSearchResultsByParagraph(question, rawResults string, threshold float64, ctx *PipelineContext) (string, error) {
-	results := parseSearchResults(rawResults)
-	if len(results) == 0 {
-		ctx.Logf("No parseable results found")
-		return rawResults, nil
-	}
-	ctx.Logf("Parsed %d results for paragraph-level embedding", len(results))
-
-	type paragraphInfo struct {
-		resultIdx int
-		paraIdx   int
-		text      string
-	}
-	var allParagraphs []paragraphInfo
-	resultParagraphs := make([][]string, len(results))
-
-	for i, r := range results {
-		paras := splitIntoParagraphs(r.Text)
-		resultParagraphs[i] = paras
-		for j, p := range paras {
-			allParagraphs = append(allParagraphs, paragraphInfo{i, j, p})
-		}
-	}
-
-	if len(allParagraphs) == 0 {
-		ctx.Logf("No paragraphs found")
-		return rawResults, nil
-	}
-
-	texts := make([]string, len(allParagraphs)+1)
-	texts[0] = question
-	for i, p := range allParagraphs {
-		texts[i+1] = p.text
-	}
-
-	embeddings, err := getEmbeddings(texts)
-	if err != nil {
-		return "", err
-	}
-
-	questionEmb := embeddings[0]
-
-	keptParagraphs := make([][]string, len(results))
-	for i := range keptParagraphs {
-		keptParagraphs[i] = []string{}
-	}
-
-	for i, p := range allParagraphs {
-		similarity := cosineSimilarity(questionEmb, embeddings[i+1])
-		if similarity >= threshold {
-			keptParagraphs[p.resultIdx] = append(keptParagraphs[p.resultIdx], p.text)
-		}
-	}
-
-	var focused []SearchResult
-	for i, r := range results {
-		kept := keptParagraphs[i]
-		total := len(resultParagraphs[i])
-		if len(kept) > 0 {
-			ctx.Logf("  [%d/%d paras] %s", len(kept), total, r.Title)
-			r.Text = strings.Join(kept, "\n\n")
-			focused = append(focused, r)
-		} else {
-			ctx.Logf("  [0/%d paras] %s (dropped)", total, r.Title)
-		}
-	}
-
-	ctx.Logf("Kept %d/%d results with relevant paragraphs", len(focused), len(results))
-	if len(focused) == 0 {
-		ctx.Logf("No results above threshold, keeping all")
-		return rawResults, nil
-	}
-	return formatSearchResults(focused), nil
-}
-
-func splitIntoParagraphs(text string) []string {
-	raw := strings.Split(text, "\n\n")
-	var paragraphs []string
-	for _, p := range raw {
-		p = strings.TrimSpace(p)
-		if len(p) > 50 { // Only keep substantial paragraphs
-			paragraphs = append(paragraphs, p)
-		}
-	}
-	if len(paragraphs) == 0 && len(strings.TrimSpace(text)) > 0 {
-		paragraphs = []string{strings.TrimSpace(text)}
-	}
-	return paragraphs
-}
-
 func stripTags(s string, tags ...string) string {
 	for _, tag := range tags {
 		open, close := "<"+tag+">", "</"+tag+">"
@@ -2017,7 +1706,6 @@ Examples:
 
 	rootCmd.PreRun = func(cmd *cobra.Command, args []string) {
 		webMode = !noWeb
-		localSearch = !useExa
 	}
 
 	if err := rootCmd.Execute(); err != nil {
