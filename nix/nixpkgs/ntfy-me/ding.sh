@@ -203,6 +203,7 @@ get_alert_style() {
 send_alert() {
     local alert_title="$1" msg="$2"
     afplay /System/Library/Sounds/Glass.aiff &
+    send_bell
     if [[ -n "$msg" ]]; then
         if command -v dialog &>/dev/null; then
             local icon colour
