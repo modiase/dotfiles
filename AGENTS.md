@@ -16,7 +16,11 @@
 
 ## Activation and Deployment
 
-Use `bin/activate` to apply configuration changes. Do **not** call `darwin-rebuild`, `nixos-rebuild`, or `home-manager` directly; the script handles sequencing, logging, core counts, and sudo prompts.
+Use `bin/activate` to apply configuration changes. Do **not** call
+`darwin-rebuild`, `nixos-rebuild`, or `home-manager` directly; the script
+handles sequencing, logging, core counts, and sudo prompts. If you are asked to
+investigate an activate failure the logs on MacOS are found at
+~/Library/Logs/dotfiles-activate.log.
 
 ### Commands
 
