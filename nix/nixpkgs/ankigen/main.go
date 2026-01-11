@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	urlPkg "net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -75,7 +76,7 @@ type Stage interface {
 type searchTermsStage struct{}
 
 func (searchTermsStage) Name() string { return "Generating search terms" }
-func (searchTermsStage) Next() Stage  { return webSearchStage{} }
+func (searchTermsStage) Next() Stage  { return semanticSearchStage{} }
 
 func (searchTermsStage) Execute(ctx *PipelineContext) error {
 	ctx.Logf("Generating search terms for: %s", ctx.Question)
@@ -96,15 +97,29 @@ func (searchTermsStage) Validate(ctx *PipelineContext) error {
 	return nil
 }
 
-// --- Stage 2: Web Search ---
+// --- Stage 2: Semantic Search ---
 
-type webSearchStage struct{}
+type semanticSearchStage struct{}
 
-func (webSearchStage) Name() string { return "Searching web" }
-func (webSearchStage) Next() Stage  { return focusResultsStage{} }
+func (semanticSearchStage) Name() string { return "Semantic search" }
+func (semanticSearchStage) Next() Stage  { return summariseStage{} }
 
-func (webSearchStage) Execute(ctx *PipelineContext) error {
-	ctx.Logf("Searching web with %d terms", len(ctx.SearchTerms))
+func (semanticSearchStage) Execute(ctx *PipelineContext) error {
+	if useExa {
+		return performExaSearch(ctx)
+	}
+	return performSemanticDuckDuckGoSearch(ctx)
+}
+
+func (semanticSearchStage) Validate(ctx *PipelineContext) error {
+	if strings.TrimSpace(ctx.SearchResult) == "" {
+		return fmt.Errorf("no search results found")
+	}
+	return nil
+}
+
+func performExaSearch(ctx *PipelineContext) error {
+	ctx.Logf("Searching with Exa (%d terms)", len(ctx.SearchTerms))
 	result, err := performWebSearch(ctx.SearchTerms)
 	if err != nil {
 		ctx.Logf("Error: %v", err)
@@ -115,41 +130,40 @@ func (webSearchStage) Execute(ctx *PipelineContext) error {
 	return nil
 }
 
-func (webSearchStage) Validate(ctx *PipelineContext) error {
-	if strings.TrimSpace(ctx.SearchResult) == "" {
-		return fmt.Errorf("no search results found")
-	}
-	return nil
-}
+func performSemanticDuckDuckGoSearch(ctx *PipelineContext) error {
+	allTerms := ctx.SearchTerms
 
-// --- Stage 2.5: Focus Results (semantic filtering) ---
-
-type focusResultsStage struct{}
-
-func (focusResultsStage) Name() string { return "Focusing results" }
-func (focusResultsStage) Next() Stage  { return summariseStage{} }
-
-func (focusResultsStage) Execute(ctx *PipelineContext) error {
-	if useExa {
-		ctx.Logf("Skipping focus stage (using Exa)")
-		return nil
-	}
-	if !isHeraklesLLMServerAvailable() {
-		ctx.Logf("Skipping focus stage (herakles unavailable)")
-		return nil
+	if isHeraklesLLMServerAvailable() {
+		creativeTerms, err := generateCreativeSearchTerms(ctx.Question)
+		if err != nil {
+			ctx.Logf("Creative term generation failed: %v", err)
+		} else if len(creativeTerms) > 0 {
+			ctx.Logf("Generated %d creative search terms", len(creativeTerms))
+			allTerms = append(allTerms, creativeTerms...)
+		}
 	}
 
-	ctx.Logf("Focusing results with threshold %.2f", focusThreshold)
-	focused, err := focusSearchResults(ctx.Question, ctx.SearchResult, focusThreshold, ctx)
+	ctx.Logf("Searching DuckDuckGo with %d terms", len(allTerms))
+	result, err := performDuckDuckGoSearch(allTerms)
 	if err != nil {
-		ctx.Logf("Focus failed, using original results: %v", err)
+		ctx.Logf("Error: %v", err)
+		return err
+	}
+	ctx.Logf("Received %d bytes of search results", len(result))
+	ctx.SearchResult = result
+
+	if !isHeraklesLLMServerAvailable() {
+		ctx.Logf("Skipping semantic filtering (herakles unavailable)")
+		return nil
+	}
+
+	ctx.Logf("Filtering results with threshold %.2f", focusThreshold)
+	focused, err := focusSearchResultsByParagraph(ctx.Question, ctx.SearchResult, focusThreshold, ctx)
+	if err != nil {
+		ctx.Logf("Filtering failed, using original results: %v", err)
 		return nil
 	}
 	ctx.SearchResult = focused
-	return nil
-}
-
-func (focusResultsStage) Validate(ctx *PipelineContext) error {
 	return nil
 }
 
@@ -543,7 +557,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if _, ok := msg.stage.(searchTermsStage); ok {
 			m.searchTotal = len(m.context.SearchTerms)
 		}
-		if _, ok := msg.stage.(webSearchStage); ok {
+		if _, ok := msg.stage.(semanticSearchStage); ok {
 			m.searchDone = m.searchTotal
 		}
 
@@ -626,7 +640,7 @@ func (m model) View() string {
 		b.WriteString("...\n")
 
 		switch m.stage.(type) {
-		case webSearchStage:
+		case semanticSearchStage:
 			if m.searchTotal > 0 {
 				b.WriteString(dimStyle.Render(fmt.Sprintf("  └─ %d/%d searches", m.searchDone, m.searchTotal)))
 				b.WriteString("\n")
@@ -650,7 +664,7 @@ func (m model) View() string {
 			switch s.(type) {
 			case searchTermsStage:
 				b.WriteString(dimStyle.Render(fmt.Sprintf("%s (%d terms)", s.Name(), len(m.context.SearchTerms))))
-			case webSearchStage:
+			case semanticSearchStage:
 				b.WriteString(dimStyle.Render(fmt.Sprintf("%s (%d/%d)", s.Name(), m.searchDone, m.searchTotal)))
 			case summariseStage:
 				b.WriteString(dimStyle.Render(fmt.Sprintf("%s (%d chars)", s.Name(), len(m.context.Summary))))
@@ -775,12 +789,12 @@ func iterateCard(ctx *PipelineContext, instructions string) (Card, error) {
 func (m model) completedStages() []Stage {
 	var stages []Stage
 	switch m.stage.(type) {
-	case webSearchStage:
+	case semanticSearchStage:
 		stages = []Stage{searchTermsStage{}}
 	case summariseStage:
-		stages = []Stage{searchTermsStage{}, webSearchStage{}}
+		stages = []Stage{searchTermsStage{}, semanticSearchStage{}}
 	case generateStage:
-		stages = []Stage{searchTermsStage{}, webSearchStage{}, summariseStage{}}
+		stages = []Stage{searchTermsStage{}, semanticSearchStage{}, summariseStage{}}
 	}
 	return stages
 }
@@ -805,6 +819,78 @@ Example output: ["query 1", "query 2", "query 3"]`, question)
 
 	if err := json.Unmarshal([]byte(response), &terms); err != nil || len(terms) == 0 {
 		return []string{question}, nil
+	}
+	return terms, nil
+}
+
+func generateCreativeSearchTerms(question string) ([]string, error) {
+	prompt := fmt.Sprintf(`Generate 2-3 creative, lateral-thinking web search queries to find unexpected but relevant information for this question. Think of related concepts, analogies, or alternative framings. Return ONLY a JSON array of strings.
+
+Question: %s
+
+Example: For "Why is the sky blue?" you might generate:
+["Rayleigh scattering atmosphere", "wavelength light dispersion physics", "why sunset orange red"]`, question)
+
+	payload := map[string]any{
+		"model": remoteModel,
+		"messages": []map[string]string{
+			{"role": "user", "content": "/no_think " + prompt},
+		},
+		"temperature": 0.8,
+		"stream":      false,
+	}
+
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", remoteURL+"/chat/completions", bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("herakles error: %s", string(respBody))
+	}
+
+	var result struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+
+	if err := json.Unmarshal(respBody, &result); err != nil {
+		return nil, err
+	}
+
+	if len(result.Choices) == 0 {
+		return nil, fmt.Errorf("no response from herakles")
+	}
+
+	response := strings.TrimSpace(result.Choices[0].Message.Content)
+	if start, end := strings.Index(response, "["), strings.LastIndex(response, "]"); start != -1 && end > start {
+		response = response[start : end+1]
+	}
+
+	var terms []string
+	if err := json.Unmarshal([]byte(response), &terms); err != nil {
+		return nil, err
 	}
 	return terms, nil
 }
@@ -893,20 +979,58 @@ func searchDuckDuckGo(query string) (string, error) {
 func extractDuckDuckGoResults(html string) string {
 	var results strings.Builder
 	count := 0
+	var currentTitle, currentURL string
 
 	for _, line := range strings.Split(html, "\n") {
 		if count >= 5 {
 			break
 		}
+		if strings.Contains(line, "result__a") && strings.Contains(line, "href=") {
+			currentTitle = extractText(line)
+			currentURL = extractHref(line)
+		}
 		if strings.Contains(line, "result__snippet") {
 			if snippet := extractText(line); snippet != "" {
-				results.WriteString(fmt.Sprintf("- %s\n\n", snippet))
+				title := currentTitle
+				if title == "" {
+					title = "Search Result"
+				}
+				if currentURL != "" {
+					results.WriteString(fmt.Sprintf("## [%s](%s)\n%s\n\n", title, currentURL, snippet))
+				} else {
+					results.WriteString(fmt.Sprintf("## %s\n%s\n\n", title, snippet))
+				}
+				currentTitle = ""
+				currentURL = ""
 				count++
 			}
 		}
 	}
 
 	return results.String()
+}
+
+func extractHref(html string) string {
+	idx := strings.Index(html, `href="`)
+	if idx == -1 {
+		return ""
+	}
+	start := idx + 6
+	end := strings.Index(html[start:], `"`)
+	if end == -1 {
+		return ""
+	}
+	url := html[start : start+end]
+	if strings.HasPrefix(url, "//duckduckgo.com/l/?uddg=") {
+		url = strings.TrimPrefix(url, "//duckduckgo.com/l/?uddg=")
+		if decoded, err := urlPkg.QueryUnescape(url); err == nil {
+			if ampIdx := strings.Index(decoded, "&"); ampIdx != -1 {
+				decoded = decoded[:ampIdx]
+			}
+			return decoded
+		}
+	}
+	return url
 }
 
 func extractText(html string) string {
@@ -1608,9 +1732,18 @@ func parseSearchResults(raw string) []SearchResult {
 		lines := strings.Split(section, "\n")
 		for _, line := range lines {
 			if strings.HasPrefix(line, "## ") {
-				r.Title = strings.TrimPrefix(line, "## ")
-			} else if strings.HasPrefix(line, "URL: ") {
-				r.URL = strings.TrimPrefix(line, "URL: ")
+				header := strings.TrimPrefix(line, "## ")
+				if strings.HasPrefix(header, "[") {
+					if end := strings.Index(header, "]("); end != -1 {
+						r.Title = header[1:end]
+						rest := header[end+2:]
+						if urlEnd := strings.Index(rest, ")"); urlEnd != -1 {
+							r.URL = rest[:urlEnd]
+						}
+					}
+				} else {
+					r.Title = header
+				}
 			} else if line != "" && r.Title != "" {
 				if r.Text != "" {
 					r.Text += " "
@@ -1632,10 +1765,11 @@ func formatSearchResults(results []SearchResult) string {
 			b.WriteString("---\n")
 		}
 		if r.Title != "" {
-			b.WriteString("## " + r.Title + "\n")
-		}
-		if r.URL != "" {
-			b.WriteString("URL: " + r.URL + "\n")
+			if r.URL != "" {
+				b.WriteString(fmt.Sprintf("## [%s](%s)\n", r.Title, r.URL))
+			} else {
+				b.WriteString("## " + r.Title + "\n")
+			}
 		}
 		if r.Text != "" {
 			b.WriteString(r.Text + "\n")
@@ -1710,16 +1844,39 @@ func cosineSimilarity(a, b []float64) float64 {
 	return dotProduct(a, b) / (magA * magB)
 }
 
-func focusSearchResults(question, rawResults string, threshold float64, ctx *PipelineContext) (string, error) {
+func focusSearchResultsByParagraph(question, rawResults string, threshold float64, ctx *PipelineContext) (string, error) {
 	results := parseSearchResults(rawResults)
 	if len(results) == 0 {
+		ctx.Logf("No parseable results found")
+		return rawResults, nil
+	}
+	ctx.Logf("Parsed %d results for paragraph-level embedding", len(results))
+
+	type paragraphInfo struct {
+		resultIdx int
+		paraIdx   int
+		text      string
+	}
+	var allParagraphs []paragraphInfo
+	resultParagraphs := make([][]string, len(results))
+
+	for i, r := range results {
+		paras := splitIntoParagraphs(r.Text)
+		resultParagraphs[i] = paras
+		for j, p := range paras {
+			allParagraphs = append(allParagraphs, paragraphInfo{i, j, p})
+		}
+	}
+
+	if len(allParagraphs) == 0 {
+		ctx.Logf("No paragraphs found")
 		return rawResults, nil
 	}
 
-	texts := make([]string, len(results)+1)
+	texts := make([]string, len(allParagraphs)+1)
 	texts[0] = question
-	for i, r := range results {
-		texts[i+1] = r.Title + " " + r.Text
+	for i, p := range allParagraphs {
+		texts[i+1] = p.text
 	}
 
 	embeddings, err := getEmbeddings(texts)
@@ -1728,21 +1885,53 @@ func focusSearchResults(question, rawResults string, threshold float64, ctx *Pip
 	}
 
 	questionEmb := embeddings[0]
-	var focused []SearchResult
-	for i, r := range results {
+
+	keptParagraphs := make([][]string, len(results))
+	for i := range keptParagraphs {
+		keptParagraphs[i] = []string{}
+	}
+
+	for i, p := range allParagraphs {
 		similarity := cosineSimilarity(questionEmb, embeddings[i+1])
-		ctx.Logf("  [%.3f] %s", similarity, r.Title)
 		if similarity >= threshold {
-			focused = append(focused, r)
+			keptParagraphs[p.resultIdx] = append(keptParagraphs[p.resultIdx], p.text)
 		}
 	}
 
-	ctx.Logf("Kept %d/%d results above threshold", len(focused), len(results))
+	var focused []SearchResult
+	for i, r := range results {
+		kept := keptParagraphs[i]
+		total := len(resultParagraphs[i])
+		if len(kept) > 0 {
+			ctx.Logf("  [%d/%d paras] %s", len(kept), total, r.Title)
+			r.Text = strings.Join(kept, "\n\n")
+			focused = append(focused, r)
+		} else {
+			ctx.Logf("  [0/%d paras] %s (dropped)", total, r.Title)
+		}
+	}
+
+	ctx.Logf("Kept %d/%d results with relevant paragraphs", len(focused), len(results))
 	if len(focused) == 0 {
 		ctx.Logf("No results above threshold, keeping all")
 		return rawResults, nil
 	}
 	return formatSearchResults(focused), nil
+}
+
+func splitIntoParagraphs(text string) []string {
+	raw := strings.Split(text, "\n\n")
+	var paragraphs []string
+	for _, p := range raw {
+		p = strings.TrimSpace(p)
+		if len(p) > 50 { // Only keep substantial paragraphs
+			paragraphs = append(paragraphs, p)
+		}
+	}
+	if len(paragraphs) == 0 && len(strings.TrimSpace(text)) > 0 {
+		paragraphs = []string{strings.TrimSpace(text)}
+	}
+	return paragraphs
 }
 
 func stripTags(s string, tags ...string) string {
