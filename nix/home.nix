@@ -238,6 +238,13 @@ in
     - Exception: when working on a separate Claude-authored branch, commits are permitted
     - When in doubt, wait for user approval before committing
 
+    ## Adhoc Files
+    - Prefer outputting to /tmp when writing or running code that produces
+    adhoc outputs. - Examples to be mindful of are the outputs of nix-build -E,
+    tables, json files and images.
+    - This should be the default unless another obvious target is presenet
+    (output/data directory) or you are explicitly otherwise instructed.
+
     ## Preferred Tools
     | Instead of | Use | Why |
     |------------|-----|-----|

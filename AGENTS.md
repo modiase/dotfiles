@@ -20,14 +20,14 @@ Use `bin/activate` to apply configuration changes. Do **not** call `darwin-rebui
 
 ### Commands
 
-| Command | Description |
-|---------|-------------|
-| `bin/activate` | Activate current repo state on local machine |
-| `bin/activate deploy` | Deploy origin/main to localhost via worktree |
-| `bin/activate deploy <host>` | Deploy origin/main to remote host via SSH |
-| `bin/activate deploy all` | Deploy to all hosts with `dotfiles.manageRemotely = true` |
-| `bin/activate show` | Show activation status (hashes for origin/main, worktree, system, home) |
-| `bin/activate show <host>` | Show activation status on remote host |
+| Command                      | Description                                                             |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| `bin/activate`               | Activate current repo state on local machine                            |
+| `bin/activate deploy`        | Deploy origin/main to localhost via worktree                            |
+| `bin/activate deploy <host>` | Deploy origin/main to remote host via SSH                               |
+| `bin/activate deploy all`    | Deploy to all hosts with `dotfiles.manageRemotely = true`               |
+| `bin/activate show`          | Show activation status (hashes for origin/main, worktree, system, home) |
+| `bin/activate show <host>`   | Show activation status on remote host                                   |
 
 ### Options
 
@@ -50,6 +50,35 @@ Use `bin/activate` to apply configuration changes. Do **not** call `darwin-rebui
 
 - `deploy` and `show` commands use a git worktree at `worktrees/main` to ensure they run from the latest origin/main
 - Treat this repository as source-only automation—build, lint, or test inside the activate shell, but avoid out-of-band host mutations
+
+## Secrets Management
+
+Use the `secrets` CLI to access credentials. It provides a consistent interface across platforms (macOS Keychain, Linux pass, etc.).
+
+### Commands
+
+| Command                        | Description                                 |
+| ------------------------------ | ------------------------------------------- |
+| `secrets get <name>`           | Retrieve a secret (tries local cache first) |
+| `secrets get <name> --network` | Force fetch from iCloud Keychain            |
+| `secrets store <name> <value>` | Store a secret                              |
+| `secrets list`                 | List available secrets                      |
+
+### Common Secrets
+
+- `ntfy-basic-auth-password` - ntfy.sh authentication
+- `EXA_API_KEY` - Exa search API
+- API tokens typically named `<service>-token` or `<service>-api-key`
+
+### Usage in Scripts
+
+```bash
+token=$(secrets get home-assistant-token 2>/dev/null) || {
+    echo "Token not found" >&2
+    exit 1
+}
+curl -H "Authorization: Bearer $token" ...
+```
 
 ## Research Before Implementation
 
@@ -89,6 +118,7 @@ Use `bin/activate` to apply configuration changes. Do **not** call `darwin-rebui
 ## Shell Scripting Style
 
 - **Prefer `&&` chaining over if/else** for simple conditionals:
+
   ```bash
   # Good: chain with && and early return
   [[ "$condition" ]] && do_something && return
@@ -101,7 +131,9 @@ Use `bin/activate` to apply configuration changes. Do **not** call `darwin-rebui
       fallback_action
   fi
   ```
+
 - **Use conditional assignment** instead of if/else for variable values:
+
   ```bash
   # Good
   local output="$default"
@@ -114,7 +146,9 @@ Use `bin/activate` to apply configuration changes. Do **not** call `darwin-rebui
       local output="$default"
   fi
   ```
+
 - **CRITICAL: `set -e` and `[[ ]] &&` pattern** - When using `set -e`, a bare `[[ condition ]] && cmd` returns exit code 1 if the condition is false, causing script termination. Fix with:
+
   ```bash
   # WRONG: exits with code 1 if LOG_LEVEL < 4 under set -e
   [[ ${LOG_LEVEL:-2} -ge 4 ]] && set -x
@@ -125,7 +159,9 @@ Use `bin/activate` to apply configuration changes. Do **not** call `darwin-rebui
   # CORRECT: add || true fallback
   [[ ${LOG_LEVEL:-2} -ge 4 ]] && set -x || true
   ```
+
   This is especially dangerous for:
+
   - Top-level code executed when sourcing files
   - Last statements in functions (function returns non-zero)
 
@@ -148,6 +184,7 @@ Use `bin/activate` to apply configuration changes. Do **not** call `darwin-rebui
 - **Files in `fish/functions/` should contain ONLY the function body**, not `function name ... end`
 - Example - for a function `gst`, the file `fish/functions/gst.fish` should contain just: `git status $argv`
 - **Prefer command construction over if/else** - build commands with `set` and execute with `eval`:
+
   ```fish
   # Good: construct command, then eval
   set -l cmd mycommand
