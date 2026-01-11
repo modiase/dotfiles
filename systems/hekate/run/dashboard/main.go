@@ -1,12 +1,14 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/moye/hekate-dashboard/components"
+	"github.com/moye/hekate-dashboard/services"
 )
 
 type tab int
@@ -16,6 +18,7 @@ const (
 	sshTab
 	wireguardTab
 	dnsTab
+	firewallTab
 	healthTab
 	networkTab
 	timeTab
@@ -30,6 +33,7 @@ type model struct {
 	sshModel       components.SSHModel
 	wireguardModel components.WireGuardModel
 	dnsModel       components.DNSModel
+	firewallModel  components.FirewallModel
 	healthModel    components.HealthModel
 	networkModel   components.NetworkModel
 	timeModel      components.TimeModel
@@ -42,6 +46,7 @@ func initialModel() model {
 		sshModel:       components.NewSSHModel(),
 		wireguardModel: components.NewWireGuardModel(),
 		dnsModel:       components.NewDNSModel(),
+		firewallModel:  components.NewFirewallModel(),
 		healthModel:    components.NewHealthModel(),
 		networkModel:   components.NewNetworkModel(),
 		timeModel:      components.NewTimeModel(),
@@ -54,10 +59,23 @@ func (m model) Init() tea.Cmd {
 		m.sshModel.Init(),
 		m.wireguardModel.Init(),
 		m.dnsModel.Init(),
+		m.firewallModel.Init(),
 		m.healthModel.Init(),
 		m.networkModel.Init(),
 		m.timeModel.Init(),
 	)
+}
+
+func (m model) isSearchActive() bool {
+	switch m.activeTab {
+	case sshTab:
+		return m.sshModel.IsSearchActive()
+	case dnsTab:
+		return m.dnsModel.IsSearchActive()
+	case firewallTab:
+		return m.firewallModel.IsSearchActive()
+	}
+	return false
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -66,30 +84,34 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "q":
-			return m, tea.Quit
-		case "1":
-			m.activeTab = statusTab
-		case "2":
-			m.activeTab = sshTab
-		case "3":
-			m.activeTab = wireguardTab
-		case "4":
-			m.activeTab = dnsTab
-		case "5":
-			m.activeTab = healthTab
-		case "6":
-			m.activeTab = networkTab
-		case "7":
-			m.activeTab = timeTab
-		case "left":
-			if m.activeTab > statusTab {
-				m.activeTab--
-			}
-		case "right":
-			if m.activeTab < timeTab {
-				m.activeTab++
+		if !m.isSearchActive() {
+			switch msg.String() {
+			case "ctrl+c", "q":
+				return m, tea.Quit
+			case "1":
+				m.activeTab = statusTab
+			case "2":
+				m.activeTab = sshTab
+			case "3":
+				m.activeTab = wireguardTab
+			case "4":
+				m.activeTab = dnsTab
+			case "5":
+				m.activeTab = firewallTab
+			case "6":
+				m.activeTab = healthTab
+			case "7":
+				m.activeTab = networkTab
+			case "8":
+				m.activeTab = timeTab
+			case "left":
+				if m.activeTab > statusTab {
+					m.activeTab--
+				}
+			case "right":
+				if m.activeTab < timeTab {
+					m.activeTab++
+				}
 			}
 		}
 
@@ -108,6 +130,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, cmd)
 
 	m.dnsModel, cmd = m.dnsModel.Update(msg)
+	cmds = append(cmds, cmd)
+
+	m.firewallModel, cmd = m.firewallModel.Update(msg)
 	cmds = append(cmds, cmd)
 
 	m.healthModel, cmd = m.healthModel.Update(msg)
@@ -137,7 +162,7 @@ func (m model) View() string {
 		BorderForeground(lipgloss.Color("240"))
 
 	tabs := []string{}
-	tabNames := []string{"Status", "SSH", "WireGuard", "DNS", "Health", "Network", "Time"}
+	tabNames := []string{"Status", "SSH", "WireGuard", "DNS", "Firewall", "Health", "Network", "Time"}
 	for i, name := range tabNames {
 		if tab(i) == m.activeTab {
 			tabs = append(tabs, activeTabStyle.Render(name))
@@ -158,6 +183,8 @@ func (m model) View() string {
 		content = m.wireguardModel.View()
 	case dnsTab:
 		content = m.dnsModel.View()
+	case firewallTab:
+		content = m.firewallModel.View()
 	case healthTab:
 		content = m.healthModel.View()
 	case networkTab:
@@ -169,12 +196,19 @@ func (m model) View() string {
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240")).
 		Padding(1, 0, 0, 2)
-	help := helpStyle.Render("← → / 1-7: switch tabs • q: quit")
+	help := helpStyle.Render("← → / 1-8: switch tabs • /?: search • q: quit")
 
 	return fmt.Sprintf("%s\n\n%s\n%s", header, content, help)
 }
 
 func main() {
+	demo := flag.Bool("demo", false, "Run with simulated streaming data")
+	flag.Parse()
+
+	if *demo {
+		services.SetDemoMode(true)
+	}
+
 	p := tea.NewProgram(initialModel(), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

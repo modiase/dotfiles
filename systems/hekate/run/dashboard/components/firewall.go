@@ -10,7 +10,7 @@ import (
 	"github.com/moye/hekate-dashboard/services"
 )
 
-type SSHModel struct {
+type FirewallModel struct {
 	viewport    viewport.Model
 	content     string
 	lines       []string
@@ -20,60 +20,52 @@ type SSHModel struct {
 	search      SearchState
 }
 
-type sshLogsMsg struct {
+type firewallLogsMsg struct {
 	content string
 	err     error
 }
 
-type sshTickMsg time.Time
-type sshTimeoutMsg time.Time
-type sshSearchDebounceMsg time.Time
+type firewallTickMsg time.Time
+type firewallSearchDebounceMsg time.Time
 
-func NewSSHModel() SSHModel {
-	return SSHModel{
+func NewFirewallModel() FirewallModel {
+	return FirewallModel{
 		viewport: viewport.New(80, 20),
 		search:   NewSearchState(),
 	}
 }
 
-func (m SSHModel) IsSearchActive() bool {
+func (m FirewallModel) IsSearchActive() bool {
 	return m.search.Active
 }
 
-func (m SSHModel) Init() tea.Cmd {
+func (m FirewallModel) Init() tea.Cmd {
 	return tea.Batch(
 		m.fetchLogs(),
 		m.tick(),
-		m.timeout(),
 	)
 }
 
-func (m SSHModel) timeout() tea.Cmd {
-	return tea.Tick(time.Second*10, func(t time.Time) tea.Msg {
-		return sshTimeoutMsg(t)
+func (m FirewallModel) tick() tea.Cmd {
+	return tea.Tick(time.Second*3, func(t time.Time) tea.Msg {
+		return firewallTickMsg(t)
 	})
 }
 
-func (m SSHModel) tick() tea.Cmd {
-	return tea.Tick(time.Second*5, func(t time.Time) tea.Msg {
-		return sshTickMsg(t)
-	})
-}
-
-func (m SSHModel) fetchLogs() tea.Cmd {
+func (m FirewallModel) fetchLogs() tea.Cmd {
 	return func() tea.Msg {
-		content, err := services.GetSSHLogs()
-		return sshLogsMsg{content: content, err: err}
+		content, err := services.GetFirewallLogs()
+		return firewallLogsMsg{content: content, err: err}
 	}
 }
 
-func (m SSHModel) searchDebounce() tea.Cmd {
+func (m FirewallModel) searchDebounce() tea.Cmd {
 	return tea.Tick(150*time.Millisecond, func(t time.Time) tea.Msg {
-		return sshSearchDebounceMsg(t)
+		return firewallSearchDebounceMsg(t)
 	})
 }
 
-func (m SSHModel) Update(msg tea.Msg) (SSHModel, tea.Cmd) {
+func (m FirewallModel) Update(msg tea.Msg) (FirewallModel, tea.Cmd) {
 	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
@@ -86,10 +78,10 @@ func (m SSHModel) Update(msg tea.Msg) (SSHModel, tea.Cmd) {
 			m.viewport.Height = msg.Height - 10
 		}
 
-	case sshTickMsg:
+	case firewallTickMsg:
 		return m, tea.Batch(m.fetchLogs(), m.tick())
 
-	case sshLogsMsg:
+	case firewallLogsMsg:
 		m.content = msg.content
 		m.lines = strings.Split(m.content, "\n")
 		m.err = msg.err
@@ -103,15 +95,7 @@ func (m SSHModel) Update(msg tea.Msg) (SSHModel, tea.Cmd) {
 		}
 		return m, nil
 
-	case sshTimeoutMsg:
-		if !m.initialized {
-			m.content = "Timeout: Failed to load SSH logs after 10 seconds. Check permissions and log file existence."
-			m.initialized = true
-			m.viewport.SetContent(m.content)
-		}
-		return m, nil
-
-	case sshSearchDebounceMsg:
+	case firewallSearchDebounceMsg:
 		if m.search.NeedsUpdate() {
 			m.search.FindMatches(m.lines)
 			m.viewport.SetContent(m.search.HighlightContent(m.lines))
@@ -177,15 +161,15 @@ func (m SSHModel) Update(msg tea.Msg) (SSHModel, tea.Cmd) {
 	return m, cmd
 }
 
-func (m SSHModel) View() string {
+func (m FirewallModel) View() string {
 	if m.err != nil {
 		return lipgloss.NewStyle().
 			Foreground(lipgloss.Color("9")).
-			Render("Error loading SSH logs: " + m.err.Error())
+			Render("Error loading firewall logs: " + m.err.Error())
 	}
 
 	if !m.ready {
-		return "Loading SSH logs..."
+		return "Loading firewall logs..."
 	}
 
 	headerStyle := lipgloss.NewStyle().
@@ -193,7 +177,7 @@ func (m SSHModel) View() string {
 		Foreground(lipgloss.Color("99")).
 		Padding(0, 1)
 
-	header := headerStyle.Render("SSH Access Logs")
+	header := headerStyle.Render("Firewall Blocked Connections")
 
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240")).

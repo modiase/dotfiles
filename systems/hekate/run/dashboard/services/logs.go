@@ -22,6 +22,9 @@ func init() {
 
 // GetSSHLogs reads the SSH access log and all rotated logs, returning them concatenated
 func GetSSHLogs() (string, error) {
+	if IsDemoMode() {
+		return GetDemoSSHLogs(), nil
+	}
 	logDir := "/var/log"
 	baseName := "ssh-access.log"
 

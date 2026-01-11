@@ -9,6 +9,10 @@ import (
 const dnsLogsSocket = "/run/dns-logs/logs.sock"
 
 func GetDNSLogs() (string, error) {
+	if IsDemoMode() {
+		return GetDemoDNSLogs(), nil
+	}
+
 	conn, err := net.DialTimeout("unix", dnsLogsSocket, 5*time.Second)
 	if err != nil {
 		return "DNS logs unavailable: " + err.Error(), nil
