@@ -21,6 +21,11 @@ Options:
   --debug                 Log debug info to /tmp/ding-debug.log
   -h, --help              Show this help
 
+Tmux placeholders (expanded in --title, --message, --window-title):
+  #{t_window_index}  Current tmux window index
+  #{t_window_name}   Current tmux window name
+  #{t_pane_index}    Current tmux pane index
+
 Behaviour:
   Local mode:
     - Always plays a sound and sends bell to terminal
@@ -135,6 +140,32 @@ log_debug() {
     [[ $debug -eq 1 ]] && echo "[$(date '+%H:%M:%S')] $*" >>/tmp/ding-debug.log || true
 }
 
+expand_tmux_vars() {
+    local text="$1"
+    [[ -z "${TMUX_PANE:-}" ]] && {
+        echo "$text"
+        return
+    }
+    [[ "$text" != *'#{t_'* ]] && {
+        echo "$text"
+        return
+    }
+
+    local win_index win_name pane_index
+    win_index=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || win_index=""
+    win_name=$(tmux display-message -t "$TMUX_PANE" -p '#{window_name}' 2>/dev/null) || win_name=""
+    pane_index=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_index}' 2>/dev/null) || pane_index=""
+
+    text="${text//\#\{t_window_index\}/$win_index}"
+    text="${text//\#\{t_window_name\}/$win_name}"
+    text="${text//\#\{t_pane_index\}/$pane_index}"
+    echo "$text"
+}
+
+title=$(expand_tmux_vars "$title")
+message=$(expand_tmux_vars "$message")
+window_title=$(expand_tmux_vars "$window_title")
+
 if [[ -z "$mode" ]]; then
     if [[ -n "${SSH_TTY:-}${SSH_CLIENT:-}${SSH_CONNECTION:-}" ]]; then
         mode="remote"
@@ -151,12 +182,14 @@ if [[ -n "$command" ]]; then
     bash -c "$command"
     exit_code=$?
     set -e
-    title="${title:-$command}"
+    window_title="${window_title:-Command}"
     if [[ $exit_code -eq 0 ]]; then
         alert_type="success"
-        message="${message:-Command succeeded}"
+        title="${title:-${command}}"
+        message="${message:-Command suceeded}"
     else
         alert_type="error"
+        title="${title:-${command}}"
         message="${message:-Command failed (exit $exit_code)}"
     fi
     force=1
@@ -281,10 +314,8 @@ if [[ "$mode" == "local" ]]; then
         send_alert "$win_title" "$msg"
     fi
 else
-    msg=$(build_message)
-    [[ -z "$msg" ]] && msg="ding"
-
-    ntfy_args=(--topic ding --title "$win_title" --recipient "$recipient")
+    ntfy_args=(--topic ding --recipient "$recipient")
+    [[ -n "$title" ]] && ntfy_args+=(--title "$title")
     [[ -n "$alert_type" ]] && ntfy_args+=(--alert-type "$alert_type")
-    ntfy-me "${ntfy_args[@]}" "$msg"
+    ntfy-me "${ntfy_args[@]}" "${message:-ding}"
 fi
