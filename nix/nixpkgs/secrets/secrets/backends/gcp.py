@@ -3,9 +3,14 @@
 from __future__ import annotations
 
 import os
+import warnings
 from typing import TYPE_CHECKING
 
 from .base import Backend, BackendError
+
+warnings.filterwarnings(
+    "ignore", message="Your application has authenticated using end user credentials"
+)
 
 if TYPE_CHECKING:
     from google.cloud import secretmanager
