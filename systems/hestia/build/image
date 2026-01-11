@@ -1,7 +1,9 @@
 import os
+import re
 import subprocess
 import sys
 import platform
+from dataclasses import dataclass
 from pathlib import Path
 
 import click
@@ -14,14 +16,81 @@ from pyutils import (
     check_nix,
     check_ssh_access,
     copy_to_clipboard,
-    one,
     run_command_env_context,
     setup_logging,
 )
 
 
-def get_flash_instructions(image_file: Path) -> str:
-    return f"zstd -d -c {image_file} | sudo dd of=/dev/sdX bs=4M status=progress"
+@dataclass
+class ImageInfo:
+    path: Path
+    compressed_bytes: int
+    decompressed_bytes: int
+
+    @property
+    def compressed_human(self) -> str:
+        return _format_bytes(self.compressed_bytes)
+
+    @property
+    def decompressed_human(self) -> str:
+        return _format_bytes(self.decompressed_bytes)
+
+
+def _run_cmd(cmd: list[str], remote_host: str | None = None) -> subprocess.CompletedProcess:
+    """Run command locally or via SSH."""
+    if remote_host:
+        return subprocess.run(
+            ["ssh", f"moye@{remote_host}"] + cmd, capture_output=True, text=True
+        )
+    return subprocess.run(cmd, capture_output=True, text=True)
+
+
+def _format_bytes(n: int) -> str:
+    """Format bytes as human-readable size."""
+    for unit in ["B", "KiB", "MiB", "GiB"]:
+        if n < 1024:
+            return f"{n:.1f} {unit}"
+        n /= 1024
+    return f"{n:.1f} TiB"
+
+
+def _parse_zstd_sizes(output: str, filename: str) -> tuple[int, int]:
+    """Parse compressed and decompressed sizes from zstd -l output."""
+    multipliers = {"B": 1, "KiB": 1024, "MiB": 1024**2, "GiB": 1024**3}
+    size_pattern = r"(\d+\.?\d*)\s*(GiB|MiB|KiB|B)"
+
+    for line in output.split("\n"):
+        if filename not in line or "Frames" in line:
+            continue
+        matches = re.findall(size_pattern, line)
+        if len(matches) >= 2:
+            compressed = int(float(matches[0][0]) * multipliers[matches[0][1]])
+            decompressed = int(float(matches[1][0]) * multipliers[matches[1][1]])
+            return compressed, decompressed
+
+    raise ValueError(f"Could not parse sizes from zstd output: {output}")
+
+
+def discover_image(build_output: Path, remote_host: str | None = None) -> ImageInfo:
+    """Find the .img.zst file and get its size information."""
+    result = _run_cmd(
+        ["find", str(build_output), "-name", "*.img.zst", "-type", "f"], remote_host
+    )
+    files = [f for f in result.stdout.strip().split("\n") if f]
+    if len(files) != 1:
+        raise ValueError(f"Expected one .img.zst in {build_output}, found: {files}")
+
+    image_path = Path(files[0])
+    result = _run_cmd(["zstd", "-l", str(image_path)], remote_host)
+    compressed, decompressed = _parse_zstd_sizes(result.stdout, image_path.name)
+
+    return ImageInfo(path=image_path, compressed_bytes=compressed, decompressed_bytes=decompressed)
+
+
+def get_flash_instructions(image: ImageInfo, remote_host: str | None = None) -> str:
+    if remote_host:
+        return f"ssh moye@{remote_host} 'zstd -d -c {image.path}' | sudo dd of=/dev/sdX bs=4M status=progress"
+    return f"zstd -d -c {image.path} | sudo dd of=/dev/sdX bs=4M status=progress"
 
 
 def _check_removable_darwin(device_path: str) -> bool:
@@ -81,8 +150,12 @@ def _run_disk_command(cmd: list, action: str) -> bool:
         return False
 
 
-def flash_image_to_device(image_file: Path, device_path: str) -> bool:
-    logger.warning(f"About to flash {image_file} to {device_path}")
+def flash_image_to_device(
+    image: ImageInfo,
+    device_path: str,
+    remote_host: str | None = None,
+) -> bool:
+    logger.warning(f"About to flash {image.path} to {device_path}")
     logger.warning("This will DESTROY ALL DATA on the target device!")
 
     try:
@@ -93,13 +166,14 @@ def flash_image_to_device(image_file: Path, device_path: str) -> bool:
             _run_disk_command(["sudo", "umount", f"{device_path}*"], "Unmount")
 
         logger.info("Starting flash process...")
-        flash_cmd = (
-            f"zstd -d -c {image_file} | sudo dd of={device_path} bs=4M status=progress"
-        )
+        if remote_host:
+            flash_cmd = f"ssh moye@{remote_host} 'zstd -d -c {image.path}' | pv -s {image.decompressed_bytes} | sudo dd of={device_path} bs=4M"
+        else:
+            flash_cmd = f"zstd -d -c {image.path} | pv -s {image.decompressed_bytes} | sudo dd of={device_path} bs=4M"
         result = subprocess.run(flash_cmd, shell=True, check=False, text=True)
 
         if result.returncode == 0:
-            logger.success(f"Successfully flashed {image_file} to {device_path}")
+            logger.success(f"Successfully flashed {image.path} to {device_path}")
 
             logger.info("Ejecting device...")
             if platform.system() == "Darwin":
@@ -246,45 +320,31 @@ def cli(
             )
         )
         try:
-            image_file = one(build_output.glob("**/*.img.zst"))
+            image = discover_image(build_output, remote_host)
         except ValueError as e:
-            logger.error(f"Expected exactly one .img.zst in {build_output}: {e}")
+            logger.error(str(e))
             sys.exit(1)
 
-    with logger.contextualize(task="preparing-flash-command"):
-        image_size = subprocess.run(
-            ["du", "-h", str(image_file)], capture_output=True, text=True
-        ).stdout.split()[0]
+    logger.success("Hestia image built successfully")
+    logger.info(f"Image: {image.path}")
+    logger.info(f"Size: {image.compressed_human} compressed, {image.decompressed_human} decompressed")
 
-        logger.success("Hestia image built successfully")
-        logger.info(f"Image location: {image_file}")
-        logger.info(f"Image size: {image_size}")
+    if device:
+        with logger.contextualize(task="flashing-device"):
+            if flash_image_to_device(image, device, remote_host):
+                logger.success(f"Image successfully flashed to {device}")
+                return
+            logger.error(f"Failed to flash image to {device}")
+            sys.exit(1)
 
-        if device:
-            with logger.contextualize(task="flashing-device"):
-                if flash_image_to_device(image_file, device):
-                    logger.success(f"Image successfully flashed to {device}")
-                    return
-                else:
-                    logger.error(f"Failed to flash image to {device}")
-                    sys.exit(1)
-        else:
-            logger.info(f"Flash with: {get_flash_instructions(image_file)}")
+    logger.info(f"Flash with: {get_flash_instructions(image, remote_host)}")
 
-    if interactive and not device:
+    if interactive:
         copy_answers = inquirer.prompt(
-            [
-                inquirer.Confirm(
-                    "copy_command",
-                    message="Copy flash command to clipboard?",
-                    default=False,
-                ),
-            ]
+            [inquirer.Confirm("copy_command", message="Copy flash command to clipboard?", default=False)]
         )
-        copy_command = copy_answers and copy_answers["copy_command"]
-
-        if copy_command:
-            if copy_to_clipboard(get_flash_instructions(image_file)):
+        if copy_answers and copy_answers["copy_command"]:
+            if copy_to_clipboard(get_flash_instructions(image, remote_host)):
                 logger.info("Flash command copied to clipboard!")
             else:
                 logger.warning("Could not copy to clipboard")

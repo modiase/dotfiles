@@ -38,6 +38,7 @@ let
     "OUTPUT -p tcp -d 1.0.0.1 --dport 853 -j ACCEPT"
     "OUTPUT -p tcp -d 8.8.8.8 --dport 853 -j ACCEPT"
     "OUTPUT -p tcp -d 8.8.4.4 --dport 853 -j ACCEPT"
+    "OUTPUT -j LOG --log-prefix \"FW_DROP: \" --log-level 4"
     "OUTPUT -j DROP"
   ];
 in
@@ -50,6 +51,7 @@ in
     ./run/services/wg-status-server.nix
     ./run/services/health-status-server.nix
     ./run/services/dns-logs-server.nix
+    ./run/services/firewall-logs-server.nix
   ];
 
   config = {
