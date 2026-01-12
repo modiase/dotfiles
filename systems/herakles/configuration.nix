@@ -22,17 +22,30 @@
   config = {
     services.llm-server.enable = false;
 
-    services.llm-orchestrator = {
-      enable = true;
-      host = "127.0.0.1";
-      chatModel = "cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit";
-      embedModel = "Qwen/Qwen3-Embedding-0.6B";
-      gpuMemoryUtilization = 0.90;
-      maxModelLen = 39584;
-      maxNumSeqs = 64;
-      lmcache = {
+    services.vllm.instances = {
+      chat = {
         enable = true;
-        maxCpuSize = 64;
+        model = "QuixiAI/Qwen3-30B-A3B-AWQ";
+        port = 8001;
+        gpuMemoryUtilization = 0.80;
+        maxModelLen = 32768;
+        maxNumSeqs = 64;
+      };
+      coder = {
+        enable = true;
+        model = "cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit";
+        port = 8002;
+        gpuMemoryUtilization = 0.80;
+        maxModelLen = 32768;
+        maxNumSeqs = 64;
+      };
+      embed = {
+        enable = true;
+        model = "Qwen/Qwen3-Embedding-0.6B";
+        port = 8003;
+        gpuMemoryUtilization = 0.15;
+        maxModelLen = 8192;
+        task = "embed";
       };
     };
 
@@ -43,10 +56,18 @@
       settings = {
         model_list = [
           {
+            model_name = "qwen-chat";
+            litellm_params = {
+              model = "openai/QuixiAI/Qwen3-30B-A3B-AWQ";
+              api_base = "http://127.0.0.1:8001/v1";
+              api_key = "not-needed";
+            };
+          }
+          {
             model_name = "qwen-coder";
             litellm_params = {
               model = "openai/cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit";
-              api_base = "http://127.0.0.1:8000/v1";
+              api_base = "http://127.0.0.1:8002/v1";
               api_key = "not-needed";
             };
           }
@@ -54,7 +75,7 @@
             model_name = "qwen-embed";
             litellm_params = {
               model = "openai/Qwen/Qwen3-Embedding-0.6B";
-              api_base = "http://127.0.0.1:8000/v1";
+              api_base = "http://127.0.0.1:8003/v1";
               api_key = "not-needed";
             };
           }
@@ -65,11 +86,31 @@
               api_key = "os.environ/ANTHROPIC_API_KEY";
             };
           }
+          {
+            model_name = "haiku";
+            litellm_params = {
+              model = "anthropic/claude-haiku-4-5-20251015";
+              api_key = "os.environ/ANTHROPIC_API_KEY";
+            };
+          }
+          {
+            model_name = "gemini3";
+            litellm_params = {
+              model = "gemini/gemini-3-pro-preview";
+              api_key = "os.environ/GEMINI_API_KEY";
+            };
+          }
+          {
+            model_name = "gemini-flash";
+            litellm_params = {
+              model = "gemini/gemini-2.5-flash-preview-05-20";
+              api_key = "os.environ/GEMINI_API_KEY";
+            };
+          }
         ];
         litellm_settings = {
           num_retries = 2;
           request_timeout = 120;
-          fallbacks = [ { "qwen-coder" = [ "sonnet" ]; } ];
         };
       };
     };

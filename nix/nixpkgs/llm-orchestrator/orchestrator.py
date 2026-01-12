@@ -14,6 +14,20 @@ from vllm import SamplingParams
 
 from model_manager import ModelConfig, ModelManager, ModelType
 
+MODEL_ALIASES: dict[str, ModelType] = {
+    "qwen-chat": ModelType.CHAT,
+    "qwen-coder": ModelType.CODER,
+    "QuixiAI/Qwen3-30B-A3B-AWQ": ModelType.CHAT,
+    "cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit": ModelType.CODER,
+}
+DEFAULT_CHAT_MODEL = ModelType.CHAT
+
+
+def resolve_model(model_name: str) -> ModelType:
+    """Resolve model name/alias to ModelType, defaulting to CHAT."""
+    return MODEL_ALIASES.get(model_name, DEFAULT_CHAT_MODEL)
+
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -94,6 +108,7 @@ class HealthResponse(BaseModel):
     status: str
     active_model: str | None
     chat_model: str
+    coder_model: str
     embed_model: str
 
 
@@ -102,13 +117,15 @@ async def lifespan(app: FastAPI):
     global manager
 
     config = ModelConfig(
-        chat_model=os.environ.get(
-            "CHAT_MODEL", "cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
+        chat_model=os.environ.get("CHAT_MODEL", "QuixiAI/Qwen3-30B-A3B-AWQ"),
+        coder_model=os.environ.get(
+            "CODER_MODEL", "cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
         ),
         embed_model=os.environ.get("EMBED_MODEL", "Qwen/Qwen3-Embedding-0.6B"),
         gpu_memory_utilization=float(os.environ.get("GPU_MEMORY_UTIL", "0.85")),
         max_model_len=int(os.environ.get("MAX_MODEL_LEN", "32768")),
         max_num_seqs=int(os.environ.get("MAX_NUM_SEQS", "256")),
+        idle_timeout_s=float(os.environ.get("IDLE_TIMEOUT", "300")),
     )
 
     manager = ModelManager(config)
@@ -163,7 +180,8 @@ async def chat_completions(request: ChatCompletionRequest):
         stop=stop_sequences or ["<|im_end|>"],
     )
 
-    async with manager.use_model(ModelType.CHAT):
+    model_type = resolve_model(request.model)
+    async with manager.use_model(model_type):
         outputs = manager.generate_chat([prompt], sampling_params)
 
     output = outputs[0]
@@ -228,7 +246,10 @@ async def list_models():
 
     return ModelListResponse(
         data=[
+            ModelInfo(id="qwen-chat"),
+            ModelInfo(id="qwen-coder"),
             ModelInfo(id=manager.config.chat_model),
+            ModelInfo(id=manager.config.coder_model),
             ModelInfo(id=manager.config.embed_model),
         ]
     )
@@ -241,6 +262,7 @@ async def health():
             status="initializing",
             active_model=None,
             chat_model="",
+            coder_model="",
             embed_model="",
         )
 
@@ -249,6 +271,7 @@ async def health():
         status="ok" if status["initialized"] else "initializing",
         active_model=status["active_model"],
         chat_model=status["chat_model"],
+        coder_model=status["coder_model"],
         embed_model=status["embed_model"],
     )
 
