@@ -256,6 +256,12 @@
         isFrontend = true;
       };
 
+      homeConfigurations."${username}-hephaistos" = mkHomeConfig {
+        name = "hephaistos";
+        system = "aarch64-darwin";
+        isFrontend = true;
+      };
+
       homeConfigurations."${username}-herakles" = mkHomeConfig {
         name = "herakles";
         system = "x86_64-linux";
@@ -291,6 +297,14 @@
         isFrontend = true;
         manageRemotely = true;
         modules = [ ./systems/pallas/configuration.nix ];
+      };
+
+      darwinConfigurations."hephaistos" = mkSystem {
+        name = "hephaistos";
+        system = "aarch64-darwin";
+        type = "darwin";
+        isFrontend = true;
+        modules = [ ./systems/hephaistos/configuration.nix ];
       };
 
       nixosConfigurations."herakles" = mkSystem {
