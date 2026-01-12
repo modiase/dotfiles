@@ -1,3 +1,1 @@
-systems/hekate/** filter=git-crypt diff=git-crypt
-systems/hephaistos/** filter=git-crypt diff=git-crypt
-systems/hermes/** filter=git-crypt diff=git-crypt
+systems/** filter=git-crypt diff=git-crypt
