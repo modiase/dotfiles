@@ -91,64 +91,47 @@ func FilterRaw(question, rawResults string, cfg Config, log Logger) (string, err
 	return FormatResults(filtered), nil
 }
 
-// ParseResults parses markdown search results.
+// ParseResults parses labelled search results.
 func ParseResults(raw string) []Result {
 	var results []Result
-	sections := strings.Split(raw, "---\n")
-	for _, section := range sections {
-		section = strings.TrimSpace(section)
-		if section == "" {
-			continue
-		}
-		var r Result
-		lines := strings.Split(section, "\n")
-		for _, line := range lines {
-			if strings.HasPrefix(line, "## ") {
-				if r.Title != "" || r.Text != "" {
-					results = append(results, r)
-					r = Result{}
-				}
-				header := strings.TrimPrefix(line, "## ")
-				if strings.HasPrefix(header, "[") {
-					if end := strings.Index(header, "]("); end != -1 {
-						r.Title = header[1:end]
-						rest := header[end+2:]
-						if urlEnd := strings.Index(rest, ")"); urlEnd != -1 {
-							r.URL = rest[:urlEnd]
-						}
-					}
-				} else {
-					r.Title = header
-				}
-			} else if line != "" && r.Title != "" {
-				if r.Text != "" {
-					r.Text += " "
-				}
-				r.Text += line
+	var r Result
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		switch {
+		case line == "":
+			if r.Title != "" || r.URL != "" || r.Text != "" {
+				results = append(results, r)
+				r = Result{}
 			}
+		case strings.HasPrefix(line, "Title: "):
+			r.Title = strings.TrimPrefix(line, "Title: ")
+		case strings.HasPrefix(line, "URL: "):
+			r.URL = strings.TrimPrefix(line, "URL: ")
+		case strings.HasPrefix(line, "Text: "):
+			r.Text = strings.TrimPrefix(line, "Text: ")
 		}
-		if r.Title != "" || r.Text != "" {
-			results = append(results, r)
-		}
+	}
+	if r.Title != "" || r.URL != "" || r.Text != "" {
+		results = append(results, r)
 	}
 	return results
 }
 
-// FormatResults formats results as markdown.
+// FormatResults formats results as labelled text.
 func FormatResults(results []Result) string {
 	var b strings.Builder
 	for i, r := range results {
 		if i > 0 {
-			b.WriteString("---\n")
+			b.WriteString("\n")
 		}
 		if r.Title != "" {
-			b.WriteString("## " + r.Title + "\n")
+			b.WriteString("Title: " + r.Title + "\n")
 		}
 		if r.URL != "" {
-			b.WriteString(r.URL + "\n")
+			b.WriteString("URL: " + r.URL + "\n")
 		}
 		if r.Text != "" {
-			b.WriteString(r.Text + "\n")
+			b.WriteString("Text: " + r.Text + "\n")
 		}
 	}
 	return b.String()
