@@ -3,6 +3,7 @@
   pkgs,
   lib,
   isFrontend ? false,
+  user ? "moye",
   ...
 }:
 
@@ -21,6 +22,7 @@ let
     eza
     fd
     fzf
+    git-crypt
     gnused
     google-cloud-sdk
     jq
@@ -103,7 +105,7 @@ in
     ./tmux.nix
   ];
 
-  home.username = "moye";
+  home.username = user;
 
   home.packages =
     commonPackages

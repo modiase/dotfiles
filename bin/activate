@@ -331,7 +331,7 @@ do_activate() {
 
     local config_hostname flake_target
     config_hostname="${SYSTEM_OVERRIDE:-$(hostname -s)}"
-    HOME_MANAGER_TARGET="moye-$config_hostname"
+    HOME_MANAGER_TARGET="$USER-$config_hostname"
     flake_target="$REPO_ROOT#$config_hostname"
 
     [ -n "$SYSTEM_OVERRIDE" ] && log_debug "Using system: $SYSTEM_OVERRIDE"
