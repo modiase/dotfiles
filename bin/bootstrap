@@ -1,4 +1,5 @@
 #!/bin/sh -eu
+# shellcheck shell=sh
 
 on_exit() {
     if [ $? != 0 ]; then
@@ -46,7 +47,8 @@ for dep in $deps; do
         if [ "$platform" = "Linux" ]; then
             if [ -n "$pkg_manager" ]; then
                 [ "${DEBUG:-0}" -gt 0 ] && printf "Installing %s using %s\n" "$dep" "$pkg_manager"
-                eval "sudo $pkg_manager $update_cmd && sudo $pkg_manager $install_cmd $dep"
+                # shellcheck disable=SC2086  # intentional: install_cmd contains "install -y"
+                sudo $pkg_manager $update_cmd && sudo $pkg_manager $install_cmd "$dep"
             elif command -v nix >/dev/null 2>&1; then
                 nix_dep="$(echo "$dep" | sed 's/-utils$//')"
                 [ "${DEBUG:-0}" -gt 0 ] && printf "Installing %s using nix\n" "$nix_dep"
@@ -69,8 +71,4 @@ case "$platform" in
     Linux) install_args="--no-daemon" ;;
 esac
 
-eval "$(command -v sh) <(curl -L https://nixos.org/nix/install) $install_args"
-
-if [ -f "$HOME/.nix-profile/etc/profile.d/nix.sh" ]; then
-    . "$HOME/.nix-profile/etc/profile.d/nix.sh"
-fi
+curl -L https://nixos.org/nix/install | sh -s -- "$install_args"

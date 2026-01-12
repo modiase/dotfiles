@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 set -eu
 
-COLOR_ENABLED=true
 LOCK_TIMEOUT=30
 LOG_LEVEL=2
-MAX_CORES=$(($(nproc) - 1))
+MAX_CORES=$(($(getconf _NPROCESSORS_ONLN) - 1))
 SYSTEM_OVERRIDE="${DOTFILES_SYSTEM:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel)"
+
+export NIX_CONFIG="experimental-features = nix-command flakes"
+# shellcheck source=/dev/null
 source "$(nix build "$REPO_ROOT#logging-utils" --print-out-paths --no-link 2>/dev/null)/lib/logging-utils.sh"
 
 show_usage() {
@@ -27,7 +30,7 @@ Subcommands:
     show [HOST]    Show activation status
 
 Options:
-    -c CORES       Set max cores for parallel builds (default: $(nproc) - 1)
+    -c CORES       Set max cores for parallel builds (default: $(getconf _NPROCESSORS_ONLN) - 1)
     -h             Show this help message
     -l LEVEL       Set log level (default: 2)
                    1 = minimal (errors only)
@@ -206,6 +209,7 @@ deploy_local() {
 
 deploy_remote() {
     local host="$1"
+    # shellcheck disable=SC2029  # intentional: DEPLOY_CMD runs on remote
     ssh "$host" "$DEPLOY_CMD"
 }
 
@@ -245,11 +249,14 @@ deploy_all() {
 
     for host in $hosts; do
         (
-            local prefix runner
+            local prefix
             prefix=$(printf "%-16s| " "$host")
-            runner="ssh $host"
-            [ "$host" = "localhost" ] && runner="bash -c"
-            eval "$runner '$DEPLOY_CMD'" 2>&1 | sed "s/^/$prefix/"
+            if [ "$host" = "localhost" ]; then
+                bash -c "$DEPLOY_CMD" 2>&1 | sed "s/^/$prefix/"
+            else
+                # shellcheck disable=SC2029  # intentional: DEPLOY_CMD runs on remote
+                ssh "$host" "$DEPLOY_CMD" 2>&1 | sed "s/^/$prefix/"
+            fi
             echo "${PIPESTATUS[0]}" >"$result_dir/$host"
         ) &
     done
@@ -289,7 +296,6 @@ do_activate() {
     if [ "$LOG_LEVEL" -ge 4 ]; then set -x; fi
 
     set -o pipefail
-    export NIX_CONFIG="experimental-features = nix-command flakes"
 
     add_exit_hook 'release_lock'
     trap 'exit 130' INT TERM
@@ -305,8 +311,10 @@ do_activate() {
     [ "$(uname -s)" = "Darwin" ] &&
         curl --proto '=https' --tlsv1.2 -sSf -L https://github.com/NixOS/nix/raw/master/scripts/sequoia-nixbld-user-migration.sh | bash - >/dev/null 2>&1 || true
 
+    # shellcheck source=/dev/null
     [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ] &&
         . "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" || true
+    # shellcheck source=/dev/null
     [ -e "$HOME/.nix-profile/etc/profile.d/nix.sh" ] &&
         . "$HOME/.nix-profile/etc/profile.d/nix.sh" || true
 

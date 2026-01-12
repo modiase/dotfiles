@@ -15,5 +15,5 @@ function pynix -d "Create a python environment with the specified packages using
         set nix_command $nix_command -p python$py_version"Packages."$package
     end
     echo "$nix_command"
-    eval "fish_prompt_prefix='pynix' $nix_command --command fish"
+    env fish_prompt_prefix=pynix $nix_command --command fish
 end

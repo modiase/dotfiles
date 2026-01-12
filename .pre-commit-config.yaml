@@ -77,11 +77,11 @@ repos:
         name: bash syntax check
         entry: bash
         language: system
-        files: \.(sh|bash)$
+        files: (\.(sh|bash)$|^bin/)
         pass_filenames: false
         args:
           - -c
-          - "nix-shell -p fd --run 'fd -e sh -e bash -E worktrees -x bash -n'"
+          - "nix-shell -p fd --run 'fd -e sh -e bash -E worktrees -x bash -n && for f in bin/activate bin/bootstrap; do [ -f \"$f\" ] && bash -n \"$f\"; done'"
       - id: fish-syntax
         name: fish syntax check
         entry: bash
@@ -95,20 +95,20 @@ repos:
         name: shellcheck
         entry: bash
         language: system
-        files: \.(sh|bash)$
+        files: (\.(sh|bash)$|^bin/)
         pass_filenames: false
         args:
           - -c
-          - "nix-shell -p shellcheck fd --run 'fd -e sh -e bash -E worktrees | xargs shellcheck'"
+          - "nix-shell -p shellcheck fd --run 'fd -e sh -e bash -E worktrees | xargs -r shellcheck; shellcheck bin/activate bin/bootstrap'"
       - id: shfmt
         name: shfmt
         entry: bash
         language: system
-        files: \.(sh|bash)$
+        files: (\.(sh|bash)$|^bin/)
         pass_filenames: false
         args:
           - -c
-          - "nix-shell -p shfmt --run 'shfmt -w -i 4 -ci .'"
+          - "nix-shell -p shfmt fd --run 'shfmt -w -i 4 -ci $(fd -e sh -e bash -E worktrees) bin/activate bin/bootstrap'"
       - id: remove-trailing-whitespace
         name: remove trailing whitespace
         entry: bash
