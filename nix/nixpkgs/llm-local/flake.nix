@@ -249,11 +249,11 @@
                 fi
               else
                 export DEVICE="cpu"
-                export THREADS=$(sysctl -n hw.ncpu)
+                export THREADS=$(getconf _NPROCESSORS_ONLN)
               fi
             else
               export DEVICE="cpu"
-              export THREADS=$(nproc)
+              export THREADS=$(getconf _NPROCESSORS_ONLN)
             fi
 
             log "Configuration: device=$DEVICE, threads=$THREADS"

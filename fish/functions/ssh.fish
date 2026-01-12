@@ -83,10 +83,9 @@ function __ssh_run_ssh --no-scope-shadowing
     set -l cmd command ssh
     test $want_tmux -eq 1; and set -a cmd -q -t
     set -a cmd $args
-    set -l tmux_suffix
-    test $want_tmux -eq 1; and set tmux_suffix '"tmux new-session -A -s remote"'
-    test $debug -eq 1; and echo "Using: $cmd $tmux_suffix"
-    eval $cmd $tmux_suffix
+    test $want_tmux -eq 1; and set -a cmd 'tmux new-session -A -s remote'
+    test $debug -eq 1; and echo "Using: $cmd"
+    $cmd
 end
 
 if test $use_et -eq 1

@@ -1,5 +1,13 @@
 # Dotfiles & Infrastructure
 
+```bash
+git clone git@github.com:modiase/Dotfiles.git ~/Dotfiles
+cd ~/Dotfiles
+bin/bootstrap
+source ~/.nix-profile/etc/profile.d/nix.sh
+bin/activate -s <hostname>
+```
+
 This repository contains:
 
 - NixOS system configurations for servers (e.g. Hermes) and remote builders.

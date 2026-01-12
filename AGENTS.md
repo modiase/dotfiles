@@ -37,7 +37,7 @@ MANDATORY: you must never call bin/activate without being explicitly asked to.
 ### Options
 
 - `-l LEVEL` - Log level: 1=errors, 2=normal (default), 3=verbose, 4+=debug
-- `-c CORES` - Max cores for parallel builds (default: nproc - 1)
+- `-c CORES` - Max cores for parallel builds (default: ncpu - 1)
 - `-t TIMEOUT` - Lock timeout in minutes (default: 30)
 
 ### When to Use Each
@@ -188,20 +188,12 @@ curl -H "Authorization: Bearer $token" ...
 - **Do NOT include function wrapper** - home-manager's `programs.fish.functions` automatically wraps the body
 - **Files in `fish/functions/` should contain ONLY the function body**, not `function name ... end`
 - Example - for a function `gst`, the file `fish/functions/gst.fish` should contain just: `git status $argv`
-- **Prefer command construction over if/else** - build commands with `set` and execute with `eval`:
+- **Avoid eval** - build commands as arrays and execute directly:
 
   ```fish
-  # Good: construct command, then eval
   set -l cmd mycommand
   test -n "$SOME_VAR"; and set -a cmd --some-flag
-  eval $cmd $argv
-
-  # Avoid: if/else branching
-  if test -n "$SOME_VAR"
-      mycommand --some-flag $argv
-  else
-      mycommand $argv
-  end
+  $cmd $argv
   ```
 
 ## Language
