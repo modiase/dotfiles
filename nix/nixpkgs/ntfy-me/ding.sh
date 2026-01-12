@@ -256,12 +256,13 @@ send_alert() {
             read -r icon colour < <(get_alert_style "$alert_type")
             local args=(
                 --title "$alert_title"
-                --titlefont "name=Lato,colour=#ffffff,size=20,weight=bold"
+                --titlefont "size=16"
                 --message "$msg"
-                --messagefont "name=Aleo,colour=#d8dee9,size=14"
-                --background "colour=#12161a"
-                --width 500
-                --height 250
+                --messagefont "size=12"
+                --background "@DING_BACKGROUND@"
+                --bgscale fill
+                --width 400
+                --height 200
                 --buttonstyle center
                 --appearance dark
                 --ontop
