@@ -222,6 +222,7 @@
           name,
           system,
           isFrontend ? false,
+          user ? username,
         }:
         let
           isDarwin = lib.hasSuffix "darwin" system;
@@ -232,12 +233,12 @@
             config.allowUnfree = true;
             overlays = sharedOverlays;
           };
-          extraSpecialArgs = { inherit isFrontend; };
+          extraSpecialArgs = { inherit isFrontend user; };
           modules = [
             ./nix/home.nix
             (if isDarwin then ./nix/platforms/darwin.nix else ./nix/platforms/linux.nix)
             {
-              home.homeDirectory = if isDarwin then "/Users/${username}" else "/home/${username}";
+              home.homeDirectory = if isDarwin then "/Users/${user}" else "/home/${user}";
               home.stateVersion = "24.05";
             }
           ];
@@ -256,10 +257,11 @@
         isFrontend = true;
       };
 
-      homeConfigurations."${username}-hephaistos" = mkHomeConfig {
+      homeConfigurations."moyeodiase-hephaistos" = mkHomeConfig {
         name = "hephaistos";
         system = "aarch64-darwin";
-        isFrontend = true;
+        isFrontend = false;
+        user = "moyeodiase";
       };
 
       homeConfigurations."${username}-herakles" = mkHomeConfig {
@@ -303,7 +305,7 @@
         name = "hephaistos";
         system = "aarch64-darwin";
         type = "darwin";
-        isFrontend = true;
+        isFrontend = false;
         modules = [ ./systems/hephaistos/configuration.nix ];
       };
 

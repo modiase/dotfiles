@@ -8,6 +8,24 @@ source ~/.nix-profile/etc/profile.d/nix.sh
 bin/activate -s <hostname>
 ```
 
+## Encrypted Configurations
+
+Some system configurations (hephaistos, hekate) are encrypted with git-crypt. After cloning, these files appear as binary blobs until unlocked.
+
+**Unlock (requires the key file):**
+```bash
+git-crypt unlock /path/to/git-crypt-key
+```
+
+**Check encryption status:**
+```bash
+git-crypt status
+```
+
+Files remain plaintext locally once unlocked. Encryption is transparent on commit/push.
+
+---
+
 This repository contains:
 
 - NixOS system configurations for servers (e.g. Hermes) and remote builders.
