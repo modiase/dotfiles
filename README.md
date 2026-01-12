@@ -10,11 +10,14 @@ bin/activate -s <hostname>
 
 ## Encrypted Configurations
 
-Some system configurations (hephaistos, hekate) are encrypted with git-crypt. After cloning, these files appear as binary blobs until unlocked.
+Some system configurations (hekate, hephaistos, hermes) are encrypted with git-crypt. After cloning, these files appear as binary blobs until unlocked.
 
-**Unlock (requires the key file):**
+The key is stored in GCP Secrets Manager (`dotfiles-key`, base64 encoded).
+
+**Retrieve key and unlock:**
 ```bash
-git-crypt unlock /path/to/git-crypt-key
+secrets get --network dotfiles-key | base64 -d > ~/.git-crypt-dotfiles-key
+git-crypt unlock ~/.git-crypt-dotfiles-key
 ```
 
 **Check encryption status:**
