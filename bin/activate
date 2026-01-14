@@ -293,7 +293,7 @@ do_deploy() {
 }
 
 do_activate() {
-    if [ "$LOG_LEVEL" -ge 4 ]; then set -x; fi
+    if [ "$LOG_LEVEL" -ge 4 ]; then enable_log_tracing; fi
 
     set -o pipefail
 
