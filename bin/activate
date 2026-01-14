@@ -5,7 +5,7 @@ set -euo pipefail
 LOCK_TIMEOUT=30
 LOG_LEVEL=2
 MAX_CORES=$(($(getconf _NPROCESSORS_ONLN) - 1))
-SYSTEM_OVERRIDE="${DOTFILES_SYSTEM:-}"
+SYSTEM_OVERRIDE="${hostname_override:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel)"
