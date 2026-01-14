@@ -216,12 +216,6 @@ When creating implementation plans, you MUST include an explicit cleanup step at
 
 ## **COMPLIANCE VERIFICATION**
 
-After reading AGENTS.md, you MUST emit this exact statement:
-
-```
-Cleaning up per code quality guidelines...
-```
-
 You MUST follow the guidelines for code quality and make additional clean up changes.
 This MUST be followed for every and all instructions unless no code changes have been made since the last clean up.
 
