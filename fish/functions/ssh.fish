@@ -80,12 +80,12 @@ set -l want_tmux 0
 test $no_tmux -eq 0; and test $has_remote_cmd -eq 0; and test -n "$host"; and set want_tmux 1
 
 function __ssh_run_ssh --no-scope-shadowing
-    set -l cmd command ssh
-    test $want_tmux -eq 1; and set -a cmd -q -t
-    set -a cmd $args
-    test $want_tmux -eq 1; and set -a cmd 'tmux new-session -A -s remote'
-    test $debug -eq 1; and echo "Using: $cmd"
-    $cmd
+    set -l ssh_opts
+    test $want_tmux -eq 1; and set -a ssh_opts -q -t
+    set -a ssh_opts $args
+    test $want_tmux -eq 1; and set -a ssh_opts 'tmux new-session -A -s remote'
+    test $debug -eq 1; and echo "Using: command ssh $ssh_opts"
+    command ssh $ssh_opts
 end
 
 if test $use_et -eq 1
