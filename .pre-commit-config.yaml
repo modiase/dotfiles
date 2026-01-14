@@ -9,7 +9,7 @@ repos:
         pass_filenames: false
         args:
           - -c
-          - "nix flake show --no-write-lock-file &>/dev/null"
+          - "nix --extra-experimental-features 'nix-command flakes' flake show --no-write-lock-file &>/dev/null"
       - id: format-nix
         name: format nix files
         entry: bash
@@ -18,7 +18,7 @@ repos:
         pass_filenames: false
         args:
           - -c
-          - "nix-shell -p fd nixfmt-rfc-style --run 'fd -e nix -x nixfmt'"
+          - "nix-shell -p fd nixfmt --run 'fd -e nix -x nixfmt'"
       - id: format-lua
         name: format lua files
         entry: bash

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-set -eu
+set -euo pipefail
 
 LOCK_TIMEOUT=30
 LOG_LEVEL=2
@@ -151,10 +151,10 @@ ensure_in_worktree() {
         local current_head
         current_head=$(git -C "$worktree_path" rev-parse HEAD 2>/dev/null) || true
         [ "$current_head" != "$origin_main" ] &&
-            git -C "$worktree_path" reset --hard origin/main >/dev/null 2>&1 || true
+            git -C "$worktree_path" reset --hard origin/main 2>&1 | log_debug_to_pipe "git-reset" || true
     else
         mkdir -p "${repo_root}/worktrees"
-        git -C "$repo_root" worktree add --detach "$worktree_path" origin/main >/dev/null 2>&1 || return 0
+        git -C "$repo_root" worktree add --detach "$worktree_path" origin/main 2>&1 | log_debug_to_pipe "git-worktree" || return 0
     fi
 
     exec "$worktree_path/bin/activate" "$@"
@@ -295,8 +295,6 @@ do_deploy() {
 do_activate() {
     if [ "$LOG_LEVEL" -ge 4 ]; then enable_log_tracing; fi
 
-    set -o pipefail
-
     add_exit_hook 'release_lock'
     trap 'exit 130' INT TERM
 
@@ -309,7 +307,7 @@ do_activate() {
     log_to_system "info" "Lock acquired successfully"
 
     [ "$(uname -s)" = "Darwin" ] &&
-        curl --proto '=https' --tlsv1.2 -sSf -L https://github.com/NixOS/nix/raw/master/scripts/sequoia-nixbld-user-migration.sh | bash - >/dev/null 2>&1 || true
+        curl --proto '=https' --tlsv1.2 -sSf -L https://github.com/NixOS/nix/raw/master/scripts/sequoia-nixbld-user-migration.sh | bash - 2>&1 | log_debug_to_pipe "nix-migration" || true
 
     # shellcheck source=/dev/null
     [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ] &&
@@ -401,17 +399,16 @@ parse_global_opts() {
 
 main() {
     parse_global_opts "$@"
-    set -- "${REMAINING_ARGS[@]}"
+    set -- ${REMAINING_ARGS[@]+"${REMAINING_ARGS[@]}"}
 
     case "${1:-}" in
-        deploy | show)
-            ensure_in_worktree -l "$LOG_LEVEL" -c "$MAX_CORES" -t "$LOCK_TIMEOUT" "$@"
-            ;;&
         deploy)
+            ensure_in_worktree -l "$LOG_LEVEL" -c "$MAX_CORES" -t "$LOCK_TIMEOUT" "$@"
             shift
             do_deploy "$@"
             ;;
         show)
+            ensure_in_worktree -l "$LOG_LEVEL" -c "$MAX_CORES" -t "$LOCK_TIMEOUT" "$@"
             shift
             do_show "$@"
             ;;
