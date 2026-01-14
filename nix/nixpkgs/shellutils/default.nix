@@ -21,6 +21,11 @@ let
     destination = "/lib/logging-utils.sh";
     text = ''
       source ${hook-utils}/lib/hook-utils.sh
+      _DATE="${coreutils}/bin/date"
+      _MKDIR="${coreutils}/bin/mkdir"
+      _MKTEMP="${coreutils}/bin/mktemp"
+      _CAT="${coreutils}/bin/cat"
+      _TAIL="${coreutils}/bin/tail"
       ${builtins.readFile ./logging-utils.sh}
     '';
   };

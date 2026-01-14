@@ -159,6 +159,7 @@
           extraOverlays ? [ ],
           isFrontend ? false,
           manageRemotely ? false,
+          hostname ? name,
         }:
         let
           isDarwin = type == "darwin";
@@ -199,12 +200,30 @@
                 inherit manageRemotely isFrontend;
               };
             };
+
+          hostnameModule = lib.optionalAttrs (hostname != null) (
+            if isDarwin then
+              {
+                networking.hostName = hostname;
+                networking.computerName = hostname;
+                networking.localHostName = hostname;
+              }
+            else
+              {
+                networking.hostName = hostname;
+              }
+          );
         in
         if isDarwin then
           nix-darwin.lib.darwinSystem {
             inherit system pkgs;
             specialArgs = baseSpecialArgs;
-            modules = [ dotfilesModule ] ++ darwinCommonModules ++ modules;
+            modules = [
+              dotfilesModule
+              hostnameModule
+            ]
+            ++ darwinCommonModules
+            ++ modules;
           }
         else
           nixpkgs.lib.nixosSystem {
@@ -212,6 +231,7 @@
             specialArgs = baseSpecialArgs;
             modules = [
               dotfilesModule
+              hostnameModule
               { nixpkgs.overlays = systemOverlays; }
             ]
             ++ modules;
@@ -223,6 +243,7 @@
           system,
           isFrontend ? false,
           user ? username,
+          extraModules ? [ ],
         }:
         let
           isDarwin = lib.hasSuffix "darwin" system;
@@ -241,7 +262,8 @@
               home.homeDirectory = if isDarwin then "/Users/${user}" else "/home/${user}";
               home.stateVersion = "24.05";
             }
-          ];
+          ]
+          ++ extraModules;
         };
     in
     {
@@ -262,6 +284,11 @@
         system = "aarch64-darwin";
         isFrontend = false;
         user = "moyeodiase";
+        extraModules = [
+          {
+            launchd.agents.ntfy-listen.enable = lib.mkForce false;
+          }
+        ];
       };
 
       homeConfigurations."${username}-herakles" = mkHomeConfig {
@@ -306,6 +333,7 @@
         system = "aarch64-darwin";
         type = "darwin";
         isFrontend = false;
+        hostname = null;
         modules = [ ./systems/hephaistos/configuration.nix ];
       };
 

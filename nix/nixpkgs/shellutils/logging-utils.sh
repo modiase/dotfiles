@@ -86,15 +86,15 @@ log_to_system() {
             ;;
         Darwin)
             local logfile="$HOME/Library/Logs/dotfiles-activate.log"
-            mkdir -p "${logfile%/*}"
-            printf "%s | %s | %s | %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "main" 20)" "$(_pad_center "$level" 7)" "$msg" >>"$logfile"
+            $_MKDIR -p "${logfile%/*}"
+            printf "%s | %s | %s | %s\n" "$($_DATE '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "main" 20)" "$(_pad_center "$level" 7)" "$msg" >>"$logfile"
             ;;
     esac
 }
 
 log_trace_to_pipe() {
     [[ ${LOG_LEVEL:-2} -lt 4 ]] && {
-        cat >/dev/null
+        $_CAT >/dev/null
         return
     }
 
@@ -105,13 +105,13 @@ log_trace_to_pipe() {
     case "$os" in
         Darwin)
             local logfile="$HOME/Library/Logs/dotfiles-activate.log"
-            mkdir -p "${logfile%/*}"
+            $_MKDIR -p "${logfile%/*}"
             while IFS= read -r line; do
                 [[ "$line" == *"logging-utils.sh:"* ]] && continue
                 local label="${line%% | *}"
                 local msg="${line#* | }"
                 printf "%s | %s | %s | %s\n" \
-                    "$(date '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "$label" 20)" "$padded_level" "$msg" >>"$logfile"
+                    "$($_DATE '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "$label" 20)" "$padded_level" "$msg" >>"$logfile"
             done
             ;;
         Linux)
@@ -121,7 +121,7 @@ log_trace_to_pipe() {
                     local label="${line%% | *}"
                     local msg="${line#* | }"
                     printf "%s | %s | %s | %s\n" \
-                        "$(date '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "$label" 20)" "$padded_level" "$msg"
+                        "$($_DATE '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "$label" 20)" "$padded_level" "$msg"
                 done | systemd-cat -t "dotfiles-activate" -p "debug"
             elif command -v logger >/dev/null 2>&1; then
                 while IFS= read -r line; do
@@ -129,21 +129,21 @@ log_trace_to_pipe() {
                     local label="${line%% | *}"
                     local msg="${line#* | }"
                     logger -t "dotfiles-activate" -p "user.debug" \
-                        "$(date '+%Y-%m-%d %H:%M:%S') | $(_pad_center "$label" 20) | $padded_level | $msg"
+                        "$($_DATE '+%Y-%m-%d %H:%M:%S') | $(_pad_center "$label" 20) | $padded_level | $msg"
                 done
             else
-                cat >/dev/null
+                $_CAT >/dev/null
             fi
             ;;
         *)
-            cat >/dev/null
+            $_CAT >/dev/null
             ;;
     esac
 }
 
 timestamp_prefix() {
     [[ "$LOGGING_NO_PREFIX" == "1" ]] && return
-    printf "%s" "$(date '+%H:%M:%S')"
+    printf "%s" "$($_DATE '+%H:%M:%S')"
 }
 
 _print_log_line() {
@@ -189,6 +189,15 @@ log_debug() {
     [[ ${LOG_LEVEL:-2} -ge 3 ]] && _print_log_line "debug" "$msg" "" "$COLOR_CYAN" "$COLOR_WHITE" false || true
 }
 
+log_debug_to_pipe() {
+    local label="${1:-}"
+    while IFS= read -r line; do
+        if [[ ${LOG_LEVEL:-2} -ge 3 ]]; then
+            _print_log_line "debug" "$line" "$label" "$COLOR_CYAN" "$COLOR_WHITE" false
+        fi
+    done
+}
+
 log_success() {
     local msg="$1"
     log_to_system "info" "$msg"
@@ -198,7 +207,7 @@ log_success() {
 __wrap_log_fn() {
     local fn_name="$1"
     local internal_name="__${fn_name}"
-    eval "$internal_name() $(declare -f "$fn_name" | tail -n +2)"
+    eval "$internal_name() $(declare -f "$fn_name" | $_TAIL -n +2)"
     eval "${fn_name}() {
         local __opts__=\$-
         { set +x; } 2>/dev/null
@@ -231,7 +240,7 @@ run_logged() {
         (
             set -o pipefail
             "$@" 2>&1 | while IFS= read -r line; do
-                [[ -n "$line" ]] && _print_log_line "debug" "$line" "$label" "$COLOR_CYAN" "$COLOR_WHITE" false
+                if [[ -n "$line" ]]; then _print_log_line "debug" "$line" "$label" "$COLOR_CYAN" "$COLOR_WHITE" false; fi
             done
         ) || status=$?
         if [[ $status -eq 0 ]]; then
@@ -260,7 +269,7 @@ run_logged() {
     log_to_system "info" "${label} started"
 
     local tmpfile
-    tmpfile=$(mktemp)
+    tmpfile=$($_MKTEMP)
     add_exit_hook "rm -f '$tmpfile'"
 
     (
@@ -283,7 +292,7 @@ run_logged() {
     while kill -0 $cmd_pid 2>/dev/null; do
         local max_width=$((${COLUMNS:-80} - 5))
         local latest
-        latest=$(cat "$tmpfile" 2>/dev/null | tail -1 || echo "")
+        latest=$($_CAT "$tmpfile" 2>/dev/null | $_TAIL -1 || echo "")
         local spinner_display="${COLOR_CYAN}${spinner_chars:$i:1}${COLOR_RESET}"
         local display="${spinner_display}  ${label}"
 
