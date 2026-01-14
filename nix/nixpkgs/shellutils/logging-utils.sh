@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # shellcheck disable=SC2034
 EXIT_FAILURE=1
-LOG_LEVEL=${LOG_LEVEL:-2}
+export LOG_LEVEL=${LOG_LEVEL:-2}
 COLOR_ENABLED=${COLOR_ENABLED:-true}
 LOGGING_NO_PREFIX=${LOGGING_NO_PREFIX:-0}
 
@@ -85,10 +85,58 @@ log_to_system() {
                 logger -t "dotfiles-activate" -p "user.${syslog_level}" "$msg"
             ;;
         Darwin)
-            local logdir="$HOME/Library/Logs"
-            local logfile="$logdir/dotfiles-activate.log"
-            [[ ! -d "$logdir" ]] && mkdir -p "$logdir"
-            printf "%s [%s] %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$level" "$msg" >>"$logfile"
+            local logfile="$HOME/Library/Logs/dotfiles-activate.log"
+            mkdir -p "${logfile%/*}"
+            printf "%s | %s | %s | %s\n" "$(date '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "main" 20)" "$(_pad_center "$level" 7)" "$msg" >>"$logfile"
+            ;;
+    esac
+}
+
+log_trace_to_pipe() {
+    [[ ${LOG_LEVEL:-2} -lt 4 ]] && {
+        cat >/dev/null
+        return
+    }
+
+    local os padded_level
+    os=$(uname -s)
+    padded_level="$(_pad_center "trace" 7)"
+
+    case "$os" in
+        Darwin)
+            local logfile="$HOME/Library/Logs/dotfiles-activate.log"
+            mkdir -p "${logfile%/*}"
+            while IFS= read -r line; do
+                [[ "$line" == *"logging-utils.sh:"* ]] && continue
+                local label="${line%% | *}"
+                local msg="${line#* | }"
+                printf "%s | %s | %s | %s\n" \
+                    "$(date '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "$label" 20)" "$padded_level" "$msg" >>"$logfile"
+            done
+            ;;
+        Linux)
+            if command -v systemd-cat >/dev/null 2>&1; then
+                while IFS= read -r line; do
+                    [[ "$line" == *"logging-utils.sh:"* ]] && continue
+                    local label="${line%% | *}"
+                    local msg="${line#* | }"
+                    printf "%s | %s | %s | %s\n" \
+                        "$(date '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "$label" 20)" "$padded_level" "$msg"
+                done | systemd-cat -t "dotfiles-activate" -p "debug"
+            elif command -v logger >/dev/null 2>&1; then
+                while IFS= read -r line; do
+                    [[ "$line" == *"logging-utils.sh:"* ]] && continue
+                    local label="${line%% | *}"
+                    local msg="${line#* | }"
+                    logger -t "dotfiles-activate" -p "user.debug" \
+                        "$(date '+%Y-%m-%d %H:%M:%S') | $(_pad_center "$label" 20) | $padded_level | $msg"
+                done
+            else
+                cat >/dev/null
+            fi
+            ;;
+        *)
+            cat >/dev/null
             ;;
     esac
 }
@@ -145,6 +193,20 @@ log_success() {
     local msg="$1"
     log_to_system "info" "$msg"
     [[ ${LOG_LEVEL:-2} -ge 2 ]] && echo -e "${COLOR_GREEN}${msg}${COLOR_RESET}" || true
+}
+
+__wrap_log_fn() {
+    local fn_name="$1"
+    local internal_name="__${fn_name}"
+    eval "$internal_name() $(declare -f "$fn_name" | tail -n +2)"
+    eval "${fn_name}() {
+        local __opts__=\$-
+        { set +x; } 2>/dev/null
+        ${internal_name} \"\$@\"
+        local rc=\$?
+        [[ \$__opts__ == *x* ]] && set -x
+        return \$rc
+    }"
 }
 
 check() {
@@ -252,4 +314,14 @@ run_logged() {
     return $status
 }
 
-if [[ ${LOG_LEVEL:-2} -ge 4 ]]; then set -x; fi
+__wrap_log_fn log_error
+__wrap_log_fn log_info
+__wrap_log_fn log_debug
+__wrap_log_fn log_success
+__wrap_log_fn run_logged
+
+enable_log_tracing() {
+    exec {BASH_XTRACEFD}> >(log_trace_to_pipe)
+    PS4='${BASH_SOURCE[0]##*/}:${LINENO} | '
+    set -x
+}
