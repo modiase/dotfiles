@@ -287,6 +287,9 @@
         extraModules = [
           {
             launchd.agents.ntfy-listen.enable = lib.mkForce false;
+            programs.fish.loginShellInit = lib.mkBefore ''
+              set -U hostname_override hephaistos
+            '';
           }
         ];
       };

@@ -69,7 +69,7 @@ in
       set -gx MANPAGER "nvim +Man!"
       set -gx MOOR "--no-linenumbers --no-statusbar --quit-if-one-screen -terminal-fg -style nord"
       set -gx FZF_DEFAULT_OPTS "--color=fg:#c0c5ce,bg:#14161c,hl:#88c0d0,fg+:#e5e9f0,bg+:#3b4252,hl+:#8fbcbb,info:#81a1c1,prompt:#b48ead,pointer:#88c0d0,marker:#608060,spinner:#b48ead,header:#81a1c1"
-      set -U fish_prompt_prefix (hostname)
+      set -U fish_prompt_prefix (set -q hostname_override; and echo $hostname_override; or hostname)
     '';
     interactiveShellInit = ''
       fzf_configure_bindings --directory=\ct --git_log= --git_status=\cg --processes= --variables=\co
