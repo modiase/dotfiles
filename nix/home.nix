@@ -29,6 +29,7 @@ let
     lsof
     moor
     ntfy-me
+    pre-commit
     procs
     pstree
     ripgrep

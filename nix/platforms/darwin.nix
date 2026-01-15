@@ -5,11 +5,6 @@ let
   ntfy-me = pkgs.callPackage ../nixpkgs/ntfy-me { inherit secrets; };
 in
 {
-  imports = [
-    ../skhd.nix
-    ../yabai.nix
-  ];
-
   nixpkgs.config.allowUnfree = true;
 
   home.packages = with pkgs; [
@@ -25,6 +20,14 @@ in
   home.file.".local/bin/bash" = {
     source = "${pkgs.bash}/bin/bash";
   };
+
+  home.file.".hammerspoon/init.lua".text = ''
+    hs.hotkey.bind({"cmd", "shift"}, "b", function() hs.application.launchOrFocus("Google Chrome") end)
+    hs.hotkey.bind({"cmd", "shift"}, "d", function() hs.application.launchOrFocus("Notion") end)
+    hs.hotkey.bind({"cmd", "shift"}, "k", function() hs.application.launchOrFocus("Notion Calendar") end)
+    hs.hotkey.bind({"cmd", "shift"}, "t", function() hs.application.launchOrFocus("Ghostty") end)
+    hs.hotkey.bind({"cmd", "shift"}, "u", function() hs.application.launchOrFocus("Apple Music") end)
+  '';
 
   launchd.agents.ntfy-listen = {
     enable = true;
