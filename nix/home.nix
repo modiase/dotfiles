@@ -12,6 +12,7 @@ let
   ntfy-me = pkgs.callPackage ./nixpkgs/ntfy-me { inherit secrets; };
 
   commonPackages = with pkgs; [
+    bat
     coreutils
     delta
     direnv
