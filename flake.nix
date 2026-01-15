@@ -407,14 +407,14 @@
         modules = [ ./systems/hestia/configuration.nix ];
       };
 
-      ares = mkSystem {
-        name = "ares";
+      zeus = mkSystem {
+        name = "zeus";
         system = "x86_64-linux";
         type = "nixos";
         os = "debian";
         user = "moyeodiase";
         homeDirectory = "/usr/local/google/home/moyeodiase";
-        modules = [ ./systems/ares/configuration.nix ];
+        modules = [ ./systems/zeus/configuration.nix ];
       };
     in
     {
@@ -425,7 +425,7 @@
         // hermes.systemAttr
         // hekate.systemAttr
         // hestia.systemAttr
-        // ares.systemAttr;
+        // zeus.systemAttr;
 
       homeConfigurations =
         iris.homeAttr
@@ -435,7 +435,7 @@
         // hermes.homeAttr
         // hekate.homeAttr
         // hestia.homeAttr
-        // ares.homeAttr;
+        // zeus.homeAttr;
     }
     // flake-utils.lib.eachDefaultSystem (
       system:
