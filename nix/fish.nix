@@ -58,6 +58,7 @@ in
       csv2json = "python -c 'import csv, json, sys; print(json.dumps([dict(r) for r in csv.DictReader(sys.stdin)]))'";
     };
     shellInit = ''
+      fish_add_path -gP ~/.nix-profile/bin
       if test -z "$DISPLAY"
           set -l hm_display ( "${displayResolver}" ); or set -l hm_display ""
           if test -n "$hm_display"
