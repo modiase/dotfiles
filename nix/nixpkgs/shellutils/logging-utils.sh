@@ -186,12 +186,14 @@ log_info() {
 
 log_debug() {
     local msg="$1"
-    [[ ${LOG_LEVEL:-2} -ge 3 ]] && _print_log_line "debug" "$msg" "" "$COLOR_CYAN" "$COLOR_WHITE" false || true
+    log_to_system "debug" "$msg"
+    if [[ ${LOG_LEVEL:-2} -ge 3 ]]; then _print_log_line "debug" "$msg" "" "$COLOR_CYAN" "$COLOR_WHITE" false; fi
 }
 
 log_debug_to_pipe() {
     local label="${1:-}"
     while IFS= read -r line; do
+        log_to_system "debug" " $line"
         if [[ ${LOG_LEVEL:-2} -ge 3 ]]; then
             _print_log_line "debug" "$line" "$label" "$COLOR_CYAN" "$COLOR_WHITE" false
         fi
