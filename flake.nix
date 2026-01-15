@@ -138,6 +138,9 @@
           manageSystem ? null,
           manageHome ? true,
           hostname ? name,
+          user ? username,
+          homeDirectory ? null,
+          homeExtraModules ? [ ],
         }:
         let
           isDarwin = type == "darwin";
@@ -212,29 +215,50 @@
                 networking.hostName = hostname;
               }
           );
-        in
-        if isDarwin then
-          nix-darwin.lib.darwinSystem {
-            inherit system pkgs;
-            specialArgs = baseSpecialArgs;
-            modules = [
-              dotfilesModule
-              hostnameModule
-            ]
-            ++ darwinCommonModules
-            ++ modules;
-          }
-        else
-          nixpkgs.lib.nixosSystem {
-            inherit system;
-            specialArgs = baseSpecialArgs;
-            modules = [
-              dotfilesModule
-              hostnameModule
-              { nixpkgs.overlays = systemOverlays; }
-            ]
-            ++ modules;
+
+          systemConfig =
+            if isDarwin then
+              nix-darwin.lib.darwinSystem {
+                inherit system pkgs;
+                specialArgs = baseSpecialArgs;
+                modules = [
+                  dotfilesModule
+                  hostnameModule
+                ]
+                ++ darwinCommonModules
+                ++ modules;
+              }
+            else
+              nixpkgs.lib.nixosSystem {
+                inherit system;
+                specialArgs = baseSpecialArgs;
+                modules = [
+                  dotfilesModule
+                  hostnameModule
+                  { nixpkgs.overlays = systemOverlays; }
+                ]
+                ++ modules;
+              };
+
+          homeConfig = mkHomeConfig {
+            inherit
+              name
+              system
+              isFrontend
+              user
+              homeDirectory
+              ;
+            extraModules = homeExtraModules;
           };
+        in
+        {
+          systemAttr = {
+            "${name}" = systemConfig;
+          };
+          homeAttr = {
+            "${user}-${name}" = homeConfig;
+          };
+        };
 
       mkHomeConfig =
         {
@@ -242,10 +266,12 @@
           system,
           isFrontend ? false,
           user ? username,
+          homeDirectory ? null,
           extraModules ? [ ],
         }:
         let
           isDarwin = lib.hasSuffix "darwin" system;
+          defaultHomeDir = if isDarwin then "/Users/${user}" else "/home/${user}";
         in
         home-manager.lib.homeManagerConfiguration {
           pkgs = import nixpkgs {
@@ -258,32 +284,42 @@
             ./nix/home.nix
             (if isDarwin then ./nix/platforms/darwin.nix else ./nix/platforms/linux.nix)
             {
-              home.homeDirectory = if isDarwin then "/Users/${user}" else "/home/${user}";
+              home.homeDirectory = if homeDirectory != null then homeDirectory else defaultHomeDir;
               home.stateVersion = "24.05";
             }
           ]
           ++ extraModules;
         };
-    in
-    {
-      homeConfigurations."${username}-iris" = mkHomeConfig {
+
+      iris = mkSystem {
         name = "iris";
         system = "aarch64-darwin";
+        type = "darwin";
+        os = "darwin";
         isFrontend = true;
+        modules = [ ./systems/iris/configuration.nix ];
       };
 
-      homeConfigurations."${username}-pallas" = mkHomeConfig {
+      pallas = mkSystem {
         name = "pallas";
         system = "aarch64-darwin";
+        type = "darwin";
+        os = "darwin";
         isFrontend = true;
+        manageRemotely = true;
+        modules = [ ./systems/pallas/configuration.nix ];
       };
 
-      homeConfigurations."moyeodiase-hephaistos" = mkHomeConfig {
+      hephaistos = mkSystem {
         name = "hephaistos";
         system = "aarch64-darwin";
+        type = "darwin";
+        os = "darwin";
         isFrontend = false;
+        hostname = null;
         user = "moyeodiase";
-        extraModules = [
+        modules = [ ./systems/hephaistos/configuration.nix ];
+        homeExtraModules = [
           {
             launchd.agents.ntfy-listen.enable = lib.mkForce false;
             programs.fish.loginShellInit = lib.mkBefore ''
@@ -305,62 +341,7 @@
         ];
       };
 
-      homeConfigurations."${username}-herakles" = mkHomeConfig {
-        name = "herakles";
-        system = "x86_64-linux";
-      };
-
-      homeConfigurations."${username}-hermes" = mkHomeConfig {
-        name = "hermes";
-        system = "x86_64-linux";
-      };
-
-      homeConfigurations."${username}-hekate" = mkHomeConfig {
-        name = "hekate";
-        system = "aarch64-linux";
-      };
-
-      homeConfigurations."${username}-hestia" = mkHomeConfig {
-        name = "hestia";
-        system = "aarch64-linux";
-      };
-
-      homeConfigurations."moyeodiase-ares" = mkHomeConfig {
-        name = "ares";
-        system = "x86_64-linux";
-        user = "moyeodiase";
-      };
-
-      darwinConfigurations."iris" = mkSystem {
-        name = "iris";
-        system = "aarch64-darwin";
-        type = "darwin";
-        os = "darwin";
-        isFrontend = true;
-        modules = [ ./systems/iris/configuration.nix ];
-      };
-
-      darwinConfigurations."pallas" = mkSystem {
-        name = "pallas";
-        system = "aarch64-darwin";
-        type = "darwin";
-        os = "darwin";
-        isFrontend = true;
-        manageRemotely = true;
-        modules = [ ./systems/pallas/configuration.nix ];
-      };
-
-      darwinConfigurations."hephaistos" = mkSystem {
-        name = "hephaistos";
-        system = "aarch64-darwin";
-        type = "darwin";
-        os = "darwin";
-        isFrontend = false;
-        hostname = null;
-        modules = [ ./systems/hephaistos/configuration.nix ];
-      };
-
-      nixosConfigurations."herakles" = mkSystem {
+      herakles = mkSystem {
         name = "herakles";
         system = "x86_64-linux";
         type = "nixos";
@@ -373,7 +354,7 @@
         ];
       };
 
-      nixosConfigurations."hermes" = mkSystem {
+      hermes = mkSystem {
         name = "hermes";
         system = "x86_64-linux";
         type = "nixos";
@@ -384,7 +365,7 @@
         ];
       };
 
-      nixosConfigurations."hekate" = mkSystem {
+      hekate = mkSystem {
         name = "hekate";
         system = "aarch64-linux";
         type = "nixos";
@@ -392,7 +373,7 @@
         modules = [ ./systems/hekate/configuration.nix ];
       };
 
-      nixosConfigurations."hestia" = mkSystem {
+      hestia = mkSystem {
         name = "hestia";
         system = "aarch64-linux";
         type = "nixos";
@@ -426,13 +407,35 @@
         modules = [ ./systems/hestia/configuration.nix ];
       };
 
-      nixosConfigurations."ares" = mkSystem {
+      ares = mkSystem {
         name = "ares";
         system = "x86_64-linux";
         type = "nixos";
         os = "debian";
+        user = "moyeodiase";
+        homeDirectory = "/usr/local/google/home/moyeodiase";
         modules = [ ./systems/ares/configuration.nix ];
       };
+    in
+    {
+      darwinConfigurations = iris.systemAttr // pallas.systemAttr // hephaistos.systemAttr;
+
+      nixosConfigurations =
+        herakles.systemAttr
+        // hermes.systemAttr
+        // hekate.systemAttr
+        // hestia.systemAttr
+        // ares.systemAttr;
+
+      homeConfigurations =
+        iris.homeAttr
+        // pallas.homeAttr
+        // hephaistos.homeAttr
+        // herakles.homeAttr
+        // hermes.homeAttr
+        // hekate.homeAttr
+        // hestia.homeAttr
+        // ares.homeAttr;
     }
     // flake-utils.lib.eachDefaultSystem (
       system:
