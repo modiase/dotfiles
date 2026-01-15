@@ -129,11 +129,14 @@
           name,
           system,
           type,
+          os,
           modules ? [ ],
           extraSpecialArgs ? { },
           extraOverlays ? [ ],
           isFrontend ? false,
           manageRemotely ? false,
+          manageSystem ? null,
+          manageHome ? true,
           hostname ? name,
         }:
         let
@@ -170,9 +173,30 @@
                   type = lib.types.bool;
                   default = false;
                 };
+                os = lib.mkOption {
+                  type = lib.types.enum [
+                    "darwin"
+                    "nixos"
+                    "debian"
+                    "other"
+                  ];
+                };
+                manageSystem = lib.mkOption {
+                  type = lib.types.bool;
+                };
+                manageHome = lib.mkOption {
+                  type = lib.types.bool;
+                  default = true;
+                };
               };
               config.dotfiles = {
-                inherit manageRemotely isFrontend;
+                inherit
+                  manageRemotely
+                  isFrontend
+                  os
+                  manageHome
+                  ;
+                manageSystem = if manageSystem != null then manageSystem else (os == "darwin" || os == "nixos");
               };
             };
 
@@ -301,10 +325,17 @@
         system = "aarch64-linux";
       };
 
+      homeConfigurations."moyeodiase-ares" = mkHomeConfig {
+        name = "ares";
+        system = "x86_64-linux";
+        user = "moyeodiase";
+      };
+
       darwinConfigurations."iris" = mkSystem {
         name = "iris";
         system = "aarch64-darwin";
         type = "darwin";
+        os = "darwin";
         isFrontend = true;
         modules = [ ./systems/iris/configuration.nix ];
       };
@@ -313,6 +344,7 @@
         name = "pallas";
         system = "aarch64-darwin";
         type = "darwin";
+        os = "darwin";
         isFrontend = true;
         manageRemotely = true;
         modules = [ ./systems/pallas/configuration.nix ];
@@ -322,6 +354,7 @@
         name = "hephaistos";
         system = "aarch64-darwin";
         type = "darwin";
+        os = "darwin";
         isFrontend = false;
         hostname = null;
         modules = [ ./systems/hephaistos/configuration.nix ];
@@ -331,6 +364,7 @@
         name = "herakles";
         system = "x86_64-linux";
         type = "nixos";
+        os = "nixos";
         manageRemotely = true;
         extraSpecialArgs = { inherit llm-server litellm-proxy llm-orchestrator; };
         modules = [
@@ -343,6 +377,7 @@
         name = "hermes";
         system = "x86_64-linux";
         type = "nixos";
+        os = "nixos";
         modules = [
           ./systems/hermes/configuration.nix
           ./systems/hermes/hardware-configuration.nix
@@ -353,6 +388,7 @@
         name = "hekate";
         system = "aarch64-linux";
         type = "nixos";
+        os = "nixos";
         modules = [ ./systems/hekate/configuration.nix ];
       };
 
@@ -360,6 +396,7 @@
         name = "hestia";
         system = "aarch64-linux";
         type = "nixos";
+        os = "nixos";
         manageRemotely = true;
         extraSpecialArgs = { inherit heraklesBuildServer; };
         extraOverlays = [
@@ -387,6 +424,14 @@
           })
         ];
         modules = [ ./systems/hestia/configuration.nix ];
+      };
+
+      nixosConfigurations."ares" = mkSystem {
+        name = "ares";
+        system = "x86_64-linux";
+        type = "nixos";
+        os = "debian";
+        modules = [ ./systems/ares/configuration.nix ];
       };
     }
     // flake-utils.lib.eachDefaultSystem (
