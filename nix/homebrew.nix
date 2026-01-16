@@ -8,6 +8,7 @@
       "font-iosevka-nerd-font"
       "ghostty"
       "hammerspoon"
+      "homerow"
     ];
   };
 }
