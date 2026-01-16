@@ -12,8 +12,8 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel)"
 
 export NIX_CONFIG="experimental-features = nix-command flakes"
 
-LOGGING_UTILS_PATH=$(nix build "path:$REPO_ROOT#logging-utils" --print-out-paths --no-link 2>&1) || {
-    echo "ERROR: Failed to build logging-utils: $LOGGING_UTILS_PATH" >&2
+LOGGING_UTILS_PATH=$(nix build "path:$REPO_ROOT#logging-utils" --print-out-paths --no-link 2>/dev/null) || {
+    echo "ERROR: Failed to build logging-utils" >&2
     exit 1
 }
 # shellcheck source=/dev/null
