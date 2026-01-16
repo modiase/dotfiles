@@ -416,6 +416,15 @@
         user = "moyeodiase";
         homeDirectory = "/usr/local/google/home/moyeodiase";
         modules = [ ./systems/zeus/configuration.nix ];
+        homeExtraModules = [
+          {
+            programs.bash.initExtra = lib.mkBefore ''
+              if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
+                . /etc/bash_completion
+              fi
+            '';
+          }
+        ];
       };
     in
     {
