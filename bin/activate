@@ -19,6 +19,21 @@ LOGGING_UTILS_PATH=$(nix build "path:$REPO_ROOT#logging-utils" --print-out-paths
 # shellcheck source=/dev/null
 source "$LOGGING_UTILS_PATH/lib/logging-utils.sh"
 
+GITCRYPT_KEY="$REPO_ROOT/.git/git-crypt/keys/default"
+GITCRYPT_FINGERPRINT="98aa7b921fe81d9a38ae89f69c73fc72ea60c0ebb58170796507d476cbee33f5"
+if [ -f "$GITCRYPT_KEY" ]; then
+    actual_fp=$(sha256sum "$GITCRYPT_KEY" | cut -d' ' -f1)
+    if [ "$actual_fp" = "$GITCRYPT_FINGERPRINT" ]; then
+        log_debug "git-crypt key verified"
+    else
+        log_error "git-crypt key fingerprint mismatch (expected: ${GITCRYPT_FINGERPRINT:0:16}..., got: ${actual_fp:0:16}...)"
+        exit 1
+    fi
+else
+    log_error "git-crypt key not found - run 'git-crypt unlock' first"
+    exit 1
+fi
+
 show_usage() {
     local exit_code=${1:-0}
     cat <<EOF
