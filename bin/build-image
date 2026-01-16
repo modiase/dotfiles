@@ -1,16 +1,3 @@
-#!/usr/bin/env nix-shell
-#!nix-shell -i bash -p gum
+#!/usr/bin/env bash
 REPO_ROOT="$(git rev-parse --show-toplevel)"
-
-system="$1"
-shift 2>/dev/null || true
-
-if [[ -z "$system" ]]; then
-    systems=$(find "$REPO_ROOT/systems" -path "*/build/image" -exec dirname {} \; | xargs -n1 dirname | xargs -n1 basename)
-    system=$(echo "$systems" | gum choose --header "Select system:")
-    [[ -z "$system" ]] && exit 1
-fi
-
-[[ -f "$REPO_ROOT/systems/$system/build/image" ]] || { echo "No build/image for $system"; exit 1; }
-
-exec nix run "$REPO_ROOT#build-$system" -- "$@"
+exec nix run "path:$REPO_ROOT#build-system-image" -- "$@"

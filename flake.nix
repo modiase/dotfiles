@@ -141,6 +141,7 @@
           user ? username,
           homeDirectory ? null,
           homeExtraModules ? [ ],
+          mkBuildImage ? null,
         }:
         let
           isDarwin = type == "darwin";
@@ -258,6 +259,7 @@
           homeAttr = {
             "${user}-${name}" = homeConfig;
           };
+          inherit name mkBuildImage;
         };
 
       mkHomeConfig =
@@ -340,68 +342,79 @@
           ]
         );
 
-        build-hekate = pkgs.writeShellApplication {
-          name = "build-hekate";
-          runtimeInputs = [
-            deployPythonEnv
-            pkgs.google-cloud-sdk
-            pkgs.pv
-          ];
-          text = ''
-            export PYTHONPATH="${./nix/nixpkgs/pyutils}:''${PYTHONPATH:-}"
-            export REPO_ROOT="${./.}"
-            exec ${deployPythonEnv}/bin/python ${./systems/hekate/build/image} "$@"
-          '';
+        buildImageArgs = {
+          inherit pkgs deployPythonEnv;
+          repoRoot = ./.;
         };
 
-        build-hermes = pkgs.writeShellApplication {
-          name = "build-hermes";
-          runtimeInputs = [
-            deployPythonEnv
-            pkgs.google-cloud-sdk
-          ];
-          text = ''
-            export PYTHONPATH="${./nix/nixpkgs/pyutils}:''${PYTHONPATH:-}"
-            export REPO_ROOT="${./.}"
-            exec ${deployPythonEnv}/bin/python ${./systems/hermes/build/image} "$@"
-          '';
-        };
+        allSystems = [
+          hekate
+          hermes
+          hestia
+        ];
+        buildableSystems = builtins.filter (s: s.mkBuildImage or null != null) allSystems;
+        buildImageScripts = builtins.listToAttrs (
+          map (s: {
+            name = s.name;
+            value = s.mkBuildImage buildImageArgs;
+          }) buildableSystems
+        );
+        buildableNames = map (s: s.name) buildableSystems;
 
-        build-hestia = pkgs.writeShellApplication {
-          name = "build-hestia";
-          runtimeInputs = [
-            deployPythonEnv
-            pkgs.google-cloud-sdk
-          ];
-          text = ''
-            export PYTHONPATH="${./nix/nixpkgs/pyutils}:''${PYTHONPATH:-}"
-            export REPO_ROOT="${./.}"
-            exec ${deployPythonEnv}/bin/python ${./systems/hestia/build/image} "$@"
-          '';
+        build-system-image = pkgs.writeShellApplication {
+          name = "build-system-image";
+          runtimeInputs = [ pkgs.gum ];
+          text =
+            let
+              cases = lib.concatStringsSep "\n" (
+                map (
+                  s: ''${s.name}) exec ${buildImageScripts.${s.name}}/bin/build-${s.name}-image "$@" ;;''
+                ) buildableSystems
+              );
+              systemList = lib.concatStringsSep " " buildableNames;
+              systemChoices = lib.concatStringsSep "\\n" buildableNames;
+            in
+            ''
+              if [[ "''${1:-}" == "--help" || "''${1:-}" == "-h" ]]; then
+                echo "Usage: build-system-image [system] [args...]"
+                echo "Available systems: ${systemList}"
+                echo "If no system specified, opens interactive selector."
+                exit 0
+              fi
+
+              system="''${1:-}"
+              if [[ -z "$system" ]]; then
+                system=$(echo -e "${systemChoices}" | gum choose --header "Select system to build:")
+                [[ -z "$system" ]] && exit 0
+              else
+                shift
+              fi
+
+              case "$system" in
+                ${cases}
+                *)
+                  echo "Unknown system: $system"
+                  echo "Available systems: ${systemList}"
+                  exit 1 ;;
+              esac
+            '';
         };
 
         shellutils = pkgs.callPackage ./nix/nixpkgs/shellutils { };
       in
       {
         packages = {
-          inherit build-hekate build-hermes build-hestia;
+          inherit build-system-image;
           inherit (shellutils) hook-utils logging-utils build-gce-nixos-image;
-        };
+        }
+        // buildImageScripts;
 
         shellutils = shellutils;
 
         apps = {
-          build-hekate = {
+          build-system-image = {
             type = "app";
-            program = "${build-hekate}/bin/build-hekate";
-          };
-          build-hermes = {
-            type = "app";
-            program = "${build-hermes}/bin/build-hermes";
-          };
-          build-hestia = {
-            type = "app";
-            program = "${build-hestia}/bin/build-hestia";
+            program = "${build-system-image}/bin/build-system-image";
           };
         };
       }
