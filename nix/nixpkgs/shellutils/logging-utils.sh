@@ -65,7 +65,7 @@ _pad_center() {
 }
 
 log_to_system() {
-    local level="$1" msg="$2"
+    local level="$1" msg="$2" label="${3:-main}"
     local syslog_level="$level"
     local os
     os=$(uname -s)
@@ -87,7 +87,7 @@ log_to_system() {
         Darwin)
             local logfile="$HOME/Library/Logs/dotfiles-activate.log"
             $_MKDIR -p "${logfile%/*}"
-            printf "%s | %s | %s | %s\n" "$($_DATE '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "main" 20)" "$(_pad_center "$level" 7)" "$msg" >>"$logfile"
+            printf "%s | %s | %s | %s\n" "$($_DATE '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "$label" 20)" "$(_pad_center "$level" 7)" "$msg" >>"$logfile"
             ;;
     esac
 }
@@ -243,7 +243,7 @@ run_logged() {
             set -o pipefail
             "$@" 2>&1 | while IFS= read -r line; do
                 if [[ -n "$line" ]]; then
-                    log_to_system "debug" "[$label] $line"
+                    log_to_system "debug" "$line" "$label"
                     _print_log_line "debug" "$line" "$label" "$COLOR_CYAN" "$COLOR_WHITE" false
                 fi
             done
@@ -281,11 +281,11 @@ run_logged() {
         set -o pipefail
         "$@" > >(while IFS= read -r line; do
             echo "$line" >"$tmpfile"
-            log_to_system "info" "[$label] $line"
+            log_to_system "info" "$line" "$label"
         done) \
         2> >(while IFS= read -r line; do
             echo "$line" >"$tmpfile"
-            log_to_system "warn" "[$label] $line"
+            log_to_system "warn" "$line" "$label"
         done)
     ) &
     local cmd_pid=$!
