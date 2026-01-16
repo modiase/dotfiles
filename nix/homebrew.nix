@@ -1,7 +1,6 @@
 {
   homebrew = {
-    # Homebrew doesn't support macOS 26.2 yet
-    enable = false;
+    enable = true;
     onActivation.cleanup = "none";
     casks = [
       "font-hack-nerd-font"
