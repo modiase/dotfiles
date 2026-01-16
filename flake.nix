@@ -330,10 +330,11 @@
               hs.hotkey.bind({"cmd", "shift"}, "b", function() hs.application.launchOrFocus("Google Chrome") end)
               hs.hotkey.bind({"cmd", "shift"}, "c", function() hs.application.launchOrFocus("Cider") end)
               hs.hotkey.bind({"cmd", "shift"}, "d", function() hs.application.launchOrFocus("Docs") end)
+              hs.hotkey.bind({"cmd", "shift"}, "e", function() hs.application.launchOrFocus("Gmail") end)
               hs.hotkey.bind({"cmd", "shift"}, "g", function() hs.application.launchOrFocus("Gemini") end)
-              hs.hotkey.bind({"cmd", "shift"}, "h", function() hs.application.launchOrFocus("Google Chat") end)
+              hs.hotkey.bind({"cmd", "shift"}, "h", function() hs.application.launchOrFocus("Duckie") end)
               hs.hotkey.bind({"cmd", "shift"}, "k", function() hs.application.launchOrFocus("Google Calendar") end)
-              hs.hotkey.bind({"cmd", "shift"}, "m", function() hs.application.launchOrFocus("Gmail") end)
+              hs.hotkey.bind({"cmd", "shift"}, "m", function() hs.application.launchOrFocus("Google Chat") end)
               hs.hotkey.bind({"cmd", "shift"}, "t", function() hs.application.launchOrFocus("Ghostty") end)
               hs.hotkey.bind({"cmd", "shift"}, "u", function() hs.application.launchOrFocus("Youtube Music") end)
             '';
