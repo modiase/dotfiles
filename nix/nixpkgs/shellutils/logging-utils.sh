@@ -242,7 +242,10 @@ run_logged() {
         (
             set -o pipefail
             "$@" 2>&1 | while IFS= read -r line; do
-                if [[ -n "$line" ]]; then _print_log_line "debug" "$line" "$label" "$COLOR_CYAN" "$COLOR_WHITE" false; fi
+                if [[ -n "$line" ]]; then
+                    log_to_system "debug" "[$label] $line"
+                    _print_log_line "debug" "$line" "$label" "$COLOR_CYAN" "$COLOR_WHITE" false
+                fi
             done
         ) || status=$?
         if [[ $status -eq 0 ]]; then
