@@ -230,7 +230,7 @@ get_manage_options() {
                 or flake.nixosConfigurations.$host.config.dotfiles
                 or null;
         in if cfg == null then null else { inherit (cfg) manageSystem manageHome; }
-    " 2>&1) || {
+    " 2>/dev/null) || {
         log_error "Failed to query manage options for $host: $result"
         exit 1
     }
