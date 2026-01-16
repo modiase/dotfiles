@@ -26,6 +26,7 @@ let
     git-crypt
     gnused
     google-cloud-sdk
+    httpie
     jq
     lsof
     moor
@@ -60,7 +61,6 @@ let
     gh
     go
     gopls
-    httpie
     imagemagick
     jwt-cli
     kubectl
