@@ -291,141 +291,18 @@
           ++ extraModules;
         };
 
-      iris = mkSystem {
-        name = "iris";
-        system = "aarch64-darwin";
-        type = "darwin";
-        os = "darwin";
-        isFrontend = true;
-        modules = [ ./systems/iris/configuration.nix ];
-      };
-
-      pallas = mkSystem {
-        name = "pallas";
-        system = "aarch64-darwin";
-        type = "darwin";
-        os = "darwin";
-        isFrontend = true;
-        manageRemotely = true;
-        modules = [ ./systems/pallas/configuration.nix ];
-      };
-
-      hephaistos = mkSystem {
-        name = "hephaistos";
-        system = "aarch64-darwin";
-        type = "darwin";
-        os = "darwin";
-        isFrontend = false;
-        hostname = null;
-        user = "moyeodiase";
-        modules = [ ./systems/hephaistos/configuration.nix ];
-        homeExtraModules = [
-          {
-            launchd.agents.ntfy-listen.enable = lib.mkForce false;
-            programs.fish.loginShellInit = lib.mkBefore ''
-              set -U hostname_override hephaistos
-            '';
-            home.file.".hammerspoon/init.lua".text = lib.mkForce ''
-              hs.hotkey.bind({"cmd", "shift"}, "a", function() hs.application.launchOrFocus("Google Tasks") end)
-              hs.hotkey.bind({"cmd", "shift"}, "b", function() hs.application.launchOrFocus("Google Chrome") end)
-              hs.hotkey.bind({"cmd", "shift"}, "c", function() hs.application.launchOrFocus("Cider") end)
-              hs.hotkey.bind({"cmd", "shift"}, "d", function() hs.application.launchOrFocus("Docs") end)
-              hs.hotkey.bind({"cmd", "shift"}, "e", function() hs.application.launchOrFocus("Gmail") end)
-              hs.hotkey.bind({"cmd", "shift"}, "g", function() hs.application.launchOrFocus("Gemini") end)
-              hs.hotkey.bind({"cmd", "shift"}, "h", function() hs.application.launchOrFocus("Duckie") end)
-              hs.hotkey.bind({"cmd", "shift"}, "k", function() hs.application.launchOrFocus("Google Calendar") end)
-              hs.hotkey.bind({"cmd", "shift"}, "m", function() hs.application.launchOrFocus("Google Chat") end)
-              hs.hotkey.bind({"cmd", "shift"}, "t", function() hs.application.launchOrFocus("Ghostty") end)
-              hs.hotkey.bind({"cmd", "shift"}, "u", function() hs.application.launchOrFocus("Youtube Music") end)
-            '';
-          }
-        ];
-      };
-
-      herakles = mkSystem {
-        name = "herakles";
-        system = "x86_64-linux";
-        type = "nixos";
-        os = "nixos";
-        manageRemotely = true;
-        extraSpecialArgs = { inherit llm-server litellm-proxy llm-orchestrator; };
-        modules = [
-          ./systems/herakles/configuration.nix
-          ./systems/herakles/hardware-configuration.nix
-        ];
-      };
-
-      hermes = mkSystem {
-        name = "hermes";
-        system = "x86_64-linux";
-        type = "nixos";
-        os = "nixos";
-        modules = [
-          ./systems/hermes/configuration.nix
-          ./systems/hermes/hardware-configuration.nix
-        ];
-      };
-
-      hekate = mkSystem {
-        name = "hekate";
-        system = "aarch64-linux";
-        type = "nixos";
-        os = "nixos";
-        modules = [ ./systems/hekate/configuration.nix ];
-      };
-
-      hestia = mkSystem {
-        name = "hestia";
-        system = "aarch64-linux";
-        type = "nixos";
-        os = "nixos";
-        manageRemotely = true;
-        extraSpecialArgs = { inherit heraklesBuildServer; };
-        extraOverlays = [
-          (final: prev: {
-            tk700-controller-dashboard =
-              tk700-controller-dashboard.packages.${prev.stdenv.hostPlatform.system}.default.overrideAttrs
-                (old: {
-                  basePath = "/projector/";
-                  nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ prev.pnpm ];
-                  buildPhase = ''
-                    runHook preBuild
-                    export HOME=$TMPDIR
-
-                    export BASE_PATH="/projector/"
-                    ${prev.pnpm}/bin/pnpm run build
-
-                    ${prev.bun}/bin/bun build src/index.ts \
-                      --target=bun \
-                      --outfile=server.js \
-                      --minify
-
-                    runHook postBuild
-                  '';
-                });
-          })
-        ];
-        modules = [ ./systems/hestia/configuration.nix ];
-      };
-
-      zeus = mkSystem {
-        name = "zeus";
-        system = "x86_64-linux";
-        type = "nixos";
-        os = "debian";
-        user = "moyeodiase";
-        homeDirectory = "/usr/local/google/home/moyeodiase";
-        modules = [ ./systems/zeus/configuration.nix ];
-        homeExtraModules = [
-          {
-            programs.bash.initExtra = lib.mkBefore ''
-              if [ -f /etc/bash_completion ] && ! shopt -oq posix; then
-                . /etc/bash_completion
-              fi
-            '';
-          }
-        ];
-      };
+      iris = mkSystem (import ./systems/iris { });
+      pallas = mkSystem (import ./systems/pallas { });
+      hephaistos = mkSystem (import ./systems/hephaistos { inherit lib; });
+      herakles = mkSystem (
+        import ./systems/herakles { inherit llm-server litellm-proxy llm-orchestrator; }
+      );
+      hermes = mkSystem (import ./systems/hermes { });
+      hekate = mkSystem (import ./systems/hekate { });
+      hestia = mkSystem (
+        import ./systems/hestia { inherit heraklesBuildServer tk700-controller-dashboard; }
+      );
+      zeus = mkSystem (import ./systems/zeus { inherit lib; });
     in
     {
       darwinConfigurations = iris.systemAttr // pallas.systemAttr // hephaistos.systemAttr;
