@@ -70,10 +70,7 @@
           config = mkIf cfg.enable {
             systemd.services.litellm-proxy = {
               description = "LiteLLM Proxy Server";
-              after = [
-                "network-online.target"
-                "llm-server.service"
-              ];
+              after = [ "network-online.target" ];
               wants = [ "network-online.target" ];
               wantedBy = [ "multi-user.target" ];
 

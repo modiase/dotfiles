@@ -16,18 +16,6 @@
       url = "github:modiase/tk700-controller-dashboard";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    llm-server = {
-      url = "path:./nix/nixpkgs/llm-server";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    litellm-proxy = {
-      url = "path:./nix/nixpkgs/litellm-proxy";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-    llm-orchestrator = {
-      url = "path:./nix/nixpkgs/llm-orchestrator";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
@@ -38,9 +26,6 @@
       nix-darwin,
       flake-utils,
       tk700-controller-dashboard,
-      llm-server,
-      litellm-proxy,
-      llm-orchestrator,
       ...
     }@inputs:
     let
@@ -296,9 +281,7 @@
       iris = mkSystem (import ./systems/iris { });
       pallas = mkSystem (import ./systems/pallas { });
       hephaistos = mkSystem (import ./systems/hephaistos { inherit lib; });
-      herakles = mkSystem (
-        import ./systems/herakles { inherit llm-server litellm-proxy llm-orchestrator; }
-      );
+      herakles = mkSystem (import ./systems/herakles);
       hermes = mkSystem (import ./systems/hermes { });
       hekate = mkSystem (import ./systems/hekate { });
       hestia = mkSystem (
