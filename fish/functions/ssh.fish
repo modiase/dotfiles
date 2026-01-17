@@ -94,8 +94,8 @@ if test $use_et -eq 1
         set -l et_status 0
         set -lx ET_NO_TELEMETRY YES
         if test $want_tmux -eq 1
-            test $debug -eq 1; and echo "Using: et -c 'tmux new-session -A -s remote' $host"
-            et -c 'tmux new-session -A -s remote; exit' $host 2>/dev/null; or set et_status $status
+            test $debug -eq 1; and echo "Using: et -c 'exec tmux new-session -A -s remote' $host"
+            et -c 'exec tmux new-session -A -s remote' $host 2>/dev/null; or set et_status $status
         else
             test $debug -eq 1; and echo "Using: et $host"
             et $host 2>/dev/null; or set et_status $status
