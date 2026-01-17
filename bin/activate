@@ -19,7 +19,8 @@ LOGGING_UTILS_PATH=$(nix build "path:$REPO_ROOT#logging-utils" --print-out-paths
 # shellcheck source=/dev/null
 source "$LOGGING_UTILS_PATH/lib/logging-utils.sh"
 
-GITCRYPT_KEY="$REPO_ROOT/.git/git-crypt/keys/default"
+GIT_COMMON_DIR="$(git -C "$REPO_ROOT" rev-parse --git-common-dir)"
+GITCRYPT_KEY="$GIT_COMMON_DIR/git-crypt/keys/default"
 GITCRYPT_FINGERPRINT="98aa7b921fe81d9a38ae89f69c73fc72ea60c0ebb58170796507d476cbee33f5"
 
 show_usage() {
@@ -164,6 +165,10 @@ ensure_in_worktree() {
         mkdir -p "${repo_root}/worktrees"
         git -C "$repo_root" worktree add --detach "$worktree_path" origin/main 2>&1 | log_debug_to_pipe "git-worktree" || return 0
     fi
+
+    local main_git_dir
+    main_git_dir="$(git -C "$repo_root" rev-parse --git-common-dir)"
+    git-crypt -C "$worktree_path" unlock "$main_git_dir/git-crypt/keys/default" 2>/dev/null || true
 
     exec "$worktree_path/bin/activate" "$@"
 }
