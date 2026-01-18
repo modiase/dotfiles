@@ -9,11 +9,11 @@ let
       display_name = "herakles";
       description = "Herakles LLM Server";
       api_key_env = "HERAKLES_LLM_SERVER_API_KEY";
-      base_url = "http://herakles.home:8000";
+      base_url = "http://herakles.home:4000";
       models = [
         {
-          name = "cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit";
-          context_limit = 39584;
+          name = "coder";
+          context_limit = 131072;
           input_token_cost = null;
           output_token_cost = null;
           currency = null;
@@ -79,7 +79,7 @@ pkgs.writeShellScriptBin "coder" ''
 
   export GOOSE_DISABLE_KEYRING=1
   export GOOSE_PROVIDER="herakles"
-  export GOOSE_MODEL="cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
+  export GOOSE_MODEL="coder"
   export HERAKLES_LLM_SERVER_API_KEY="dummy"
 
   exec ${goose-cli-patched}/bin/coder "$@"
