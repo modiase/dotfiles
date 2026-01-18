@@ -15,10 +15,9 @@ from vllm import SamplingParams
 from model_manager import ModelConfig, ModelManager, ModelType
 
 MODEL_ALIASES: dict[str, ModelType] = {
-    "qwen-chat": ModelType.CHAT,
-    "qwen-coder": ModelType.CODER,
-    "QuixiAI/Qwen3-30B-A3B-AWQ": ModelType.CHAT,
-    "cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit": ModelType.CODER,
+    "chat": ModelType.CHAT,
+    "coder": ModelType.CODER,
+    "Qwen/Qwen3-14B-AWQ": ModelType.CODER,
 }
 DEFAULT_CHAT_MODEL = ModelType.CHAT
 
@@ -117,10 +116,8 @@ async def lifespan(app: FastAPI):
     global manager
 
     config = ModelConfig(
-        chat_model=os.environ.get("CHAT_MODEL", "QuixiAI/Qwen3-30B-A3B-AWQ"),
-        coder_model=os.environ.get(
-            "CODER_MODEL", "cpatonn/Qwen3-Coder-30B-A3B-Instruct-AWQ-4bit"
-        ),
+        chat_model=os.environ.get("CHAT_MODEL", "Qwen/Qwen3-14B-AWQ"),
+        coder_model=os.environ.get("CODER_MODEL", "Qwen/Qwen3-14B-AWQ"),
         embed_model=os.environ.get("EMBED_MODEL", "Qwen/Qwen3-Embedding-0.6B"),
         gpu_memory_utilization=float(os.environ.get("GPU_MEMORY_UTIL", "0.85")),
         max_model_len=int(os.environ.get("MAX_MODEL_LEN", "32768")),
@@ -246,8 +243,8 @@ async def list_models():
 
     return ModelListResponse(
         data=[
-            ModelInfo(id="qwen-chat"),
-            ModelInfo(id="qwen-coder"),
+            ModelInfo(id="chat"),
+            ModelInfo(id="coder"),
             ModelInfo(id=manager.config.chat_model),
             ModelInfo(id=manager.config.coder_model),
             ModelInfo(id=manager.config.embed_model),
