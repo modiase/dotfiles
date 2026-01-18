@@ -1,0 +1,23 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "herakles": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "herakles",
+      "options": {
+        "baseURL": "http://herakles.home:4000"
+      },
+      "models": {
+        "coder": {
+          "name": "Qwen3-14B Coder",
+          "limit": {
+            "context": 40960,
+            "output": 8192
+          }
+        }
+      }
+    }
+  },
+  "model": "herakles/coder",
+  "autoupdate": false
+}
