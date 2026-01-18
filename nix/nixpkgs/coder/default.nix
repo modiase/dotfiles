@@ -1,86 +1,35 @@
 { pkgs, ... }:
 
 let
-  providerConfig = pkgs.writeTextFile {
-    name = "herakles.json";
+  opencodeConfig = pkgs.writeTextFile {
+    name = "opencode.json";
+    text = builtins.readFile ./config/opencode.json;
+  };
+
+  # SDK requires an API key even though herakles doesn't validate it
+  authConfig = pkgs.writeTextFile {
+    name = "auth.json";
     text = builtins.toJSON {
-      name = "herakles";
-      engine = "openai";
-      display_name = "herakles";
-      description = "Herakles LLM Server";
-      api_key_env = "HERAKLES_LLM_SERVER_API_KEY";
-      base_url = "http://herakles.home:4000";
-      models = [
-        {
-          name = "coder";
-          context_limit = 131072;
-          input_token_cost = null;
-          output_token_cost = null;
-          currency = null;
-          supports_cache_control = null;
-        }
-      ];
-      headers = null;
-      timeout_seconds = null;
-      supports_streaming = true;
+      herakles = {
+        type = "api";
+        key = "not-needed";
+      };
     };
   };
-
-  gooseConfig = pkgs.writeTextFile {
-    name = "config.yaml";
-    text = builtins.readFile ./config/config.yaml;
-  };
-
-  gooseConfigExaDisabled = pkgs.writeTextFile {
-    name = "config-exa-disabled.yaml";
-    text = builtins.replaceStrings [ "exa:\n  enabled: true" ] [ "exa:\n  enabled: false" ] (
-      builtins.readFile ./config/config.yaml
-    );
-  };
-
-  gooseHints = pkgs.writeTextFile {
-    name = ".goosehints";
-    text = builtins.readFile ./config/.goosehints;
-  };
-
-  secrets = pkgs.callPackage ../secrets { };
-
-  goose-cli-patched = pkgs.goose-cli.overrideAttrs (oldAttrs: {
-    patches = (oldAttrs.patches or [ ]) ++ [ ./goose-prompt.patch ];
-    postInstall = (oldAttrs.postInstall or "") + ''
-      mv $out/bin/goose $out/bin/coder
-    '';
-  });
 in
-pkgs.writeShellScriptBin "coder" ''
-  mkdir -p ~/.config/goose/custom_providers
+pkgs.writeShellScriptBin "code" ''
+  mkdir -p ~/.config/opencode
+  mkdir -p ~/.local/share/opencode
 
-  [ ! -f ~/.config/goose/custom_providers/herakles.json ] || \
-    ! cmp -s ${providerConfig} ~/.config/goose/custom_providers/herakles.json && \
-    cp -f ${providerConfig} ~/.config/goose/custom_providers/herakles.json && \
-    chmod +w ~/.config/goose/custom_providers/herakles.json
+  [ ! -f ~/.config/opencode/opencode.json ] || \
+    ! cmp -s ${opencodeConfig} ~/.config/opencode/opencode.json && \
+    cp -f ${opencodeConfig} ~/.config/opencode/opencode.json && \
+    chmod +w ~/.config/opencode/opencode.json
 
-  if ${secrets}/bin/secrets get EXA_API_KEY --optional >/dev/null 2>&1; then
-    CONFIG_FILE=${gooseConfig}
-    export EXA_API_KEY="$(${secrets}/bin/secrets get EXA_API_KEY)"
-  else
-    CONFIG_FILE=${gooseConfigExaDisabled}
-  fi
+  [ ! -f ~/.local/share/opencode/auth.json ] || \
+    ! cmp -s ${authConfig} ~/.local/share/opencode/auth.json && \
+    cp -f ${authConfig} ~/.local/share/opencode/auth.json && \
+    chmod +w ~/.local/share/opencode/auth.json
 
-  [ ! -f ~/.config/goose/config.yaml ] || \
-    ! cmp -s "$CONFIG_FILE" ~/.config/goose/config.yaml && \
-    cp -f "$CONFIG_FILE" ~/.config/goose/config.yaml && \
-    chmod +w ~/.config/goose/config.yaml
-
-  [ ! -f ~/.config/goose/.goosehints ] || \
-    ! cmp -s ${gooseHints} ~/.config/goose/.goosehints && \
-    cp -f ${gooseHints} ~/.config/goose/.goosehints && \
-    chmod +w ~/.config/goose/.goosehints
-
-  export GOOSE_DISABLE_KEYRING=1
-  export GOOSE_PROVIDER="herakles"
-  export GOOSE_MODEL="coder"
-  export HERAKLES_LLM_SERVER_API_KEY="dummy"
-
-  exec ${goose-cli-patched}/bin/coder "$@"
+  exec ${pkgs.opencode}/bin/opencode "$@"
 ''
