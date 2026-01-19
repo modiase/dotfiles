@@ -35,9 +35,11 @@ fish/fish_variables
 worktrees/
 
 # Agents
-INSTRUCT.md
-# symlink AGENTS.md
+# symlinked to AGENTS.md
 CLAUDE.md
+
+INSTRUCT.md
+.gemini/
 
 *.pyc
 **/__pycache__/
