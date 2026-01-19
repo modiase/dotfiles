@@ -81,7 +81,17 @@ test $no_tmux -eq 0; and test $has_remote_cmd -eq 0; and test -n "$host"; and se
 
 function __ssh_run_ssh --no-scope-shadowing
     set -l ssh_opts
-    test $want_tmux -eq 1; and set -a ssh_opts -q -t
+
+    # Force TTY allocation (-t) if:
+    # 1. We are auto-launching tmux (want_tmux=1)
+    # 2. The user is manually running tmux (tmux is in args)
+    set -l force_tty 0
+    test $want_tmux -eq 1; and set force_tty 1
+    string match -qr '\btmux\b' "$args"; and set force_tty 1
+
+    test $want_tmux -eq 1; and set -a ssh_opts -q
+    test $force_tty -eq 1; and set -a ssh_opts -t
+
     set -a ssh_opts $args
     test $want_tmux -eq 1; and set -a ssh_opts 'tmux new-session -A -s remote'
     test $debug -eq 1; and echo "Using: command ssh $ssh_opts"
