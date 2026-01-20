@@ -66,7 +66,6 @@ in
     shellAliases = {
       df = "duf";
       du = "dust";
-      icat = "chafa";
       ps = "procs";
       top = "btop";
     };
