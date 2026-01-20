@@ -105,6 +105,7 @@ in
     ./neovim.nix
     ./sh.nix
     ./tmux.nix
+    ./yazi.nix
   ];
 
   home.username = user;
