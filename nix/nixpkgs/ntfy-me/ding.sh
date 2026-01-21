@@ -17,6 +17,9 @@ Options:
   -w, --window-title TEXT Notification window title (default: hostname)
   --focus-pane            Capture tmux pane; add Focus button to dialog
   --local                 Force local mode (macOS)
+  --no-bell               Disable terminal bell
+  --no-dialog             Disable swiftdialog window
+  --no-sound              Disable alert sound
   --remote                Force remote mode (ntfy-me)
   --debug                 Log debug info to /tmp/ding-debug.log
   -h, --help              Show this help
@@ -49,6 +52,9 @@ window_title=""
 debug=0
 focus_pane=""
 force=0
+no_bell=0
+no_dialog=0
+no_sound=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -78,6 +84,18 @@ while [[ $# -gt 0 ]]; do
             ;;
         --local)
             mode="local"
+            shift
+            ;;
+        --no-bell)
+            no_bell=1
+            shift
+            ;;
+        --no-dialog)
+            no_dialog=1
+            shift
+            ;;
+        --no-sound)
+            no_sound=1
             shift
             ;;
         -i | --title)
@@ -210,6 +228,7 @@ tmux_window_is_active() {
 }
 
 send_bell() {
+    [[ $no_bell -eq 1 ]] && return 0
     if [[ -n "${TMUX_PANE:-}" ]]; then
         local tty_path
         tty_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_tty}' 2>/dev/null) || true
@@ -217,6 +236,16 @@ send_bell() {
     else
         printf '\a'
     fi
+}
+
+play_sound() {
+    [[ $no_sound -eq 1 ]] && return 0
+    afplay /System/Library/Sounds/Glass.aiff &
+}
+
+run_dialog() {
+    [[ $no_dialog -eq 1 ]] && return 0
+    dialog "$@"
 }
 
 get_alert_style() {
@@ -248,7 +277,7 @@ get_alert_style() {
 
 send_alert() {
     local alert_title="$1" msg="$2"
-    afplay /System/Library/Sounds/Glass.aiff &
+    play_sound
     send_bell
     if [[ -n "$msg" ]]; then
         if command -v dialog &>/dev/null; then
@@ -271,14 +300,14 @@ send_alert() {
             if [[ -n "$focus_pane" ]]; then
                 args+=(--button1text "Ignore" --button2text "Focus")
                 local dialog_exit=0
-                dialog "${args[@]}" || dialog_exit=$?
+                run_dialog "${args[@]}" || dialog_exit=$?
                 if [[ $dialog_exit -eq 2 ]]; then
                     osascript -e 'tell application "Ghostty" to activate'
                     IFS=':' read -r win pane <<<"$focus_pane"
                     tmux select-window -t ":$win" && tmux select-pane -t ":$win.$pane"
                 fi
             else
-                dialog "${args[@]}" &
+                run_dialog "${args[@]}" &
             fi
         else
             osascript -e "display alert \"$alert_title\" message \"$msg\"" >/dev/null &
