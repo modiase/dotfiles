@@ -7,7 +7,9 @@
 
 let
   cfg = config.services.openthread-border-router;
-  package = pkgs.callPackage ./package.nix { };
+  package = pkgs.callPackage ./package.nix {
+    cpcd = if cfg.cpcSupport.enable then cfg.cpcSupport.package else null;
+  };
   logLevelMappings = {
     "emerg" = 0;
     "alert" = 1;
@@ -23,6 +25,14 @@ in
 {
   options.services.openthread-border-router = {
     enable = lib.mkEnableOption "the OpenThread Border Router";
+
+    cpcSupport = {
+      enable = lib.mkEnableOption "CPC (Co-Processor Communication) support for spinel+cpc:// URLs";
+      package = lib.mkOption {
+        type = lib.types.package;
+        description = "The cpcd package providing libcpc";
+      };
+    };
 
     backboneInterface = lib.mkOption {
       type = lib.types.str;
