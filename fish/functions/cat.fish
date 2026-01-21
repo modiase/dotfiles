@@ -12,7 +12,11 @@ switch (string lower (path extension $file))
     case .md .markdown
         nvim -M -c "set nonumber norelativenumber" -c "nnoremap <buffer> q :q<CR>" $file
     case .png .jpg .jpeg .gif .bmp .webp .tiff .tif .svg .ico
-        chafa $file
+        if test -n "$TMUX"
+            chafa --format kitty --passthrough tmux $file
+        else
+            chafa --format kitty $file
+        end
     case '*'
         bat $file
 end
