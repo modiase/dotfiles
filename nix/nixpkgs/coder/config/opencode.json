@@ -9,10 +9,10 @@
       },
       "models": {
         "coder": {
-          "name": "Qwen3-14B Coder",
+          "name": "Qwen3-Coder-30B-A3B-Instruct",
           "limit": {
-            "context": 40960,
-            "output": 8192
+            "context": 16384,
+            "output": 4096
           }
         }
       }
