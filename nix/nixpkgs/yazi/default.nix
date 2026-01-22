@@ -1,13 +1,23 @@
 { config, pkgs, ... }:
 
+let
+  yaziNvimOpen = pkgs.writeShellScript "yazi-nvim-open" (builtins.readFile ./yazi-nvim-open.sh);
+in
 {
   programs.yazi = {
     enable = true;
     settings = {
+      mgr = {
+        ratio = [
+          1
+          2
+          4
+        ];
+      };
       opener = {
         edit = [
           {
-            run = ''nvim "$@"'';
+            run = ''${yaziNvimOpen} "$@"'';
             block = true;
             for = "unix";
           }

@@ -30,6 +30,7 @@ let
     jq
     lsof
     moor
+    neovim-remote
     ntfy-me
     pre-commit
     procs
@@ -105,7 +106,7 @@ in
     ./neovim.nix
     ./sh.nix
     ./tmux.nix
-    ./yazi.nix
+    ./nixpkgs/yazi
   ];
 
   home.username = user;
