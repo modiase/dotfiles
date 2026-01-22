@@ -17,7 +17,7 @@ let
     };
   };
 in
-pkgs.writeShellScriptBin "code" ''
+pkgs.writeShellScriptBin "opencode" ''
   mkdir -p ~/.config/opencode
   mkdir -p ~/.local/share/opencode
 
