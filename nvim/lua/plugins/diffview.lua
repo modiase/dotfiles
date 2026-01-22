@@ -11,10 +11,9 @@ return {
 				watch_index = true,
 				keymaps = {
 					view = {
-						-- Keybinds in diff view
 						["q"] = "<cmd>DiffviewClose<CR>",
-						["gco"] = "<cmd>DiffviewChooseOurs<CR>", -- Choose our changes
-						["gct"] = "<cmd>DiffviewChooseTheirs<CR>", -- Choose their changes
+						["gco"] = "<cmd>DiffviewChooseOurs<CR>",
+						["gct"] = "<cmd>DiffviewChooseTheirs<CR>",
 					},
 				},
 			})
@@ -24,7 +23,12 @@ return {
 				"<leader>gd",
 				function()
 					if next(require("diffview.lib").views) == nil then
-						vim.cmd("DiffviewOpen main")
+						local is_hg = vim.fn.system("hg root 2>/dev/null"):find("^/") ~= nil
+						if is_hg then
+							vim.cmd("DiffviewOpen")
+						else
+							vim.cmd("DiffviewOpen main")
+						end
 					else
 						vim.cmd("DiffviewClose")
 					end
