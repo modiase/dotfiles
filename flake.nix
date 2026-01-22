@@ -58,6 +58,7 @@
 
       commonNixSettings = {
         nix.settings = {
+          auto-optimise-store = true;
           experimental-features = [
             "nix-command"
             "flakes"
@@ -71,6 +72,7 @@
             "herakles-1:63/4Yp9uC4U7rQuVuHDKak+JgNfYolBhKqIs34ghF2M="
           ];
         };
+        nix.registry.nixpkgs.flake = inputs.nixpkgs;
       };
 
       heraklesBuildServer =
