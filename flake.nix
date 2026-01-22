@@ -16,6 +16,15 @@
       url = "github:modiase/tk700-controller-dashboard";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-homebrew.url = "github:zhaofengli/nix-homebrew";
+    homebrew-core = {
+      url = "github:homebrew/homebrew-core";
+      flake = false;
+    };
+    homebrew-cask = {
+      url = "github:homebrew/homebrew-cask";
+      flake = false;
+    };
   };
 
   outputs =
@@ -26,6 +35,9 @@
       nix-darwin,
       flake-utils,
       tk700-controller-dashboard,
+      nix-homebrew,
+      homebrew-core,
+      homebrew-cask,
       ...
     }@inputs:
     let
@@ -57,8 +69,8 @@
         };
 
       commonNixSettings = {
+        nix.optimise.automatic = true;
         nix.settings = {
-          auto-optimise-store = true;
           experimental-features = [
             "nix-command"
             "flakes"
@@ -99,7 +111,9 @@
             }
           ];
         };
-      darwinCommonModules = [ ];
+      darwinCommonModules = [
+        nix-homebrew.darwinModules.nix-homebrew
+      ];
 
       sharedOverlays = [ ];
 
@@ -148,7 +162,12 @@
               ;
           }
           // lib.optionalAttrs isDarwin {
-            inherit darwinFrontendServices heraklesBuildServer;
+            inherit
+              darwinFrontendServices
+              heraklesBuildServer
+              homebrew-core
+              homebrew-cask
+              ;
           }
           // extraSpecialArgs;
 

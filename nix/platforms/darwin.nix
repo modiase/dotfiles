@@ -13,7 +13,6 @@ in
     iproute2mac
     gettext
     gnupg
-    (pkgs.callPackage ../nixpkgs/apple-containers.nix { })
     zstd
   ];
 
