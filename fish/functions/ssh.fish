@@ -52,7 +52,7 @@ for arg in $argv
 end
 
 set -l ssh_only 0
-string match -qr -- '-(L|R|D|X|Y|A)' "$args"; and set ssh_only 1
+string match -qr -- '-(L|R|D|X|Y|A|o)' "$args"; and set ssh_only 1
 
 set -l use_et 0
 test $no_et -eq 0; and command -q et; and test $ssh_only -eq 0; and set use_et 1
@@ -87,7 +87,7 @@ function __ssh_run_ssh --no-scope-shadowing
     # 2. The user is manually running tmux (tmux is in args)
     set -l force_tty 0
     test $want_tmux -eq 1; and set force_tty 1
-    string match -qr '\btmux\b' "$args"; and set force_tty 1
+    string match -qr -- '\btmux\b' "$args"; and set force_tty 1
 
     test $want_tmux -eq 1; and set -a ssh_opts -q
     test $force_tty -eq 1; and set -a ssh_opts -t
@@ -100,12 +100,24 @@ end
 
 if test $use_et -eq 1
     set -l et_check (command ssh -o BatchMode=yes -o ConnectTimeout=2 $host "command -v etserver" 2>/dev/null)
-    if string match -q '*etserver*' "$et_check"
+    if string match -q -- '*etserver*' "$et_check"
         set -l et_status 0
         set -lx ET_NO_TELEMETRY YES
         if test $want_tmux -eq 1
             test $debug -eq 1; and echo "Using: et -c 'exec tmux new-session -A -s remote' $host"
             et -c 'exec tmux new-session -A -s remote' $host; or set et_status $status
+        else if test $has_remote_cmd -eq 1
+            set -l remote_cmd
+            set -l found_host 0
+            for arg in $args
+                if test $found_host -eq 1
+                    set -a remote_cmd $arg
+                else if test "$arg" = "$host"
+                    set found_host 1
+                end
+            end
+            test $debug -eq 1; and echo "Using: et -c '$remote_cmd' $host"
+            et -c "$remote_cmd" $host; or set et_status $status
         else
             test $debug -eq 1; and echo "Using: et $host"
             et $host; or set et_status $status
