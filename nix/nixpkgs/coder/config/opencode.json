@@ -11,7 +11,7 @@
         "coder": {
           "name": "Qwen3-Coder-30B-A3B-Instruct",
           "limit": {
-            "context": 16384,
+            "context": 8192,
             "output": 4096
           }
         }
