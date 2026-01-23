@@ -5,7 +5,7 @@
       "npm": "@ai-sdk/openai-compatible",
       "name": "herakles",
       "options": {
-        "baseURL": "http://herakles.home:4000"
+        "baseURL": "http://herakles.home:4000/v1"
       },
       "models": {
         "coder": {
