@@ -14,7 +14,6 @@
   libnfnetlink,
   nodejs,
   buildNpmPackage,
-  cpcd ? null,
 }:
 let
   pname = "ot-br-posix";
@@ -64,8 +63,7 @@ stdenv.mkDerivation {
     libnetfilter_queue
     libnfnetlink
     dbus
-  ]
-  ++ lib.optional (cpcd != null) cpcd;
+  ];
 
   postInstall = ''
     mkdir -p $out/bin
@@ -98,9 +96,6 @@ stdenv.mkDerivation {
     (lib.cmakeBool "OT_CHANNEL_MONITOR" true)
 
     (lib.cmakeFeature "CMAKE_CXX_STANDARD" "17")
-  ]
-  ++ lib.optionals (cpcd != null) [
-    (lib.cmakeBool "OT_POSIX_RCP_VENDOR_BUS" true)
   ];
 
   meta = {
