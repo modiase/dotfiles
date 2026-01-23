@@ -405,13 +405,13 @@
         };
 
         shellutils = pkgs.callPackage ./nix/nixpkgs/shellutils { };
+        claude-code = pkgs.callPackage ./nix/nixpkgs/claude-code/package.nix { };
       in
       {
         packages = {
-          inherit build-system-image;
+          inherit build-system-image claude-code;
           inherit (shellutils) hook-utils logging-utils build-gce-nixos-image;
-        }
-        // buildImageScripts;
+        };
 
         shellutils = shellutils;
 

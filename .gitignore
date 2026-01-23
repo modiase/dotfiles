@@ -36,7 +36,7 @@ worktrees/
 
 # Agents
 # symlinked to AGENTS.md
-CLAUDE.md
+/CLAUDE.md
 
 INSTRUCT.md
 .gemini/
