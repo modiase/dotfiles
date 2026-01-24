@@ -25,6 +25,10 @@
       url = "github:homebrew/homebrew-cask";
       flake = false;
     };
+    nix2container = {
+      url = "github:nlewo/nix2container";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -38,6 +42,7 @@
       nix-homebrew,
       homebrew-core,
       homebrew-cask,
+      nix2container,
       ...
     }@inputs:
     let
@@ -407,10 +412,11 @@
         shellutils = pkgs.callPackage ./nix/nixpkgs/shellutils { };
         claude-code = pkgs.callPackage ./nix/nixpkgs/claude-code/package.nix { };
         secrets = pkgs.callPackage ./nix/nixpkgs/secrets { };
+        cve-scanner = pkgs.callPackage ./nix/nixpkgs/cve-scanner { inherit n2c; };
       in
       {
         packages = {
-          inherit build-system-image claude-code secrets;
+          inherit build-system-image claude-code secrets cve-scanner;
           inherit (shellutils) hook-utils logging-utils build-gce-nixos-image;
         };
 
@@ -424,6 +430,10 @@
           secrets = {
             type = "app";
             program = "${secrets}/bin/secrets";
+          };
+          cve-scanner = {
+            type = "app";
+            program = "${cve-scanner}/bin/cve-scanner";
           };
         };
       }

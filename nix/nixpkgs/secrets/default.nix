@@ -1,6 +1,7 @@
 {
   python313,
   google-cloud-sdk,
+  gnupg,
   lib,
   stdenv,
   pass,
@@ -34,6 +35,13 @@ stdenv.mkDerivation {
 
   nativeBuildInputs = [ makeWrapper ];
   buildInputs = [ python ];
+  propagatedBuildInputs = [
+    google-cloud-sdk
+  ]
+  ++ lib.optionals stdenv.isLinux [
+    gnupg
+    pass
+  ];
 
   installPhase = ''
     mkdir -p $out/lib/secrets $out/bin $out/share/secrets/schemas
