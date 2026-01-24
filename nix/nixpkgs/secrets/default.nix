@@ -38,10 +38,7 @@ stdenv.mkDerivation {
   propagatedBuildInputs = [
     google-cloud-sdk
   ]
-  ++ lib.optionals stdenv.isLinux [
-    gnupg
-    pass
-  ];
+  ++ lib.optionals stdenv.isLinux [ gnupg ];
 
   installPhase = ''
     mkdir -p $out/lib/secrets $out/bin $out/share/secrets/schemas
