@@ -6,6 +6,10 @@ terraform {
       version = "~> 5.0"
     }
   }
+  backend "gcs" {
+    bucket = "modiase-infra-tofu-state"
+    prefix = "infra"
+  }
 }
 
 provider "google" {
