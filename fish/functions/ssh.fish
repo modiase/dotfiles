@@ -79,6 +79,14 @@ end
 set -l want_tmux 0
 test $no_tmux -eq 0; and test $has_remote_cmd -eq 0; and test -n "$host"; and set want_tmux 1
 
+if test $want_tmux -eq 1
+    set -l tmux_check (command ssh -o BatchMode=yes -o ConnectTimeout=2 $host "command -v tmux" 2>/dev/null)
+    if not string match -q -- '*tmux*' "$tmux_check"
+        test $debug -eq 1; and echo "tmux not found on $host, skipping auto-attach"
+        set want_tmux 0
+    end
+end
+
 function __ssh_run_ssh --no-scope-shadowing
     set -l ssh_opts
 
