@@ -12,6 +12,7 @@ let
     ps.click
     ps.cryptography
     ps.google-cloud-secret-manager
+    ps.loguru
     ps.rich
   ]);
 

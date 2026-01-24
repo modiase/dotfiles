@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import click
+from loguru import logger
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 from rich.table import Table
@@ -33,14 +34,18 @@ def get_backend(ctx: click.Context) -> Backend:
     sqlite_db = ctx.obj.get("sqlite_db")
 
     if sqlite_db:
+        logger.debug(f"Using SQLite backend: {sqlite_db}")
         return SQLiteBackend(sqlite_db)
 
     if backend_type == "network":
         project = ctx.obj.get("project", "modiase-infra")
+        logger.debug(f"Using GCP backend: project={project}")
         return GCPBackend(project)
 
     if sys.platform == "darwin":
+        logger.debug("Using Keychain backend (macOS)")
         return KeychainBackend()
+    logger.debug("Using pass backend (Linux)")
     return PassBackend()
 
 
@@ -119,6 +124,10 @@ def cli(
     passphrase: str | None,
 ) -> None:
     """Secrets management with multiple backends and encryption support."""
+    logger.remove()
+    if debug:
+        logger.add(sys.stderr, level="DEBUG", format="{level}: {message}")
+
     ctx.ensure_object(dict)
     ctx.obj["data_dir"] = data_dir or DEFAULT_DATA_DIR
     ctx.obj["sqlite_db"] = sqlite_db
@@ -165,6 +174,11 @@ def get(
     project: str,
 ) -> None:
     """Retrieve a secret."""
+    logger.debug(
+        f"get: name={name}, backend={backend}, read_through={read_through}, "
+        f"store_local={store_local}, update_local={update_local}"
+    )
+
     if store_local and not (backend == "network" or read_through or update_local):
         error_console.print(
             "[red]Error: --store-local requires --network, --read-through, or --update-local[/red]"
@@ -276,6 +290,8 @@ def store(
         ctx.obj["backend"] = backend
     ctx.obj["project"] = project
 
+    logger.debug(f"store: name={name}, encrypt={encrypt}, algo={algo}, rounds={rounds}")
+
     data_dir = get_data_dir(ctx)
     history = History(data_dir)
     force = ctx.obj.get("force", False)
@@ -346,6 +362,8 @@ def delete(
         ctx.obj["backend"] = backend
     ctx.obj["project"] = project
 
+    logger.debug(f"delete: name={name}, backend={backend or 'local'}")
+
     data_dir = get_data_dir(ctx)
     history = History(data_dir)
     master_key = MasterKey(data_dir)
@@ -415,11 +433,14 @@ def list_secrets(
         ctx.obj["backend"] = backend
     ctx.obj["project"] = project
 
+    logger.debug(f"list: backend={backend or 'local'}, list_all={list_all}")
+
     data_dir = get_data_dir(ctx)
     history = History(data_dir)
 
     backend_obj = get_backend(ctx)
     secrets = backend_obj.list()
+    logger.debug(f"Found {len(secrets)} secrets")
 
     if list_all and ctx.obj["backend"] == "local":
         gcp = GCPBackend(project)
