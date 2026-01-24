@@ -183,6 +183,49 @@ curl -H "Authorization: Bearer $token" ...
   ```
 - **Exception**: Only inline trivial scripts (< 10 lines) when explicitly requested
 
+## NixOS Systemd Services
+
+### Users and Permissions
+
+- **Prefer `DynamicUser = true`** for better security isolation
+- **Set config paths via environment**: `Environment = "XDG_CONFIG_HOME=%S/my-service"` (`%S` = StateDirectory)
+- **Use `ReadWritePaths`/`ReadOnlyPaths`** to control filesystem access
+- **Only create static users** when DynamicUser won't work (e.g., stable UIDs for NFS, pre-existing directories)
+
+### State Management
+
+- **Use `StateDirectory`** for persistent state - works seamlessly with DynamicUser
+- **Use `CacheDirectory`** for ephemeral cache data
+- **Use `tmpfiles.rules`** only when StateDirectory is insufficient
+
+### GCP Secrets on GCE VMs
+
+- **Use gcloud directly** - the metadata service provides automatic authentication
+- **No pre-auth needed** - any user can access secrets via the VM's service account
+- **Secrets are JSON-wrapped** - unwrap with `| jq -r '.value'`
+- **Pattern**:
+  ```nix
+  gcloud = "${pkgs.google-cloud-sdk}/bin/gcloud";
+  gcpProject = "modiase-infra";
+  getSecret = name:
+    "${gcloud} secrets versions access latest --secret=${name} --project=${gcpProject} | jq -r '.value'";
+  ```
+
+### Service Scripts
+
+- **Use `writeShellApplication`** with `runtimeInputs` for dependency management
+- **Use full paths** (`${pkgs.foo}/bin/foo`) in scripts for reproducibility
+- **Service ordering**: Use `after`, `wants`, `before`, `requires` appropriately
+
+## Python Style
+
+- **Prefer immutable types**:
+  - `tuple` over `list` for function returns and parameters
+  - `Mapping` over `dict` for read-only dict parameters
+  - `@dataclass(frozen=True)` for data containers
+- **Mark constants with `Final`**: Use `from typing import Final` and annotate module-level constants as `CONSTANT: Final = value`
+- **Benefits**: Prevents accidental mutation, enables hashing, clearer intent, type checkers catch reassignment
+
 ## Fish Functions
 
 - **Do NOT include function wrapper** - home-manager's `programs.fish.functions` automatically wraps the body

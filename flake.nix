@@ -407,7 +407,7 @@
         shellutils = pkgs.callPackage ./nix/nixpkgs/shellutils { };
         claude-code = pkgs.callPackage ./nix/nixpkgs/claude-code/package.nix { };
         secrets = pkgs.callPackage ./nix/nixpkgs/secrets { };
-        cve-scanner = pkgs.callPackage ./nix/nixpkgs/cve-scanner { inherit n2c; };
+        cve-scanner = pkgs.callPackage ./nix/nixpkgs/cve-scanner { };
       in
       {
         packages = {
