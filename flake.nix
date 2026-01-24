@@ -406,10 +406,11 @@
 
         shellutils = pkgs.callPackage ./nix/nixpkgs/shellutils { };
         claude-code = pkgs.callPackage ./nix/nixpkgs/claude-code/package.nix { };
+        secrets = pkgs.callPackage ./nix/nixpkgs/secrets { };
       in
       {
         packages = {
-          inherit build-system-image claude-code;
+          inherit build-system-image claude-code secrets;
           inherit (shellutils) hook-utils logging-utils build-gce-nixos-image;
         };
 
@@ -419,6 +420,10 @@
           build-system-image = {
             type = "app";
             program = "${build-system-image}/bin/build-system-image";
+          };
+          secrets = {
+            type = "app";
+            program = "${secrets}/bin/secrets";
           };
         };
       }
