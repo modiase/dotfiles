@@ -79,6 +79,17 @@ end
 set -l want_tmux 0
 test $no_tmux -eq 0; and test $has_remote_cmd -eq 0; and test -n "$host"; and set want_tmux 1
 
+set -l use_ghostty_term 0
+if test -n "$host"; and string match -q 'xterm-ghostty*' "$TERM"
+    set -l ghostty_check (command ssh -o BatchMode=yes -o ConnectTimeout=2 $host "infocmp xterm-ghostty" 2>/dev/null)
+    if test -n "$ghostty_check"
+        test $debug -eq 1; and echo "xterm-ghostty terminfo found on $host"
+        set use_ghostty_term 1
+    else
+        test $debug -eq 1; and echo "xterm-ghostty terminfo not found on $host, using default TERM"
+    end
+end
+
 if test $want_tmux -eq 1
     set -l tmux_check (command ssh -o BatchMode=yes -o ConnectTimeout=2 $host "command -v tmux" 2>/dev/null)
     if not string match -q -- '*tmux*' "$tmux_check"
@@ -89,6 +100,8 @@ end
 
 function __ssh_run_ssh --no-scope-shadowing
     set -l ssh_opts
+
+    test $use_ghostty_term -eq 1; and set -a ssh_opts -o 'SetEnv=TERM=xterm-ghostty'
 
     # Force TTY allocation (-t) if:
     # 1. We are auto-launching tmux (want_tmux=1)
