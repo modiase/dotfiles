@@ -17,7 +17,7 @@ pkgs.buildGoModule {
   src = combinedSrc;
   sourceRoot = "${combinedSrc.name}/ankigen";
 
-  vendorHash = "sha256-QtQakVn6aNlHMr/Fu9biVdm4rsrU14ADySPEU3XOH68=";
+  vendorHash = "sha256-msaYLbOFOK3xGDWK0t2+HnwH+8XHOKS4RIbgtDYA2tE=";
 
   nativeBuildInputs = [ pkgs.makeWrapper ];
 
