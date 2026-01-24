@@ -25,10 +25,6 @@
       url = "github:homebrew/homebrew-cask";
       flake = false;
     };
-    nix2container = {
-      url = "github:nlewo/nix2container";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
@@ -42,7 +38,6 @@
       nix-homebrew,
       homebrew-core,
       homebrew-cask,
-      nix2container,
       ...
     }@inputs:
     let
@@ -416,7 +411,12 @@
       in
       {
         packages = {
-          inherit build-system-image claude-code secrets cve-scanner;
+          inherit
+            build-system-image
+            claude-code
+            cve-scanner
+            secrets
+            ;
           inherit (shellutils) hook-utils logging-utils build-gce-nixos-image;
         };
 
