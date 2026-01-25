@@ -30,14 +30,14 @@
   outputs =
     {
       self,
-      nixpkgs,
-      home-manager,
-      nix-darwin,
       flake-utils,
-      tk700-controller-dashboard,
-      nix-homebrew,
-      homebrew-core,
+      home-manager,
       homebrew-cask,
+      homebrew-core,
+      nix-darwin,
+      nix-homebrew,
+      nixpkgs,
+      tk700-controller-dashboard,
       ...
     }@inputs:
     let
@@ -61,10 +61,10 @@
         { pkgs, ... }:
         {
           fonts.packages = with pkgs; [
+            aleo
+            lato
             nerd-fonts.iosevka
             space-grotesk
-            lato
-            aleo
           ];
         };
 
@@ -120,30 +120,30 @@
 
       fontOverlays = [
         (self: super: {
-          space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
-          lato = super.callPackage ./nix/nixpkgs/lato { };
           aleo = super.callPackage ./nix/nixpkgs/aleo { };
+          lato = super.callPackage ./nix/nixpkgs/lato { };
+          space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
         })
       ];
 
       mkSystem =
         {
           name,
+          os,
           system,
           type,
-          os,
-          modules ? [ ],
-          extraSpecialArgs ? { },
           extraOverlays ? [ ],
-          isFrontend ? false,
-          manageRemotely ? false,
-          manageSystem ? null,
-          manageHome ? true,
-          hostname ? name,
-          user ? username,
+          extraSpecialArgs ? { },
           homeDirectory ? null,
           homeExtraModules ? [ ],
+          hostname ? name,
+          isFrontend ? false,
+          manageHome ? true,
+          manageRemotely ? false,
+          manageSystem ? null,
           mkBuildImage ? null,
+          modules ? [ ],
+          user ? username,
         }:
         let
           isDarwin = type == "darwin";
@@ -250,11 +250,11 @@
 
           homeConfig = mkHomeConfig {
             inherit
+              homeDirectory
+              isFrontend
               name
               system
-              isFrontend
               user
-              homeDirectory
               ;
             extraModules = homeExtraModules;
           };
@@ -273,10 +273,10 @@
         {
           name,
           system,
+          extraModules ? [ ],
+          homeDirectory ? null,
           isFrontend ? false,
           user ? username,
-          homeDirectory ? null,
-          extraModules ? [ ],
         }:
         let
           isDarwin = lib.hasSuffix "darwin" system;
@@ -300,15 +300,15 @@
           ++ extraModules;
         };
 
-      iris = mkSystem (import ./systems/iris { });
-      pallas = mkSystem (import ./systems/pallas { });
-      hephaistos = mkSystem (import ./systems/hephaistos { inherit lib; });
-      herakles = mkSystem (import ./systems/herakles);
-      hermes = mkSystem (import ./systems/hermes { });
       hekate = mkSystem (import ./systems/hekate { });
+      herakles = mkSystem (import ./systems/herakles);
+      hephaistos = mkSystem (import ./systems/hephaistos { inherit lib; });
+      hermes = mkSystem (import ./systems/hermes { });
       hestia = mkSystem (
         import ./systems/hestia { inherit heraklesBuildServer tk700-controller-dashboard; }
       );
+      iris = mkSystem (import ./systems/iris { });
+      pallas = mkSystem (import ./systems/pallas { });
       zeus = mkSystem (import ./systems/zeus { inherit lib; });
     in
     {
@@ -339,11 +339,11 @@
         deployPythonEnv = pkgs.python312.withPackages (
           ps: with ps; [
             click
-            loguru
-            inquirer
+            crc32c
             google-cloud-secret-manager
             google-cloud-storage
-            crc32c
+            inquirer
+            loguru
           ]
         );
 
@@ -405,10 +405,11 @@
             '';
         };
 
-        shellutils = pkgs.callPackage ./nix/nixpkgs/shellutils { };
         claude-code = pkgs.callPackage ./nix/nixpkgs/claude-code/package.nix { };
-        secrets = pkgs.callPackage ./nix/nixpkgs/secrets { };
         cve-scanner = pkgs.callPackage ./nix/nixpkgs/cve-scanner { };
+        secrets = pkgs.callPackage ./nix/nixpkgs/secrets { };
+        shellutils = pkgs.callPackage ./nix/nixpkgs/shellutils { };
+        swiftdialog = pkgs.callPackage ./nix/nixpkgs/swiftdialog { };
       in
       {
         packages = {
@@ -419,7 +420,8 @@
             secrets
             ;
           inherit (shellutils) hook-utils logging-utils build-gce-nixos-image;
-        };
+        }
+        // lib.optionalAttrs pkgs.stdenv.isDarwin { inherit swiftdialog; };
 
         shellutils = shellutils;
 
@@ -435,6 +437,12 @@
           cve-scanner = {
             type = "app";
             program = "${cve-scanner}/bin/cve-scanner";
+          };
+        }
+        // lib.optionalAttrs pkgs.stdenv.isDarwin {
+          swiftdialog = {
+            type = "app";
+            program = "${swiftdialog}/bin/dialog";
           };
         };
       }
