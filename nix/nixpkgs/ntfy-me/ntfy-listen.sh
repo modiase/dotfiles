@@ -83,6 +83,8 @@ while read -r line; do
         if [[ "$tags" =~ type-([a-z]+) ]]; then
             ding_args+=(-t "${BASH_REMATCH[1]}")
         fi
+        frontmost=$(osascript -e 'tell application "System Events" to name of (first process whose frontmost is true)' 2>/dev/null) || true
+        [[ "${frontmost,,}" == "ghostty" ]] && ding_args+=(--dialog-type popup)
         ding "${ding_args[@]}" >/dev/null
     fi
 done <"$fifo"
