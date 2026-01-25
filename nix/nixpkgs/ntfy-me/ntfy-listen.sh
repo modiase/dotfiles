@@ -77,14 +77,10 @@ while read -r line; do
 
     if [[ -n "$message" ]]; then
         log "  -> Alert sent"
-        source_host="unknown"
-        [[ "$tags" =~ source-([^,]+) ]] && source_host="${BASH_REMATCH[1]}"
-        ding_args=(--local -f -w "Remote: $source_host" -i "$title" -m "$message")
+        ding_args=(--local -f -i "$title" -m "$message")
         if [[ "$tags" =~ type-([a-z]+) ]]; then
             ding_args+=(-t "${BASH_REMATCH[1]}")
         fi
-        frontmost=$(osascript -e 'tell application "System Events" to name of (first process whose frontmost is true)' 2>/dev/null) || true
-        [[ "${frontmost,,}" == "ghostty" ]] && ding_args+=(--dialog-type popup)
         ding "${ding_args[@]}" >/dev/null
     fi
 done <"$fifo"

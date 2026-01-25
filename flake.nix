@@ -409,7 +409,6 @@
         cve-scanner = pkgs.callPackage ./nix/nixpkgs/cve-scanner { };
         secrets = pkgs.callPackage ./nix/nixpkgs/secrets { };
         shellutils = pkgs.callPackage ./nix/nixpkgs/shellutils { };
-        swiftdialog = pkgs.callPackage ./nix/nixpkgs/swiftdialog { };
       in
       {
         packages = {
@@ -420,8 +419,7 @@
             secrets
             ;
           inherit (shellutils) hook-utils logging-utils build-gce-nixos-image;
-        }
-        // lib.optionalAttrs pkgs.stdenv.isDarwin { inherit swiftdialog; };
+        };
 
         shellutils = shellutils;
 
@@ -437,12 +435,6 @@
           cve-scanner = {
             type = "app";
             program = "${cve-scanner}/bin/cve-scanner";
-          };
-        }
-        // lib.optionalAttrs pkgs.stdenv.isDarwin {
-          swiftdialog = {
-            type = "app";
-            program = "${swiftdialog}/bin/dialog";
           };
         };
       }

@@ -10,22 +10,19 @@ Notification tool that adapts to context (tmux, focus state, local/remote).
 Options:
   -c, --command CMD       Run command, alert success/error based on exit code
   -f, --force-alert       Always play sound/alert (skip focus detection)
-  -i, --title TEXT        Bold header in message body
-  -m, --message TEXT      Message body text
+  -i, --title TEXT        Notification title
+  -m, --message TEXT      Notification message
   -R, --recipient HOST    Target recipient for remote (default: * for all)
   -t, --type TYPE         Alert type: success, warning, error, request
-  -w, --window-title TEXT Notification window title (default: hostname)
-  --dialog-type TYPE      Dialog type: window (default), popup, none
-  --focus-pane            Capture tmux pane; add Focus button to dialog
+  --focus-pane            Capture tmux pane; click notification to focus
   --local                 Force local mode (macOS)
   --no-bell               Disable terminal bell
-  --no-dialog             Alias for --dialog-type none
   --no-sound              Disable alert sound
   --remote                Force remote mode (ntfy-me)
   --debug                 Log debug info to /tmp/ding-debug.log
   -h, --help              Show this help
 
-Tmux placeholders (expanded in --title, --message, --window-title):
+Tmux placeholders (expanded in --title, --message):
   #{t_window_index}  Current tmux window index
   #{t_window_name}   Current tmux window name
   #{t_pane_index}    Current tmux pane index
@@ -33,7 +30,7 @@ Tmux placeholders (expanded in --title, --message, --window-title):
 Behaviour:
   Local mode:
     - Always plays a sound and sends bell to terminal
-    - Shows modal alert dialog only if Ghostty is not focused
+    - Shows notification only if Ghostty is not focused
     - In tmux: bell triggers window flag via monitor-bell
 
   Remote mode (over SSH):
@@ -48,10 +45,8 @@ message=""
 mode=""
 recipient="*"
 title=""
-window_title=""
 
 debug=0
-dialog_type="window"
 focus_pane=""
 force=0
 no_bell=0
@@ -95,32 +90,12 @@ while [[ $# -gt 0 ]]; do
             no_sound=1
             shift
             ;;
-        --no-dialog)
-            dialog_type="none"
-            shift
-            ;;
-        --dialog-type)
-            dialog_type="$2"
-            shift 2
-            ;;
-        --dialog-type=*)
-            dialog_type="${1#--dialog-type=}"
-            shift
-            ;;
         -i | --title)
             title="$2"
             shift 2
             ;;
         --title=*)
             title="${1#--title=}"
-            shift
-            ;;
-        -w | --window-title)
-            window_title="$2"
-            shift 2
-            ;;
-        --window-title=*)
-            window_title="${1#--window-title=}"
             shift
             ;;
         -m | --message)
@@ -154,6 +129,10 @@ while [[ $# -gt 0 ]]; do
         --command=*)
             command="${1#--command=}"
             shift
+            ;;
+        -w | --window-title | --window-title=*)
+            shift
+            [[ "${1:-}" != -* ]] && shift || true
             ;;
         -*)
             echo "Unknown option: $1" >&2
@@ -191,7 +170,6 @@ expand_tmux_vars() {
 
 title=$(expand_tmux_vars "$title")
 message=$(expand_tmux_vars "$message")
-window_title=$(expand_tmux_vars "$window_title")
 
 if [[ -z "$mode" ]]; then
     if [[ -n "${SSH_TTY:-}${SSH_CLIENT:-}${SSH_CONNECTION:-}" ]]; then
@@ -209,15 +187,14 @@ if [[ -n "$command" ]]; then
     bash -c "$command"
     exit_code=$?
     set -e
-    window_title="${window_title:-Command}"
     if [[ $exit_code -eq 0 ]]; then
         alert_type="success"
-        title="${title:-${command}}"
-        message="${message:-Command suceeded}"
+        title="${title:-Command}"
+        message="${message:-$command succeeded}"
     else
         alert_type="error"
-        title="${title:-${command}}"
-        message="${message:-Command failed (exit $exit_code)}"
+        title="${title:-Command}"
+        message="${message:-$command failed (exit $exit_code)}"
     fi
     force=1
 fi
@@ -247,100 +224,35 @@ send_bell() {
     fi
 }
 
-play_sound() {
-    [[ $no_sound -eq 1 ]] && return 0
-    afplay /System/Library/Sounds/Glass.aiff &
-}
-
-run_dialog() {
-    [[ "$dialog_type" == "none" ]] && return 0
-    dialog "$@"
-}
-
-get_alert_style() {
-    local icon colour
-    case "${1:-}" in
-        success)
-            icon="SF=checkmark.circle.fill"
-            colour="#A3BE8C"
-            ;;
-        warning)
-            icon="SF=exclamationmark.triangle.fill"
-            colour="#EBCB8B"
-            ;;
-        error)
-            icon="SF=xmark.octagon.fill"
-            colour="#B48EAD"
-            ;;
-        request)
-            icon="SF=questionmark.circle.fill"
-            colour="#88C0D0"
-            ;;
-        *)
-            icon=""
-            colour="#81A1C1"
-            ;;
-    esac
-    echo "$icon" "$colour"
-}
-
 send_alert() {
     local alert_title="$1" msg="$2"
-    play_sound
     send_bell
-    [[ -z "$msg" ]] && return 0
 
-    if ! command -v dialog &>/dev/null; then
-        osascript -e "display alert \"$alert_title\" message \"$msg\"" >/dev/null &
+    local notifier=""
+    if command -v terminal-notifier &>/dev/null; then
+        notifier="terminal-notifier"
+    elif [[ -x /opt/homebrew/bin/terminal-notifier ]]; then
+        notifier="/opt/homebrew/bin/terminal-notifier"
+    elif [[ -x /usr/local/bin/terminal-notifier ]]; then
+        notifier="/usr/local/bin/terminal-notifier"
+    fi
+
+    if [[ -z "$notifier" ]]; then
+        [[ -n "$msg" ]] && osascript -e "display alert \"$alert_title\" message \"$msg\"" >/dev/null &
         return 0
     fi
 
-    if [[ "$dialog_type" == "popup" ]]; then
-        run_dialog --notification --title "$alert_title" --subtitle "$msg" &
-        return 0
-    fi
+    local args=(-title "$alert_title")
+    [[ -n "$msg" ]] && args+=(-message "$msg")
+    [[ $no_sound -eq 0 ]] && args+=(-sound default)
 
-    local icon colour
-    read -r icon colour < <(get_alert_style "$alert_type")
-    local args=(
-        --title "$alert_title"
-        --titlefont "size=16"
-        --message "$msg"
-        --messagefont "size=12"
-        --background "@DING_BACKGROUND@"
-        --bgscale fill
-        --width 400
-        --height 200
-        --buttonstyle center
-        --appearance dark
-        --ontop
-    )
-    [[ -n "$icon" ]] && args+=(--icon "$icon,colour=$colour")
     if [[ -n "$focus_pane" ]]; then
-        args+=(--button1text "Ignore" --button2text "Focus")
-        local dialog_exit=0
-        run_dialog "${args[@]}" || dialog_exit=$?
-        if [[ $dialog_exit -eq 2 ]]; then
-            osascript -e 'tell application "Ghostty" to activate'
-            IFS=':' read -r win pane <<<"$focus_pane"
-            tmux select-window -t ":$win" && tmux select-pane -t ":$win.$pane"
-        fi
-    else
-        run_dialog "${args[@]}" &
+        local win="${focus_pane%:*}"
+        args+=(-execute "osascript -e 'tell app \"Ghostty\" to activate' && tmux select-window -t ':$win' && tmux select-pane -t ':$focus_pane'")
     fi
-}
 
-build_message() {
-    local body=""
-    [[ -n "$title" ]] && body="## $title"
-    if [[ -n "$message" ]]; then
-        [[ -n "$body" ]] && body="$body"$'\n\n'"$message" || body="$message"
-    fi
-    echo "$body"
+    "$notifier" "${args[@]}" &
 }
-
-host="${HOSTNAME:-$(hostname -s)}"
-win_title="${window_title:-$host}"
 
 if [[ "$mode" == "local" ]]; then
     if ! command -v osascript &>/dev/null; then
@@ -349,14 +261,13 @@ if [[ "$mode" == "local" ]]; then
     fi
 
     log_debug "--- ding invoked ---"
-    msg=$(build_message)
 
     if [[ $force -eq 0 ]] && ghostty_is_focused && tmux_window_is_active; then
         log_debug "Caller focused, bell only"
         send_bell
     else
         log_debug "Sound + alert"
-        send_alert "$win_title" "$msg"
+        send_alert "${title:-ding}" "$message"
     fi
 else
     ntfy_args=(--topic ding --recipient "$recipient")

@@ -22,6 +22,7 @@
     ];
     brews = [
       "container"
+      "terminal-notifier"
     ];
     casks = [
       "font-hack-nerd-font"
