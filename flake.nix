@@ -85,6 +85,7 @@
           ];
         };
         nix.registry.nixpkgs.flake = inputs.nixpkgs;
+        nix.registry.dotfiles.flake = self;
       };
 
       heraklesBuildServer =
