@@ -15,10 +15,11 @@ Options:
   -R, --recipient HOST    Target recipient for remote (default: * for all)
   -t, --type TYPE         Alert type: success, warning, error, request
   -w, --window-title TEXT Notification window title (default: hostname)
+  --dialog-type TYPE      Dialog type: window (default), popup, none
   --focus-pane            Capture tmux pane; add Focus button to dialog
   --local                 Force local mode (macOS)
   --no-bell               Disable terminal bell
-  --no-dialog             Disable swiftdialog window
+  --no-dialog             Alias for --dialog-type none
   --no-sound              Disable alert sound
   --remote                Force remote mode (ntfy-me)
   --debug                 Log debug info to /tmp/ding-debug.log
@@ -50,10 +51,10 @@ title=""
 window_title=""
 
 debug=0
+dialog_type="window"
 focus_pane=""
 force=0
 no_bell=0
-no_dialog=0
 no_sound=0
 
 while [[ $# -gt 0 ]]; do
@@ -90,12 +91,20 @@ while [[ $# -gt 0 ]]; do
             no_bell=1
             shift
             ;;
-        --no-dialog)
-            no_dialog=1
-            shift
-            ;;
         --no-sound)
             no_sound=1
+            shift
+            ;;
+        --no-dialog)
+            dialog_type="none"
+            shift
+            ;;
+        --dialog-type)
+            dialog_type="$2"
+            shift 2
+            ;;
+        --dialog-type=*)
+            dialog_type="${1#--dialog-type=}"
             shift
             ;;
         -i | --title)
@@ -244,7 +253,7 @@ play_sound() {
 }
 
 run_dialog() {
-    [[ $no_dialog -eq 1 ]] && return 0
+    [[ "$dialog_type" == "none" ]] && return 0
     dialog "$@"
 }
 
@@ -279,39 +288,45 @@ send_alert() {
     local alert_title="$1" msg="$2"
     play_sound
     send_bell
-    if [[ -n "$msg" ]]; then
-        if command -v dialog &>/dev/null; then
-            local icon colour
-            read -r icon colour < <(get_alert_style "$alert_type")
-            local args=(
-                --title "$alert_title"
-                --titlefont "size=16"
-                --message "$msg"
-                --messagefont "size=12"
-                --background "@DING_BACKGROUND@"
-                --bgscale fill
-                --width 400
-                --height 200
-                --buttonstyle center
-                --appearance dark
-                --ontop
-            )
-            [[ -n "$icon" ]] && args+=(--icon "$icon,colour=$colour")
-            if [[ -n "$focus_pane" ]]; then
-                args+=(--button1text "Ignore" --button2text "Focus")
-                local dialog_exit=0
-                run_dialog "${args[@]}" || dialog_exit=$?
-                if [[ $dialog_exit -eq 2 ]]; then
-                    osascript -e 'tell application "Ghostty" to activate'
-                    IFS=':' read -r win pane <<<"$focus_pane"
-                    tmux select-window -t ":$win" && tmux select-pane -t ":$win.$pane"
-                fi
-            else
-                run_dialog "${args[@]}" &
-            fi
-        else
-            osascript -e "display alert \"$alert_title\" message \"$msg\"" >/dev/null &
+    [[ -z "$msg" ]] && return 0
+
+    if ! command -v dialog &>/dev/null; then
+        osascript -e "display alert \"$alert_title\" message \"$msg\"" >/dev/null &
+        return 0
+    fi
+
+    if [[ "$dialog_type" == "popup" ]]; then
+        run_dialog --notification --title "$alert_title" --subtitle "$msg" &
+        return 0
+    fi
+
+    local icon colour
+    read -r icon colour < <(get_alert_style "$alert_type")
+    local args=(
+        --title "$alert_title"
+        --titlefont "size=16"
+        --message "$msg"
+        --messagefont "size=12"
+        --background "@DING_BACKGROUND@"
+        --bgscale fill
+        --width 400
+        --height 200
+        --buttonstyle center
+        --appearance dark
+        --ontop
+    )
+    [[ -n "$icon" ]] && args+=(--icon "$icon,colour=$colour")
+    if [[ -n "$focus_pane" ]]; then
+        args+=(--button1text "Ignore" --button2text "Focus")
+        local dialog_exit=0
+        run_dialog "${args[@]}" || dialog_exit=$?
+        if [[ $dialog_exit -eq 2 ]]; then
+            osascript -e 'tell application "Ghostty" to activate'
+            IFS=':' read -r win pane <<<"$focus_pane"
+            tmux select-window -t ":$win" && tmux select-pane -t ":$win.$pane"
         fi
+    else
+        run_dialog "${args[@]}" &
     fi
 }
 
