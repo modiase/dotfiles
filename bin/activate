@@ -9,8 +9,8 @@ SYSTEM_OVERRIDE="${hostname_override:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [[ "$SCRIPT_DIR" != "$HOME/Dotfiles/bin" && "$SCRIPT_DIR" != "$HOME/Dotfiles/worktrees/main/bin" ]]; then
-    echo "ERROR: activate must be run from \$HOME/Dotfiles, not $SCRIPT_DIR" >&2
+if [[ "$SCRIPT_DIR" != "$HOME/dotfiles/bin" && "$SCRIPT_DIR" != "$HOME/dotfiles/worktrees/main/bin" ]]; then
+    echo "ERROR: activate must be run from \$HOME/dotfiles, not $SCRIPT_DIR" >&2
     exit 1
 fi
 
@@ -154,15 +154,15 @@ is_in_worktree() {
 ensure_in_worktree() {
     is_in_worktree && return 0
 
-    local worktree_path="$HOME/Dotfiles/worktrees/main"
+    local worktree_path="$HOME/dotfiles/worktrees/main"
 
-    git -C "$HOME/Dotfiles" fetch origin main 2>/dev/null || true
+    git -C "$HOME/dotfiles" fetch origin main 2>/dev/null || true
 
     local origin_main
-    origin_main=$(git -C "$HOME/Dotfiles" rev-parse origin/main 2>/dev/null) || return 0
+    origin_main=$(git -C "$HOME/dotfiles" rev-parse origin/main 2>/dev/null) || return 0
 
     local main_git_dir
-    main_git_dir="$(git -C "$HOME/Dotfiles" rev-parse --git-common-dir)"
+    main_git_dir="$(git -C "$HOME/dotfiles" rev-parse --git-common-dir)"
     local worktree_gitdir="$main_git_dir/worktrees/main"
 
     if [ -d "$worktree_path" ]; then
@@ -175,8 +175,8 @@ ensure_in_worktree() {
         [ "$current_head" != "$origin_main" ] &&
             git -C "$worktree_path" reset --hard origin/main 2>&1 | log_debug_to_pipe "git-reset" || true
     else
-        mkdir -p "$HOME/Dotfiles/worktrees"
-        git -C "$HOME/Dotfiles" worktree add --no-checkout --detach "$worktree_path" origin/main 2>&1 | log_debug_to_pipe "git-worktree" || return 0
+        mkdir -p "$HOME/dotfiles/worktrees"
+        git -C "$HOME/dotfiles" worktree add --no-checkout --detach "$worktree_path" origin/main 2>&1 | log_debug_to_pipe "git-worktree" || return 0
         mkdir -p "$worktree_gitdir/git-crypt/keys"
         ln "$main_git_dir/git-crypt/keys/default" "$worktree_gitdir/git-crypt/keys/default" 2>/dev/null || true
         git -C "$worktree_path" checkout --force HEAD 2>&1 | log_debug_to_pipe "git-checkout" || true
@@ -187,10 +187,10 @@ ensure_in_worktree() {
 
 do_show() {
     local host="${1:-}"
-    local repo_root="$HOME/Dotfiles"
+    local repo_root="$HOME/dotfiles"
 
     [ -n "$host" ] && {
-        ssh "$host" "cd ~/Dotfiles && ./bin/activate show"
+        ssh "$host" "cd ~/dotfiles && ./bin/activate show"
         return
     }
 
@@ -218,7 +218,7 @@ do_show() {
     printf "${c_magenta}%-20s${c_reset} ${val_color}%s${c_reset}\n" "home activated:" "$home_hash"
 }
 
-DEPLOY_CMD='cd ~/Dotfiles && git fetch origin main && (git diff --quiet && git diff --cached --quiet && git reset --hard origin/main) || true; { [ -d worktrees/main ] && git -C worktrees/main reset --hard origin/main || git worktree add --detach worktrees/main origin/main; } && ./worktrees/main/bin/activate'
+DEPLOY_CMD='cd ~/dotfiles && git fetch origin main && (git diff --quiet && git diff --cached --quiet && git reset --hard origin/main) || true; { [ -d worktrees/main ] && git -C worktrees/main reset --hard origin/main || git worktree add --detach worktrees/main origin/main; } && ./worktrees/main/bin/activate'
 
 deploy_local() {
     local origin_main

@@ -1,10 +1,10 @@
-# Dotfiles & Infrastructure
+# dotfiles & Infrastructure
 
 ## Quickstart
 
 ```bash
-git clone git@github.com:modiase/Dotfiles.git ~/Dotfiles \
-    && cd ~/Dotfiles \
+git clone git@github.com:modiase/dotfiles.git ~/dotfiles \
+    && cd ~/dotfiles \
     && bin/bootstrap \
     && source ~/.nix-profile/etc/profile.d/nix.sh \
     && bin/activate
