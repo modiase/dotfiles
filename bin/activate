@@ -8,6 +8,12 @@ MAX_CORES=$(($(getconf _NPROCESSORS_ONLN) - 1))
 SYSTEM_OVERRIDE="${hostname_override:-}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ "$SCRIPT_DIR" != "$HOME/Dotfiles/bin" && "$SCRIPT_DIR" != "$HOME/Dotfiles/worktrees/main/bin" ]]; then
+    echo "ERROR: activate must be run from \$HOME/Dotfiles, not $SCRIPT_DIR" >&2
+    exit 1
+fi
+
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel)"
 
 export NIX_CONFIG="experimental-features = nix-command flakes"
@@ -148,16 +154,15 @@ is_in_worktree() {
 ensure_in_worktree() {
     is_in_worktree && return 0
 
-    local repo_root="$HOME/Dotfiles"
-    local worktree_path="${repo_root}/worktrees/main"
+    local worktree_path="$HOME/Dotfiles/worktrees/main"
 
-    git -C "$repo_root" fetch origin main 2>/dev/null || true
+    git -C "$HOME/Dotfiles" fetch origin main 2>/dev/null || true
 
     local origin_main
-    origin_main=$(git -C "$repo_root" rev-parse origin/main 2>/dev/null) || return 0
+    origin_main=$(git -C "$HOME/Dotfiles" rev-parse origin/main 2>/dev/null) || return 0
 
     local main_git_dir
-    main_git_dir="$(git -C "$repo_root" rev-parse --git-common-dir)"
+    main_git_dir="$(git -C "$HOME/Dotfiles" rev-parse --git-common-dir)"
     local worktree_gitdir="$main_git_dir/worktrees/main"
 
     if [ -d "$worktree_path" ]; then
@@ -170,8 +175,8 @@ ensure_in_worktree() {
         [ "$current_head" != "$origin_main" ] &&
             git -C "$worktree_path" reset --hard origin/main 2>&1 | log_debug_to_pipe "git-reset" || true
     else
-        mkdir -p "${repo_root}/worktrees"
-        git -C "$repo_root" worktree add --no-checkout --detach "$worktree_path" origin/main 2>&1 | log_debug_to_pipe "git-worktree" || return 0
+        mkdir -p "$HOME/Dotfiles/worktrees"
+        git -C "$HOME/Dotfiles" worktree add --no-checkout --detach "$worktree_path" origin/main 2>&1 | log_debug_to_pipe "git-worktree" || return 0
         mkdir -p "$worktree_gitdir/git-crypt/keys"
         ln "$main_git_dir/git-crypt/keys/default" "$worktree_gitdir/git-crypt/keys/default" 2>/dev/null || true
         git -C "$worktree_path" checkout --force HEAD 2>&1 | log_debug_to_pipe "git-checkout" || true

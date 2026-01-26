@@ -5,9 +5,13 @@ test -x "$activate_script"; or begin
     return 1
 end
 
+pushd "$HOME/Dotfiles" >/dev/null
+set -l ret 0
 if contains -- --local $argv
     set -l args (string match -v -- '--local' $argv)
-    $activate_script $args
+    $activate_script $args; or set ret $status
 else
-    $activate_script deploy $argv
+    $activate_script deploy $argv; or set ret $status
 end
+popd >/dev/null
+return $ret
