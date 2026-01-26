@@ -156,19 +156,26 @@ ensure_in_worktree() {
     local origin_main
     origin_main=$(git -C "$repo_root" rev-parse origin/main 2>/dev/null) || return 0
 
+    local main_git_dir
+    main_git_dir="$(git -C "$repo_root" rev-parse --git-common-dir)"
+    local worktree_gitdir="$main_git_dir/worktrees/main"
+
     if [ -d "$worktree_path" ]; then
+        if [ ! -f "$worktree_gitdir/git-crypt/keys/default" ]; then
+            mkdir -p "$worktree_gitdir/git-crypt/keys"
+            ln "$main_git_dir/git-crypt/keys/default" "$worktree_gitdir/git-crypt/keys/default" 2>/dev/null || true
+        fi
         local current_head
         current_head=$(git -C "$worktree_path" rev-parse HEAD 2>/dev/null) || true
         [ "$current_head" != "$origin_main" ] &&
             git -C "$worktree_path" reset --hard origin/main 2>&1 | log_debug_to_pipe "git-reset" || true
     else
         mkdir -p "${repo_root}/worktrees"
-        git -C "$repo_root" worktree add --detach "$worktree_path" origin/main 2>&1 | log_debug_to_pipe "git-worktree" || return 0
+        git -C "$repo_root" worktree add --no-checkout --detach "$worktree_path" origin/main 2>&1 | log_debug_to_pipe "git-worktree" || return 0
+        mkdir -p "$worktree_gitdir/git-crypt/keys"
+        ln "$main_git_dir/git-crypt/keys/default" "$worktree_gitdir/git-crypt/keys/default" 2>/dev/null || true
+        git -C "$worktree_path" checkout --force HEAD 2>&1 | log_debug_to_pipe "git-checkout" || true
     fi
-
-    local main_git_dir
-    main_git_dir="$(git -C "$repo_root" rev-parse --git-common-dir)"
-    git-crypt -C "$worktree_path" unlock "$main_git_dir/git-crypt/keys/default" 2>/dev/null || true
 
     exec "$worktree_path/bin/activate" "$@"
 }
