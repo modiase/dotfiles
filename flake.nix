@@ -25,6 +25,10 @@
       url = "github:homebrew/homebrew-cask";
       flake = false;
     };
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -37,6 +41,7 @@
       nix-darwin,
       nix-homebrew,
       nixpkgs,
+      sops-nix,
       tk700-controller-dashboard,
       ...
     }@inputs:
@@ -305,7 +310,7 @@
       hephaistos = mkSystem (import ./systems/hephaistos { inherit lib; });
       hermes = mkSystem (import ./systems/hermes { });
       hestia = mkSystem (
-        import ./systems/hestia { inherit heraklesBuildServer tk700-controller-dashboard; }
+        import ./systems/hestia { inherit heraklesBuildServer tk700-controller-dashboard sops-nix; }
       );
       iris = mkSystem (import ./systems/iris { });
       pallas = mkSystem (import ./systems/pallas { });
@@ -407,6 +412,7 @@
 
         claude-code = pkgs.callPackage ./nix/nixpkgs/claude-code/package.nix { };
         cve-scanner = pkgs.callPackage ./nix/nixpkgs/cve-scanner { };
+        derive-age-key = pkgs.callPackage ./nix/nixpkgs/derive-age-key { };
         secrets = pkgs.callPackage ./nix/nixpkgs/secrets { };
         shellutils = pkgs.callPackage ./nix/nixpkgs/shellutils { };
       in
@@ -416,6 +422,7 @@
             build-system-image
             claude-code
             cve-scanner
+            derive-age-key
             secrets
             ;
           inherit (shellutils) hook-utils logging-utils build-gce-nixos-image;
