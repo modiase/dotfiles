@@ -1,3 +1,7 @@
+if _is_hg
+    hg sync $argv
+    return
+end
 set -l remote (if set -q argv[1]; echo $argv[1]; else; echo origin; end)
 if set -q argv[1]
     set --erase argv[1]
