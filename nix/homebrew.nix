@@ -15,7 +15,7 @@
 
   homebrew = {
     enable = true;
-    onActivation.cleanup = "none";
+    onActivation.cleanup = "zap";
     taps = [
       "homebrew/homebrew-core"
       "homebrew/homebrew-cask"
