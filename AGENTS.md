@@ -56,33 +56,107 @@ MANDATORY: you must never call bin/activate without being explicitly asked to.
 - `deploy` and `show` commands use a git worktree at `worktrees/main` to ensure they run from the latest origin/main
 - Treat this repository as source-only automation—build, lint, or test inside the activate shell, but avoid out-of-band host mutations
 
+## HTTP Requests
+
+**Prefer HTTPie over curl** for HTTP requests. HTTPie provides human-friendly syntax, automatic JSON handling, and persistent sessions.
+
+### Why HTTPie
+
+- **Sessions** - Persist authentication, headers, and cookies across requests
+- **Intuitive syntax** - `key=value` for JSON body, `key:value` for headers
+- **Automatic JSON** - Detects and pretty-prints JSON responses with syntax highlighting
+- **Cleaner output** - Colourised, formatted responses readable at a glance
+
+### Session Usage
+
+Sessions store authentication and headers, avoiding repetition:
+
+```bash
+# First request creates session with auth header
+http --session=hestia GET http://hestia.local/hass/api/states \
+  Authorization:"Bearer $(secrets get home-assistant-token --print)"
+
+# Subsequent requests reuse stored credentials
+http --session=hestia GET http://hestia.local/hass/api/states
+http --session=hestia POST http://hestia.local/hass/api/services/light/turn_on \
+  entity_id=light.kitchen
+```
+
+### Common Patterns
+
+```bash
+# JSON POST with automatic Content-Type
+http --session=myapi POST api.example.com/data name=value count:=42
+
+# Headers use colon, JSON uses equals
+http GET api.example.com X-Custom-Header:value
+
+# Pipe JSON body (use --ignore-stdin if stdin is terminal)
+echo '{"key": "value"}' | http --session=myapi POST api.example.com/data
+
+# Download file
+http --download GET example.com/file.zip
+```
+
+### When to Use curl
+
+Use curl only when HTTPie is unavailable or for specific features like:
+- Binary uploads with precise control
+- HTTP/2 or HTTP/3 specific testing
+- Low-level protocol debugging
+
 ## Secrets Management
 
-Use the `secrets` CLI to access credentials. It provides a consistent interface across platforms (macOS Keychain, Linux pass, etc.).
+Use the `secrets` CLI to access credentials. It provides a consistent interface across platforms (macOS Keychain, Linux pass, GCP Secret Manager).
 
 ### Commands
 
-| Command                        | Description                                 |
-| ------------------------------ | ------------------------------------------- |
-| `secrets get <name>`           | Retrieve a secret (tries local cache first) |
-| `secrets get <name> --network` | Force fetch from iCloud Keychain            |
-| `secrets store <name> <value>` | Store a secret                              |
-| `secrets list`                 | List available secrets                      |
+| Command                             | Description                                    |
+| ----------------------------------- | ---------------------------------------------- |
+| `secrets get <name>`                | Retrieve a secret (copies to clipboard)        |
+| `secrets get <name> --print`        | Print to stdout instead of clipboard           |
+| `secrets get <name> --network`      | Force fetch from GCP Secret Manager            |
+| `secrets get <name> --read-through` | Check local first, fall back to network        |
+| `secrets get <name> --update-local` | Sync network secret to local if different      |
+| `secrets get <name> --optional`     | Don't error if not found                       |
+| `secrets store <name> <value>`      | Store a secret locally                         |
+| `secrets store <name> --network`    | Store a secret in GCP Secret Manager           |
+| `secrets list`                      | List local secrets                             |
+| `secrets list --all`                | List from both local and network               |
+| `secrets delete <name>`             | Delete a secret                                |
+| `secrets delete undo`               | Restore last deleted secret                    |
+| `secrets log`                       | Show operation history                         |
 
 ### Common Secrets
 
 - `ntfy-basic-auth-password` - ntfy.sh authentication
 - `EXA_API_KEY` - Exa search API
+- `home-assistant-token` - Home Assistant API token
 - API tokens typically named `<service>-token` or `<service>-api-key`
 
 ### Usage in Scripts
 
 ```bash
-token=$(secrets get home-assistant-token 2>/dev/null) || {
+# For scripts, use --print to get stdout output
+token=$(secrets get home-assistant-token --print 2>/dev/null) || {
     echo "Token not found" >&2
     exit 1
 }
-curl -H "Authorization: Bearer $token" ...
+http --session=hass GET http://hestia.local/hass/api/states \
+  Authorization:"Bearer $token"
+```
+
+### Usage with HTTPie Sessions
+
+For interactive work, set up a session once and reuse:
+
+```bash
+# Create session with auth (token goes to clipboard by default, use --print)
+http --session=hestia GET http://hestia.local/hass/api/ \
+  Authorization:"Bearer $(secrets get home-assistant-token --print)"
+
+# All subsequent requests use the stored auth
+http --session=hestia GET http://hestia.local/hass/api/states
 ```
 
 ## Research Before Implementation
