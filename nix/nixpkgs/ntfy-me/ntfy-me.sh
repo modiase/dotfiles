@@ -145,6 +145,11 @@ if [[ -n "$command" ]]; then
     fi
 fi
 
+if [[ -n "$priority" ]] && [[ ! "$priority" =~ ^[1-5]$ ]]; then
+    echo "Error: Priority must be 1-5, got: $priority" >&2
+    exit 1
+fi
+
 if [[ -z "$message" ]]; then
     echo "Error: No message provided" >&2
     usage
