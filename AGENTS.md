@@ -63,36 +63,43 @@ MANDATORY: you must never call bin/activate without being explicitly asked to.
 ### Why HTTPie
 
 - **Sessions** - Persist authentication, headers, and cookies across requests
+- **Built-in auth** - `-A bearer -a TOKEN` for bearer auth, `-a user:pass` for basic auth
 - **Intuitive syntax** - `key=value` for JSON body, `key:value` for headers
 - **Automatic JSON** - Detects and pretty-prints JSON responses with syntax highlighting
 - **Cleaner output** - Colourised, formatted responses readable at a glance
 
-### Session Usage
+### Authentication
 
-Sessions store authentication and headers, avoiding repetition:
+Use `-A` (auth-type) and `-a` (auth) flags for clean authentication:
 
 ```bash
-# First request creates session with auth header
-http --session=hestia GET http://hestia.local/hass/api/states \
-  Authorization:"Bearer $(secrets get home-assistant-token --print)"
+# Bearer token auth (preferred for APIs)
+http -A bearer -a "$(secrets get hestia-hass-api-access --print)" \
+  GET http://hestia.local/hass/api/states
 
-# Subsequent requests reuse stored credentials
+# Basic auth
+http -a "user:password" GET api.example.com/resource
+
+# With session (auth persists across requests)
+http --session=hestia -A bearer -a "$(secrets get hestia-hass-api-access --print)" \
+  GET http://hestia.local/hass/api/
 http --session=hestia GET http://hestia.local/hass/api/states
-http --session=hestia POST http://hestia.local/hass/api/services/light/turn_on \
-  entity_id=light.kitchen
 ```
 
 ### Common Patterns
 
 ```bash
 # JSON POST with automatic Content-Type
-http --session=myapi POST api.example.com/data name=value count:=42
+http POST api.example.com/data name=value count:=42
 
 # Headers use colon, JSON uses equals
 http GET api.example.com X-Custom-Header:value
 
-# Pipe JSON body (use --ignore-stdin if stdin is terminal)
-echo '{"key": "value"}' | http --session=myapi POST api.example.com/data
+# Use --ignore-stdin when not piping data (avoids hangs)
+http --ignore-stdin GET api.example.com/data
+
+# Pipe JSON body
+echo '{"key": "value"}' | http POST api.example.com/data
 
 # Download file
 http --download GET example.com/file.zip
@@ -129,35 +136,34 @@ Use the `secrets` CLI to access credentials. It provides a consistent interface 
 
 ### Common Secrets
 
+- `hestia-hass-api-access` - Home Assistant API token
 - `ntfy-basic-auth-password` - ntfy.sh authentication
 - `EXA_API_KEY` - Exa search API
-- `home-assistant-token` - Home Assistant API token
 - API tokens typically named `<service>-token` or `<service>-api-key`
 
 ### Usage in Scripts
 
 ```bash
 # For scripts, use --print to get stdout output
-token=$(secrets get home-assistant-token --print 2>/dev/null) || {
-    echo "Token not found" >&2
-    exit 1
-}
-http --session=hass GET http://hestia.local/hass/api/states \
-  Authorization:"Bearer $token"
+http --ignore-stdin -A bearer -a "$(secrets get hestia-hass-api-access --print)" \
+  GET http://hestia.local/hass/api/states
 ```
 
 ### Usage with HTTPie Sessions
 
-For interactive work, set up a session once and reuse:
+Sessions cache authentication at creation time. Recreate when tokens change:
 
 ```bash
-# Create session with auth (token goes to clipboard by default, use --print)
-http --session=hestia GET http://hestia.local/hass/api/ \
-  Authorization:"Bearer $(secrets get home-assistant-token --print)"
+# Create/recreate HASS session
+rm -rf ~/.config/httpie/sessions/hestia.local
+http --session=hass -A bearer -a "$(secrets get hestia-hass-api-access --print)" \
+  GET http://hestia.local/hass/api/
 
-# All subsequent requests use the stored auth
-http --session=hestia GET http://hestia.local/hass/api/states
+# Subsequent requests reuse stored auth
+http --session=hass GET http://hestia.local/hass/api/states
 ```
+
+**Note:** If you get 401 errors with an existing session, the cached token may be stale. Delete the session directory and recreate.
 
 ## Research Before Implementation
 
