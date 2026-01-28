@@ -10,6 +10,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_DOTFILES_KEY_CREDENTIALS }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Unlock repository with git-crypt
+        run: |
+          sudo apt-get install -y git-crypt
+          gcloud secrets versions access latest --secret=dotfiles-key --project=modiase-infra | jq -r '.value' | base64 -d > /tmp/dotfiles-key
+          git-crypt unlock /tmp/dotfiles-key
+          rm /tmp/dotfiles-key
+
       - uses: cachix/install-nix-action@v30
         with:
           nix_path: nixpkgs=channel:nixos-unstable
