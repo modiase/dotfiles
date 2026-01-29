@@ -26,6 +26,7 @@ let
     git-crypt
     gnused
     google-cloud-sdk
+    gum
     httpie
     jq
     lsof
