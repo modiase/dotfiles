@@ -1,7 +1,7 @@
 { config, pkgs, ... }:
 
 let
-  yaziNvimOpen = pkgs.writeShellScript "yazi-nvim-open" (builtins.readFile ./yazi-nvim-open.sh);
+  yaziNvim = pkgs.writeShellScript "yazi-nvim" (builtins.readFile ./yazi-nvim.sh);
 in
 {
   programs.yazi = {
@@ -26,7 +26,7 @@ in
       opener = {
         edit = [
           {
-            run = ''${yaziNvimOpen} "$@"'';
+            run = ''${yaziNvim} open "$@"'';
             block = false;
             for = "unix";
           }
@@ -96,6 +96,18 @@ in
           }
         ];
       };
+    };
+    keymap = {
+      mgr.prepend_keymap = [
+        {
+          on = [
+            "g"
+            "n"
+          ];
+          run = ''shell '${yaziNvim} cd "$1"' '';
+          desc = "cd neovim to hovered dir";
+        }
+      ];
     };
   };
 }
