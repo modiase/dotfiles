@@ -51,3 +51,11 @@ vim.keymap.set({ "n", "v" }, "<leader>r", function()
 end, opts)
 
 vim.keymap.set({ "n", "v" }, "<leader>Q", ":qa!<CR>", opts)
+
+vim.keymap.set("n", "<leader>wg", function()
+	local root = vim.fn.system("git rev-parse --show-toplevel 2>/dev/null"):gsub("\n", "")
+	if vim.v.shell_error == 0 and root ~= "" then
+		vim.cmd("cd " .. root)
+		print("cd " .. root)
+	end
+end, opts)
