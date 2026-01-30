@@ -1,7 +1,12 @@
 keys:
   - &hestia age1ns42d3c5n5830myysr4wlmxflxd87k7hvs6wqggsn0u5qrn3tewshss6yw
+  - &hekate age1nsva9djm4gjdxqaq07mz8479hh0glmg40a33xmmgnksrndsuaqpsw7e2uj
 creation_rules:
   - path_regex: systems/hestia/secrets\.yaml$
     key_groups:
       - age:
           - *hestia
+  - path_regex: systems/hekate/secrets\.yaml$
+    key_groups:
+      - age:
+          - *hekate
