@@ -73,6 +73,15 @@ repos:
         args:
           - -c
           - "nix-shell -p ruff --run 'ruff format .'"
+      - id: lint-typescript
+        name: lint typescript
+        entry: bash
+        language: system
+        files: ^systems/hekate/run/dashboard/frontend/src/.*\.(ts|html)$
+        pass_filenames: false
+        args:
+          - -c
+          - "cd systems/hekate/run/dashboard/frontend && pnpm run lint"
       - id: bash-syntax
         name: bash syntax check
         entry: bash
