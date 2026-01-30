@@ -12,7 +12,7 @@ import (
 
 // GetEmbeddings returns embeddings for the given texts.
 func GetEmbeddings(texts []string, cfg Config) ([][]float64, error) {
-	payload := map[string]interface{}{
+	payload := map[string]any{
 		"model": cfg.EmbedModel,
 		"input": texts,
 	}
