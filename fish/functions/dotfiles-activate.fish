@@ -5,13 +5,12 @@ test -x "$activate_script"; or begin
     return 1
 end
 
-pushd "$HOME/dotfiles" >/dev/null
-set -l ret 0
+set -l escaped_args (string escape -- $argv)
+
 if contains -- --local $argv
     set -l args (string match -v -- '--local' $argv)
-    $activate_script $args; or set ret $status
+    set escaped_args (string escape -- $args)
+    fish -c "$activate_script $escaped_args"
 else
-    $activate_script deploy $argv; or set ret $status
+    fish -c "$activate_script deploy $escaped_args"
 end
-popd >/dev/null
-return $ret
