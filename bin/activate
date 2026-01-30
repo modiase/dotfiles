@@ -218,7 +218,8 @@ do_show() {
     printf "${c_magenta}%-20s${c_reset} ${val_color}%s${c_reset}\n" "home activated:" "$home_hash"
 }
 
-DEPLOY_CMD='cd ~/dotfiles && git fetch origin main && (git diff --quiet && git diff --cached --quiet && git reset --hard origin/main) || true; { [ -d worktrees/main ] && git -C worktrees/main reset --hard origin/main || git worktree add --detach worktrees/main origin/main; } && ./worktrees/main/bin/activate'
+# shellcheck disable=SC2016  # Variables expand on remote, not locally
+DEPLOY_CMD='cd ~/dotfiles && git fetch origin main && (git diff --quiet && git diff --cached --quiet && git reset --hard origin/main) || true; main_gitdir="$(git rev-parse --git-common-dir)"; wt_gitdir="$main_gitdir/worktrees/main"; if [ -d worktrees/main ]; then [ ! -f "$wt_gitdir/git-crypt/keys/default" ] && mkdir -p "$wt_gitdir/git-crypt/keys" && ln "$main_gitdir/git-crypt/keys/default" "$wt_gitdir/git-crypt/keys/default" 2>/dev/null; git -C worktrees/main reset --hard origin/main; else git worktree add --no-checkout --detach worktrees/main origin/main && mkdir -p "$wt_gitdir/git-crypt/keys" && ln "$main_gitdir/git-crypt/keys/default" "$wt_gitdir/git-crypt/keys/default" && git -C worktrees/main checkout --force HEAD; fi && ./worktrees/main/bin/activate'
 
 deploy_local() {
     local origin_main
