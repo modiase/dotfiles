@@ -28,7 +28,11 @@ infra/terraform.tfvars
 
 # OS / tooling clutter
 **/.DS_Store
-**/node_modules/*
+**/node_modules/
+
+# Angular
+**/.angular/
+**/dist/
 
 # Shell / config artifacts
 fish/fish_variables
