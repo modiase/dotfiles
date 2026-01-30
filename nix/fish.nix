@@ -90,8 +90,29 @@ in
     interactiveShellInit = ''
       fzf_configure_bindings --directory=\ct --git_log= --git_status=\cg --processes= --variables=\co
 
+      function change_directory
+          if test -d .git
+              set -f _is_git_repo true
+          else
+              begin
+                set -l info (command git rev-parse --git-dir --is-bare-repository 2>/dev/null)
+                if set -q info[2]; and test $info[2] = false
+                    set -f _is_git_repo true
+                else
+                    set -f _is_git_repo false
+                end
+              end
+          end
+          if test $_is_git_repo = true
+            set -f root (git rev-parse --show-toplevel)
+          else
+            set -f root (pwd)
+          end
+          cd (cat (echo $root | psub) (fd . --type d $root | psub) | fzf; or echo '.')
+      end
+
       fish_user_key_bindings
-      bind \cs cd
+      bind \cs change_directory
       function fish_greeting
         fish_prompt
       end
