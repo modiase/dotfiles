@@ -390,7 +390,7 @@ func formatSearchTerms(terms []string) string {
 	return b.String()
 }
 
-func (ctx *PipelineContext) Logf(format string, args ...interface{}) {
+func (ctx *PipelineContext) Logf(format string, args ...any) {
 	ctx.Logs.WriteString(fmt.Sprintf(format+"\n", args...))
 }
 

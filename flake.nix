@@ -305,7 +305,7 @@
           ++ extraModules;
         };
 
-      hekate = mkSystem (import ./systems/hekate { });
+      hekate = mkSystem (import ./systems/hekate { inherit sops-nix; });
       herakles = mkSystem (import ./systems/herakles);
       hephaistos = mkSystem (import ./systems/hephaistos { inherit lib; });
       hermes = mkSystem (import ./systems/hermes { });
