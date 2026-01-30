@@ -123,8 +123,15 @@ in
     );
 
   home.file.".config/nvim" = {
-    source = ../nvim;
+    source = lib.cleanSourceWith {
+      src = ../nvim;
+      filter = path: type: !(lib.hasSuffix "coc-settings.json" path);
+    };
     recursive = true;
+  };
+
+  home.file.".config/nvim/coc-settings.json" = lib.mkDefault {
+    source = ../nvim/coc-settings.json;
   };
 
   home.file.".config/pass-git-helper/git-pass-mapping.ini" =
