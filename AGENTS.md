@@ -56,6 +56,38 @@ MANDATORY: you must never call bin/activate without being explicitly asked to.
 - `deploy` and `show` commands use a git worktree at `worktrees/main` to ensure they run from the latest origin/main
 - Treat this repository as source-only automation—build, lint, or test inside the activate shell, but avoid out-of-band host mutations
 
+## Hekate (Locked-Down VPN Gateway)
+
+Hekate is a Raspberry Pi 4 configured as a hardened WireGuard VPN gateway with minimal attack surface. It has special restrictions that differ from other hosts:
+
+### What You Cannot Do
+
+- **Cannot SSH interactively** - `ForceCommand` restricts all SSH sessions to the dashboard TUI only
+- **Cannot deploy remotely** - `bin/activate deploy hekate` will NOT work
+- **Cannot inspect system state** - No shell access means no `journalctl`, `systemctl status`, etc.
+- **Cannot run arbitrary commands** - The system is intentionally locked down
+
+### How to Deploy Changes
+
+1. Build the SD card image locally: `nix build .#nixosConfigurations.hekate.config.system.build.sdImage`
+2. Flash the image to an SD card
+3. Insert the SD card into hekate and boot
+
+### Debugging Approach
+
+Since you cannot inspect hekate directly:
+- **Reason from configuration** - Trace through Nix modules to understand behaviour
+- **Test locally when possible** - Use `nix-instantiate` or `nix eval` to check configuration
+- **Ask the user** - They may have physical access or alternative methods
+- **Never suggest SSH commands** - They will not work
+
+### Key Architecture Details
+
+- Uses sops-nix for secrets with age key derived from device serial number
+- Age key generated during NixOS activation (not systemd service) to `/etc/age/key.txt`
+- WireGuard private key decrypted by sops-nix during activation
+- Dashboard accessible via SSH with ForceCommand (TUI only)
+
 ## HTTP Requests
 
 **Prefer HTTPie over curl** for HTTP requests. HTTPie provides human-friendly syntax, automatic JSON handling, and persistent sessions.
