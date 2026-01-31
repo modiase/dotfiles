@@ -1,9 +1,6 @@
 { pkgs, lib, ... }:
 
 let
-  secrets = pkgs.callPackage ../secrets { };
-
-  # Create combined source with semsearch in the right relative location
   combinedSrc = pkgs.runCommand "ankigen-src" { } ''
     mkdir -p $out/ankigen $out/semsearch
     cp -r ${./.}/* $out/ankigen/
@@ -18,13 +15,6 @@ pkgs.buildGoModule {
   sourceRoot = "${combinedSrc.name}/ankigen";
 
   vendorHash = "sha256-msaYLbOFOK3xGDWK0t2+HnwH+8XHOKS4RIbgtDYA2tE=";
-
-  nativeBuildInputs = [ pkgs.makeWrapper ];
-
-  postInstall = ''
-    wrapProgram $out/bin/ankigen \
-      --prefix PATH : ${lib.makeBinPath [ secrets ]}
-  '';
 
   meta = with lib; {
     description = "Generate Anki flashcards using AI with web search";
