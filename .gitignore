@@ -6,6 +6,9 @@ gpt-cli/history
 # Secrets
 /secrets/
 
+# IDE
+.vim/*
+
 # Editor artifacts
 nvim/sessions/*
 
