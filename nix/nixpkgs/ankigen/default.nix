@@ -16,6 +16,15 @@ pkgs.buildGoModule {
 
   vendorHash = "sha256-msaYLbOFOK3xGDWK0t2+HnwH+8XHOKS4RIbgtDYA2tE=";
 
+  nativeBuildInputs = [ pkgs.makeBinaryWrapper ];
+
+  postInstall = ''
+    wrapProgram $out/bin/ankigen \
+      --argv0 ankigen \
+      --prefix PATH : ${lib.makeBinPath [ secrets ]}
+  '';
+
+>>>>>>> f73c7e9 (Use make binary wrapper to report correct name for ankigen)
   meta = with lib; {
     description = "Generate Anki flashcards using AI with web search";
     mainProgram = "ankigen";
