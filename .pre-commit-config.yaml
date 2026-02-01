@@ -126,7 +126,7 @@ repos:
         pass_filenames: false
         args:
           - -c
-          - 'nix-shell -p gnused --run ''git diff --cached --name-only --diff-filter d | xargs -r sed -i "s/[[:space:]]*$//"'''
+          - 'nix-shell -p gnused --run ''git diff --cached --name-only --diff-filter d | grep -vE "\.(png|ico|jpg|jpeg|gif|webp|woff|woff2|ttf|eot|pdf)$" | xargs -r sed -i "s/[[:space:]]*$//"'''
       - id: format-terraform
         name: format terraform
         entry: bash
