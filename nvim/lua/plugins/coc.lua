@@ -134,6 +134,7 @@ return {
 			"coc-snippets",
 			"coc-tsserver",
 			"coc-vimlsp",
+			"coc-yaml",
 		}
 
 		vim.keymap.set("i", "<S-TAB>", function()
