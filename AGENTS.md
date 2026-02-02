@@ -214,6 +214,7 @@ http --session=hass GET http://hestia.local/hass/api/states
 - **NEVER add obvious comments** - do not explain what standard shell commands do (e.g., "# Fetch secrets", "# Generate configuration")
 - **PRESERVE identifying labels** - keep comments that identify resources by name when the name cannot be inferred from context (e.g., "# iris", "# pegasus" for peer configurations)
 - **PRESERVE security warnings** - keep comments that explain critical security decisions or non-obvious security implications (e.g., "!!! KEY SECURITY: Embed WireGuard key in initrd, NOT the Nix store !!!")
+- **PRESERVE structural comments in HTML/templates** - comments that delineate sections of a template (e.g., `<!-- Start handle -->`, `<!-- Navigation -->`) aid readability and are acceptable
 
 ## Deployment Efficiency
 
