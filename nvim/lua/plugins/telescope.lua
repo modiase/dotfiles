@@ -41,5 +41,8 @@ return {
 		)
 		vim.api.nvim_set_keymap("n", "<leader>fm", "<cmd>Telescope marks<CR>", { noremap = true })
 		vim.api.nvim_set_keymap("n", "<leader>tc", "<cmd>Telescope colorscheme<CR>", { noremap = true })
+
+		pcall(require("telescope").load_extension, "noice")
+		vim.api.nvim_set_keymap("n", "<leader>fn", "<cmd>Telescope noice<CR>", { noremap = true })
 	end,
 }

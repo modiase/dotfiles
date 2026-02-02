@@ -48,6 +48,7 @@
       "settings": {}
     }
   },
+  "notification.statusLineProgress": false,
   "python.linting.enabled": true,
   "snippets.ultisnips.enable": false,
   "tsserver.log": "normal",

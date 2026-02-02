@@ -8,7 +8,7 @@ return {
 		vim.opt.hidden = true
 		vim.opt.backup = false
 		vim.opt.writebackup = false
-		vim.opt.cmdheight = 2
+		vim.opt.cmdheight = 1
 		vim.opt.updatetime = 300
 		vim.opt.shortmess:append("c")
 		vim.opt.signcolumn = "yes"
@@ -51,8 +51,8 @@ return {
 		})
 
 		vim.keymap.set("n", "<leader>rn", "<Plug>(coc-rename)")
-		vim.keymap.set("x", "<leader>f", "<Plug>(coc-format-selected)")
-		vim.keymap.set("n", "<leader>f", "<Plug>(coc-format-selected)")
+		vim.keymap.set("x", "<leader>fs", "<Plug>(coc-format-selected)", { silent = true })
+		vim.keymap.set("n", "<leader>fs", "<Plug>(coc-format-selected)", { silent = true })
 
 		vim.api.nvim_create_augroup("mygroup", {})
 		vim.api.nvim_create_autocmd("FileType", {
