@@ -6,6 +6,7 @@
   };
   permissions = {
     allow = [
+      "Bash(nix eval:*)"
       "mcp__exa__web_search_exa"
       "mcp__exa__get_code_context_exa"
       "mcp__exa__company_research_exa"

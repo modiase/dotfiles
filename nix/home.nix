@@ -125,13 +125,19 @@ in
   home.file.".config/nvim" = {
     source = lib.cleanSourceWith {
       src = ../nvim;
-      filter = path: type: !(lib.hasSuffix "coc-settings.json" path);
+      filter =
+        path: type:
+        !(lib.hasSuffix "coc-settings.json" path) && !(lib.hasSuffix "lua/plugins/coc.lua" path);
     };
     recursive = true;
   };
 
   home.file.".config/nvim/coc-settings.json" = lib.mkDefault {
     source = ../nvim/coc-settings.json;
+  };
+
+  home.file.".config/nvim/lua/plugins/coc.lua" = lib.mkDefault {
+    source = ../nvim/lua/plugins/coc.lua;
   };
 
   home.file.".config/pass-git-helper/git-pass-mapping.ini" =
