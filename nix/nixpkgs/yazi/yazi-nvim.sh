@@ -18,8 +18,18 @@ case "$cmd" in
         if [ -d "$1" ]; then
             nvr --remote-send "<Esc>:cd $1<CR>"
         else
-            nvr --remote-tab "$@"
+            nvr --remote-send "<Esc>:silent tabedit $1<CR>"
         fi
+        tmux select-pane -t "$TARGET_PANE"
+        ;;
+    split)
+        get_nvim_socket || exec nvim "$@"
+        nvr --remote-send "<Esc>:silent sp $1<CR>"
+        tmux select-pane -t "$TARGET_PANE"
+        ;;
+    vsplit)
+        get_nvim_socket || exec nvim "$@"
+        nvr --remote-send "<Esc>:silent vs $1<CR>"
         tmux select-pane -t "$TARGET_PANE"
         ;;
     cd)
@@ -32,7 +42,7 @@ case "$cmd" in
         nvr --remote-send "<Esc>:cd $path<CR>"
         ;;
     *)
-        echo "Usage: yazi-nvim {open|cd} [args...]" >&2
+        echo "Usage: yazi-nvim {open|cd|split|vsplit} [args...]" >&2
         exit 1
         ;;
 esac
