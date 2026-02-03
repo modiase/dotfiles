@@ -117,15 +117,21 @@ return {
 			-- @COC_EXTENSIONS@
 		}
 
-		vim.keymap.set("i", "<S-TAB>", function()
-			if vim.fn["coc#pum#visible"]() then
-				return vim.fn["coc#_select_confirm"]()
-			elseif vim.fn["coc#expandableOrJumpable"]() then
-				return vim.fn["coc#rpc#request"]("doKeymap", { "snippets-expand-jump", "" })
-			elseif check_back_space() then
-				return "<TAB>"
+		vim.keymap.set("i", "<TAB>", function()
+			if vim.fn["coc#pum#visible"]() == 1 then
+				return vim.fn["coc#pum#select_confirm"]()
+			elseif vim.fn["coc#inline#visible"]() == 1 then
+				return vim.fn["coc#inline#accept"]()
 			else
-				return vim.fn["coc#refresh"]()
+				return vim.api.nvim_replace_termcodes("<TAB>", true, true, true)
+			end
+		end, { expr = true, silent = true })
+
+		vim.keymap.set("i", "<S-TAB>", function()
+			if vim.fn["coc#pum#visible"]() == 1 then
+				return vim.fn["coc#pum#prev"](1)
+			else
+				return vim.api.nvim_replace_termcodes("<S-TAB>", true, true, true)
 			end
 		end, { expr = true, silent = true })
 

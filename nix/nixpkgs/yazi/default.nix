@@ -107,6 +107,22 @@ in
           run = ''shell '${yaziNvim} cd "$1"' '';
           desc = "cd neovim to hovered dir";
         }
+        {
+          on = [
+            "g"
+            "s"
+          ];
+          run = ''shell '${yaziNvim} split "$1"' '';
+          desc = "open in nvim horizontal split";
+        }
+        {
+          on = [
+            "g"
+            "v"
+          ];
+          run = ''shell '${yaziNvim} vsplit "$1"' '';
+          desc = "open in nvim vertical split";
+        }
       ];
     };
   };
