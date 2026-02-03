@@ -26,10 +26,12 @@ if set -q _flag_agent
     switch $_flag_agent
         case gemini
             set agent_cmd gemini
+        case gemini-gfg
+            set agent_cmd gemini --gfg
         case claude
             set agent_cmd claude
         case '*'
-            echo "Error: unknown agent '$_flag_agent' (use: gemini, claude)" >&2
+            echo "Error: unknown agent '$_flag_agent' (use: gemini, gemini-gfg, claude)" >&2
             return 1
     end
 end
