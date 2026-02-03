@@ -9,9 +9,6 @@ return {
 		max_width = function()
 			return math.floor(vim.o.columns * 0.75)
 		end,
-		render = "default",
-		stages = "fade_in_slide_out",
-		top_down = true,
 		background_colour = "#2e3440",
 	},
 	config = function(_, opts)

@@ -1,0 +1,18 @@
+{
+  "svelte": {
+    "command": "svelteserver",
+    "args": ["--stdio"],
+    "filetypes": ["svelte"],
+    "initializationOptions": {
+      "configuration": {
+        "svelte": {
+          "plugin": {
+            "typescript": {
+              "enable": true
+            }
+          }
+        }
+      }
+    }
+  }
+}

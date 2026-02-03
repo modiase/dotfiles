@@ -207,7 +207,7 @@ http --session=hass GET http://hestia.local/hass/api/states
 
 ## Configuration Best Practices
 
-- **Research defaults first** - only specify values that differ from defaults
+- **Research defaults first** - before writing any configuration, look up the default values from official documentation or source code. Only specify values that differ from defaults. Strenuously avoid restating defaults unless there is good reason to pin them (e.g., the default may change in future versions and you need stability).
 - **Extract shared config** into variables when used multiple times
 - **Inline single-use variables** - except when they aid readability
 - **Avoid redundant comments** - document only non-obvious behavior (workarounds, complex logic, hidden dependencies)

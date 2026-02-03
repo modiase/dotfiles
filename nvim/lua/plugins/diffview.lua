@@ -7,8 +7,7 @@ return {
 		cmd = { "DiffviewOpen", "DiffviewFileHistory" },
 		config = function()
 			require("diffview").setup({
-				enhanced_diff_hl = true, -- See ':h diffview-config-enhanced_diff_hl'
-				watch_index = true,
+				enhanced_diff_hl = true,
 				keymaps = {
 					view = {
 						["q"] = "<cmd>DiffviewClose<CR>",

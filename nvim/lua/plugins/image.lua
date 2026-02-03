@@ -3,16 +3,6 @@ return {
 	event = "VeryLazy",
 	build = false,
 	opts = {
-		backend = "kitty",
-		processor = "magick_cli",
-		integrations = {
-			markdown = {
-				enabled = true,
-				clear_in_insert_mode = false,
-				only_render_image_at_cursor = false,
-				floating_windows = false,
-			},
-		},
 		max_width = 100,
 		max_height = 12,
 		max_height_window_percentage = math.huge,

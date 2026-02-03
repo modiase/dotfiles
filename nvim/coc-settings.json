@@ -23,31 +23,7 @@
     "mA": "addDirectory"
   },
   "explorer.width": 40,
-  "languageserver": {
-    "svelte": {
-      "command": "svelteserver",
-      "args": ["--stdio"],
-      "filetypes": ["svelte"],
-      "initializationOptions": {
-        "configuration": {
-          "svelte": {
-            "plugin": {
-              "typescript": {
-                "enable": true
-              }
-            }
-          }
-        }
-      }
-    },
-    "terraform": {
-      "command": "terraform-ls",
-      "args": ["serve"],
-      "filetypes": ["terraform", "tf", "tofu"],
-      "initializationOptions": {},
-      "settings": {}
-    }
-  },
+  "languageserver": {},
   "notification.statusLineProgress": false,
   "python.linting.enabled": true,
   "snippets.ultisnips.enable": false,

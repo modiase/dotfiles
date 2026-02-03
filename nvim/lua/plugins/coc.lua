@@ -20,9 +20,6 @@ return {
 
 		vim.g.coc_snippet_next = "<tab>"
 
-		vim.keymap.set("n", "[g", "<Plug>(coc-diagnostic-prev)", { silent = true })
-		vim.keymap.set("n", "]g", "<Plug>(coc-diagnostic-next)", { silent = true })
-
 		vim.keymap.set("n", "gd", "<Plug>(coc-definition)", { silent = true })
 		vim.keymap.set("n", "gs", ":sp<CR><C-j><Plug>(coc-definition)", { silent = true })
 		vim.keymap.set("n", "gv", ":vs<CR><C-l><Plug>(coc-definition)", { silent = true })
@@ -75,7 +72,6 @@ return {
 		vim.keymap.set("n", "<leader>a", "<Plug>(coc-codeaction-selected)")
 		vim.keymap.set("n", "<leader>ac", "<Plug>(coc-codeaction)")
 		vim.keymap.set("n", "<leader>qf", "<Plug>(coc-fix-current)")
-		vim.keymap.set("x", "<S-TAB>", "<Plug>(coc-range-select-backword)", { silent = true })
 
 		vim.api.nvim_create_user_command("Format", "call CocAction('format')", {})
 		vim.api.nvim_create_user_command("Fold", "call CocAction('fold', <f-args>)", { nargs = "?" })
@@ -118,23 +114,7 @@ return {
 		end, { silent = true })
 
 		vim.g.coc_global_extensions = {
-			"coc-angular",
-			"coc-clangd",
-			"coc-css",
-			"coc-emmet",
-			"coc-eslint",
-			"coc-explorer",
-			"coc-go",
-			"coc-html",
-			"coc-json",
-			"coc-lua",
-			"coc-prettier",
-			"coc-pyright",
-			"coc-sh",
-			"coc-snippets",
-			"coc-tsserver",
-			"coc-vimlsp",
-			"coc-yaml",
+			-- @COC_EXTENSIONS@
 		}
 
 		vim.keymap.set("i", "<S-TAB>", function()
