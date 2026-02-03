@@ -1,0 +1,9 @@
+{
+  "terraform": {
+    "command": "terraform-ls",
+    "args": ["serve"],
+    "filetypes": ["terraform", "tf", "tofu"],
+    "initializationOptions": {},
+    "settings": {}
+  }
+}

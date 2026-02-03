@@ -133,11 +133,24 @@ in
   };
 
   home.file.".config/nvim/coc-settings.json" = lib.mkDefault {
-    source = ../nvim/coc-settings.json;
+    text =
+      let
+        base = builtins.fromJSON (builtins.readFile ../nvim/coc-settings.json);
+        svelte = builtins.fromJSON (builtins.readFile ../nvim/coc-languageservers/svelte.json);
+        terraform = builtins.fromJSON (builtins.readFile ../nvim/coc-languageservers/terraform.json);
+      in
+      builtins.toJSON (lib.recursiveUpdate base { languageserver = svelte // terraform; });
   };
 
   home.file.".config/nvim/lua/plugins/coc.lua" = lib.mkDefault {
-    source = ../nvim/lua/plugins/coc.lua;
+    text =
+      let
+        cocLua = builtins.readFile ../nvim/lua/plugins/coc.lua;
+        baseExts = builtins.fromJSON (builtins.readFile ../nvim/coc-extensions/base.json);
+        frontendExts = builtins.fromJSON (builtins.readFile ../nvim/coc-extensions/frontend.json);
+        extsList = builtins.concatStringsSep ", " (map (e: ''"${e}"'') (baseExts ++ frontendExts));
+      in
+      builtins.replaceStrings [ "-- @COC_EXTENSIONS@" ] [ extsList ] cocLua;
   };
 
   home.file.".config/pass-git-helper/git-pass-mapping.ini" =

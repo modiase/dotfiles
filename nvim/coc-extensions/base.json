@@ -1,0 +1,17 @@
+[
+  "coc-clangd",
+  "coc-css",
+  "coc-emmet",
+  "coc-eslint",
+  "coc-explorer",
+  "coc-go",
+  "coc-html",
+  "coc-json",
+  "coc-lua",
+  "coc-prettier",
+  "coc-pyright",
+  "coc-sh",
+  "coc-snippets",
+  "coc-vimlsp",
+  "coc-yaml"
+]
