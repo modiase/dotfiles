@@ -11,6 +11,7 @@ return {
 			window = {
 				winblend = 0,
 				border = "rounded",
+				zindex = 100,
 			},
 		},
 	},

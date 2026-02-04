@@ -87,6 +87,12 @@ return {
 			opts.attach_mappings = function(prompt_bufnr, map)
 				local picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
 
+				vim.api.nvim_create_autocmd("BufWinLeave", {
+					buffer = prompt_bufnr,
+					once = true,
+					callback = stop_spinner,
+				})
+
 				local original_completor = picker.get_result_completor
 				picker.get_result_completor = function(self, ...)
 					local completor = original_completor(self, ...)
