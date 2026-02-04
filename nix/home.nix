@@ -29,6 +29,7 @@ let
     gum
     httpie
     jq
+    just
     lsof
     moor
     neovim-remote
