@@ -1,4 +1,8 @@
 return {
 	"glepnir/dashboard-nvim",
-	opts = {},
+	opts = {
+		config = {
+			mru = { enable = false },
+		},
+	},
 }
