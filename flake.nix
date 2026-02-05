@@ -307,7 +307,7 @@
 
       hekate = mkSystem (import ./systems/hekate { inherit sops-nix; });
       herakles = mkSystem (import ./systems/herakles);
-      hephaistos = mkSystem (import ./systems/hephaistos { inherit lib; });
+      hephaistos = mkSystem (import ./systems/hephaistos { inherit lib fontOverlays; });
       hermes = mkSystem (import ./systems/hermes { });
       hestia = mkSystem (
         import ./systems/hestia { inherit heraklesBuildServer tk700-controller-dashboard sops-nix; }
