@@ -13,6 +13,36 @@ return {
 	config = function()
 		require("telescope").setup({
 			defaults = {
+				file_ignore_patterns = {
+					"^%.git/",
+					"node_modules/",
+					"__pycache__/",
+					"%.pyc$",
+					"%.venv/",
+					"venv/",
+					"%.DS_Store",
+					"target/",
+					"dist/",
+					"build/",
+					"vendor/",
+					"%.cache/",
+					"%.next/",
+					"%.angular/",
+					"%.terraform/",
+					"%.pytest_cache/",
+					"%.mypy_cache/",
+					"coverage/",
+					"%.class$",
+					"%.gradle/",
+					"%.idea/",
+					"out/",
+					"builddir/",
+					"subprojects/",
+					"%.o$",
+					"%.a$",
+					"%.so$",
+					"%.cargo/",
+				},
 				mappings = {
 					n = {
 						["<c-d>"] = require("telescope.actions").delete_buffer,
