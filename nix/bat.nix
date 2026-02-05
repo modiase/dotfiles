@@ -4,7 +4,7 @@
   programs.bat = {
     enable = true;
     config = {
-      theme = "Nord";
+      theme = "gruvbox-dark";
       style = "plain";
       pager = "less -RFXS";
     };

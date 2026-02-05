@@ -4,7 +4,7 @@
   home.packages = with pkgs; [ btop ];
 
   xdg.configFile."btop/btop.conf".text = ''
-    color_theme = "nord"
+    color_theme = "gruvbox_material_dark"
     theme_background = False
   '';
 }
