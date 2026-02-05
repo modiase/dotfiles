@@ -40,6 +40,8 @@ vim.keymap.set("n", "<leader>pw", do_window_swap, opts)
 
 vim.keymap.set("i", "<S-Tab>", "<C-V><Tab>", opts)
 
+vim.keymap.set({ "n", "v" }, "<leader>qq", ":qa<CR>", opts)
+vim.keymap.set({ "n", "v" }, "<leader>qQ", ":qa!<CR>", opts)
 vim.keymap.set({ "n", "v" }, "<leader>k", ":close<CR>", opts)
 vim.keymap.set({ "n", "v" }, "<leader>K", ":close!<CR>", opts)
 vim.keymap.set({ "n", "v" }, "<leader>ww", ":vs<CR>", opts)
