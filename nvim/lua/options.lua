@@ -14,7 +14,6 @@ vim.opt.wrap = false
 vim.opt.termguicolors = true
 
 vim.cmd("syntax on")
-vim.cmd("colorscheme nord")
 
 vim.api.nvim_set_hl(0, "Normal", { bg = "NONE" })
 vim.api.nvim_set_hl(0, "NormalFloat", { bg = "NONE" })
@@ -49,20 +48,9 @@ vim.api.nvim_set_hl(0, "DiffDelete", {
 	bg = "#401010",
 })
 
-vim.api.nvim_set_hl(0, "CocInlayHint", {
-	fg = "#88c0d0", -- Nord light blue for inlay hints
-	bg = "NONE", -- No background
-})
-
-vim.api.nvim_set_hl(0, "CocInlayHintParameter", {
-	fg = "#88c0d0", -- Nord light blue for parameter hints
-	bg = "NONE", -- No background
-})
-
-vim.api.nvim_set_hl(0, "CocInlayHintType", {
-	fg = "#88c0d0", -- Nord light blue for type hints
-	bg = "NONE", -- No background
-})
+vim.api.nvim_set_hl(0, "CocInlayHint", { fg = "#a8d8ea", bg = "NONE" })
+vim.api.nvim_set_hl(0, "CocInlayHintParameter", { fg = "#a8d8ea", bg = "NONE" })
+vim.api.nvim_set_hl(0, "CocInlayHintType", { fg = "#a8d8ea", bg = "NONE" })
 
 -- Set filetype for OpenTofu files
 vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {

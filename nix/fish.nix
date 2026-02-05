@@ -83,8 +83,8 @@ in
       end
       set -gx DOTFILES "$HOME/dotfiles"
       set -gx MANPAGER "nvim +Man!"
-      set -gx MOOR "--no-linenumbers --no-statusbar --quit-if-one-screen -terminal-fg -style nord"
-      set -gx FZF_DEFAULT_OPTS "--color=fg:#c0c5ce,bg:#14161c,hl:#88c0d0,fg+:#e5e9f0,bg+:#3b4252,hl+:#8fbcbb,info:#81a1c1,prompt:#b48ead,pointer:#88c0d0,marker:#608060,spinner:#b48ead,header:#81a1c1"
+      set -gx MOOR "--no-linenumbers --no-statusbar --quit-if-one-screen -terminal-fg -style gruvbox"
+      set -gx FZF_DEFAULT_OPTS "--color=fg:#e0e0e0,bg:#1c1c1c,hl:#a8d8ea,fg+:#f0f0f0,bg+:#3a3a3a,hl+:#b8e8f0,info:#8fa8c9,prompt:#c9a8c9,pointer:#a8d8ea,marker:#a8c99a,spinner:#c9a8c9,header:#8fa8c9"
       set -q fish_prompt_prefix; or set -U fish_prompt_prefix (set -q hostname_override; and echo $hostname_override; or hostname)
     '';
     interactiveShellInit = ''
