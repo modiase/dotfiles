@@ -10,7 +10,7 @@ switch (string lower (path extension $file))
     case .json
         jq . $file 2>/dev/null; or bat $file
     case .md .markdown
-        nvim -M -c "set nonumber norelativenumber" -c "nnoremap <buffer> q :q<CR>" $file
+        nvim -M -c "set nonumber norelativenumber wrap linebreak" -c "nnoremap <buffer> q :q<CR>" $file
     case .png .jpg .jpeg .gif .bmp .webp .tiff .tif .svg .ico
         if test -n "$TMUX"
             chafa --format kitty --passthrough tmux $file
