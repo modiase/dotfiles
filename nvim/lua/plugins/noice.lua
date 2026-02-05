@@ -12,10 +12,15 @@ return {
 			signature = { enabled = false },
 			message = { enabled = false },
 		},
+		views = {
+			popup = { enter = true },
+		},
+		routes = {
+			{ filter = { min_height = 10 }, view = "popup" },
+		},
 		presets = {
 			bottom_search = true,
 			command_palette = true,
-			long_message_to_split = true,
 		},
 	},
 }
