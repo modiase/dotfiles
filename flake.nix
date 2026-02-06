@@ -29,6 +29,10 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nvim-mcp = {
+      url = "github:linw1995/nvim-mcp";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -41,6 +45,7 @@
       nix-darwin,
       nix-homebrew,
       nixpkgs,
+      nvim-mcp,
       sops-nix,
       tk700-controller-dashboard,
       ...
@@ -293,7 +298,7 @@
             config.allowUnfree = true;
             overlays = sharedOverlays;
           };
-          extraSpecialArgs = { inherit isFrontend user; };
+          extraSpecialArgs = { inherit isFrontend user nvim-mcp; };
           modules = [
             ./nix/home.nix
             (if isDarwin then ./nix/platforms/darwin.nix else ./nix/platforms/linux.nix)

@@ -10,7 +10,7 @@
     "0=#1c1c1c"
     "1=#d08080"
     "2=#a8c99a"
-    "3=#f6e3a1"
+    "3=#d8d0b8"
     "4=#8fa8c9"
     "5=#c9a8c9"
     "6=#a8d8ea"
@@ -18,7 +18,7 @@
     "8=#3a3a3a"
     "9=#f4b6c2"
     "10=#b8d9aa"
-    "11=#f9ecbf"
+    "11=#e0d8c0"
     "12=#a0b8d9"
     "13=#d9b8d9"
     "14=#b8e8f0"
@@ -37,7 +37,7 @@
     base08 = "d08080";
     base09 = "a8c99a";
     base0A = "f4b6c2";
-    base0B = "f6e3a1";
+    base0B = "d8d0b8";
     base0C = "a8d8ea";
     base0D = "8fa8c9";
     base0E = "c9a8c9";

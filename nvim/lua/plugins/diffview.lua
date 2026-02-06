@@ -6,6 +6,7 @@ return {
 		dependencies = { "nvim-lua/plenary.nvim" },
 		cmd = { "DiffviewOpen", "DiffviewFileHistory" },
 		config = function()
+			vim.opt.fillchars:append({ diff = " " })
 			require("diffview").setup({
 				enhanced_diff_hl = true,
 				keymaps = {
