@@ -18,10 +18,17 @@
 
 When asked use `bin/activate` to apply configuration changes. Do **not** call
 `darwin-rebuild`, `nixos-rebuild`, or `home-manager` directly; the script
-handles sequencing, logging, core counts, and sudo prompts. If you are asked to
-investigate an activate failure the logs on MacOS are found at
-~/Library/Logs/dotfiles-activate.log.
+handles sequencing, logging, core counts, and sudo prompts.
 MANDATORY: you must never call bin/activate without being explicitly asked to.
+
+### Verifying Activation Status
+
+Before claiming "activation hasn't run" or similar, **always check the logs first**:
+
+- **macOS**: `~/Library/Logs/dotfiles-activate.log`
+- **Linux**: `journalctl -u dotfiles-activate` or system journal
+
+Compare log timestamps against your last message to determine if activation ran recently. The logs show each activation step and any errors encountered.
 
 ### Commands
 

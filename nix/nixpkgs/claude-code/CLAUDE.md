@@ -102,6 +102,27 @@ if [[ ${LOG_LEVEL:-2} -ge 4 ]]; then set -x; fi
 - If present, run `pre-commit run` on staged files before considering work complete
 - Fix any issues reported by hooks, then re-run until clean
 
+## LSP Diagnostics (MANDATORY if nvim MCP available)
+
+**If the nvim MCP server is available and operational**, you MUST check LSP diagnostics on changed files after each round of changes. This is not optional.
+
+### Requirements
+
+- **Errors (severity 1)**: MUST be fixed before considering work complete
+- **Warnings/Hints (severity 2+)**: Ignore - often false positives or stylistic
+
+### How to Check
+
+1. Connect to nvim via `mcp__nvim__connect` if not already connected
+2. Use `mcp__nvim__buffer_diagnostics` for files open in neovim
+3. Alternatively, use standalone LSP MCP servers (`mcp__lsp-lua__*`, `mcp__lsp-nix__*`, etc.)
+
+### When to Skip
+
+- If `mcp__nvim__get_targets` returns no targets and LSP MCP servers fail to start
+- If the user explicitly instructs you to skip
+- For file types without LSP support
+
 ## Git Commits
 - **NEVER commit to main** unless explicitly instructed
 - Exception: when working on a separate Claude-authored branch, commits are permitted
