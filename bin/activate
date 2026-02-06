@@ -124,11 +124,19 @@ ensure_in_worktree() {
             mkdir -p "$worktree_gitdir/git-crypt/keys"
             ln "$main_git_dir/git-crypt/keys/default" "$worktree_gitdir/git-crypt/keys/default" 2>/dev/null || true
         fi
-        local current_head
-        current_head=$(git -C "$worktree_path" rev-parse HEAD 2>/dev/null) || true
-        [ "$current_head" != "$origin_main" ] &&
-            git -C "$worktree_path" reset --hard origin/main 2>&1 | log_debug_to_pipe "git-reset" || true
-    else
+        if ! git -C "$worktree_path" crypt status &>/dev/null; then
+            log_debug "git-crypt broken in worktree, recreating"
+            rm -rf "$worktree_path"
+            git -C "$HOME/dotfiles" worktree prune 2>/dev/null || true
+        else
+            local current_head
+            current_head=$(git -C "$worktree_path" rev-parse HEAD 2>/dev/null) || true
+            [ "$current_head" != "$origin_main" ] &&
+                git -C "$worktree_path" reset --hard origin/main 2>&1 | log_debug_to_pipe "git-reset" || true
+        fi
+    fi
+
+    if [ ! -d "$worktree_path" ]; then
         mkdir -p "$HOME/dotfiles/worktrees"
         git -C "$HOME/dotfiles" worktree add --no-checkout --detach "$worktree_path" origin/main 2>&1 | log_debug_to_pipe "git-worktree" || return 0
         mkdir -p "$worktree_gitdir/git-crypt/keys"
