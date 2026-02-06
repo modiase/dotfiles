@@ -17,9 +17,6 @@ return {
 		},
 		routes = {
 			{ filter = { min_height = 10 }, view = "popup" },
-			-- nvim-mcp's setup_autocmd.lua broadcasts an unhandled "NVIM_MCP" notification
-			-- which causes coc.nvim to error. The notification is debug noise with no handler.
-			{ filter = { find = "NVIM_MCP" }, opts = { skip = true } },
 		},
 		presets = {
 			bottom_search = true,
