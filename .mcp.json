@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "neovim": {
+      "type": "stdio",
+      "command": "nix",
+      "args": ["run", "/Users/moyeodiase/dotfiles#nvim-mcp-connect"],
+      "env": {
+        "TMUX": "${TMUX:-}"
+      }
+    },
+    "nixos": {
+      "type": "stdio",
+      "command": "nix",
+      "args": ["run", "nixpkgs#mcp-nixos"],
+      "env": {}
+    },
+    "shell": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@mkusaka/mcp-shell-server"],
+      "env": {}
+    }
+  }
+}

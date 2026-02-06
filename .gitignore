@@ -45,6 +45,7 @@ worktrees/
 # Agents
 # symlinked to AGENTS.md
 /CLAUDE.md
+mcp-shell.log
 
 INSTRUCT.md
 .gemini/

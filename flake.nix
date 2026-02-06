@@ -418,6 +418,7 @@
         claude-code = pkgs.callPackage ./nix/nixpkgs/claude-code/package.nix { };
         cve-scanner = pkgs.callPackage ./nix/nixpkgs/cve-scanner { };
         derive-age-key = pkgs.callPackage ./nix/nixpkgs/derive-age-key { };
+        nvim-mcp-connect = pkgs.callPackage ./nix/nixpkgs/nvim-mcp-connect { inherit nvim-mcp; };
         secrets = pkgs.callPackage ./nix/nixpkgs/secrets { };
         shellutils = pkgs.callPackage ./nix/nixpkgs/shellutils { };
       in
@@ -428,6 +429,7 @@
             claude-code
             cve-scanner
             derive-age-key
+            nvim-mcp-connect
             secrets
             ;
           inherit (shellutils) hook-utils logging-utils build-gce-nixos-image;
