@@ -13,6 +13,9 @@ let
     nvim = {
       type = "stdio";
       command = "${nvim-mcp-connect}/bin/nvim-mcp-connect";
+      env = {
+        TMUX = "\${TMUX:-}";
+      };
     };
   };
   mcpServersJson = pkgs.writeText "claude-mcp-servers.json" (builtins.toJSON mcpServers);
@@ -26,7 +29,7 @@ in
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         claude_json="$HOME/.claude.json"
         if [[ -f "$claude_json" ]]; then
-          ${pkgs.jq}/bin/jq -s '.[0] * {mcpServers: (.[0].mcpServers // {} | . * .[1])}' \
+          ${pkgs.jq}/bin/jq -s '.[0] * {mcpServers: ((.[0].mcpServers // {}) * .[1])}' \
             "$claude_json" ${mcpServersJson} > "$claude_json.tmp" && mv "$claude_json.tmp" "$claude_json"
         else
           echo '{}' | ${pkgs.jq}/bin/jq -s '.[0] * {mcpServers: .[1]}' - ${mcpServersJson} > "$claude_json"
