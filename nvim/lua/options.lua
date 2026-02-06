@@ -58,7 +58,12 @@ vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
 	command = "set filetype=terraform",
 })
 
--- Export neovim socket to tmux environment for yazi integration
-if vim.env.TMUX then
-	vim.fn.system({ "tmux", "set-environment", "NVIM_" .. vim.env.TMUX_PANE, vim.v.servername })
+if vim.env.TMUX and vim.g.pager_mode ~= 1 then
+	local env_var = "NVIM_" .. vim.env.TMUX_PANE
+	vim.fn.system({ "tmux", "set-environment", env_var, vim.v.servername })
+	vim.api.nvim_create_autocmd("VimLeave", {
+		callback = function()
+			vim.fn.system({ "tmux", "set-environment", "-u", env_var })
+		end,
+	})
 end

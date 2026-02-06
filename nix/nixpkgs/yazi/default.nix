@@ -2,13 +2,14 @@
 
 let
   yaziNvim = pkgs.writeShellScript "yazi-nvim" (builtins.readFile ./yazi-nvim.sh);
+  pastelGrayTheme = pkgs.writeText "pastel-gray.tmTheme" (builtins.readFile ./pastel-gray.tmTheme);
 in
 {
   programs.yazi = {
     enable = true;
     theme = {
       mgr = {
-        syntect_theme = "";
+        syntect_theme = "${pastelGrayTheme}";
         cwd = {
           fg = "#a8d8ea";
         };
@@ -19,7 +20,7 @@ in
           underline = true;
         };
         find_keyword = {
-          fg = "#f6e3a1";
+          fg = "#d8d0b8";
           bold = true;
         };
         find_position = {
@@ -40,8 +41,8 @@ in
           bg = "#a8d8ea";
         };
         marker_selected = {
-          fg = "#f6e3a1";
-          bg = "#f6e3a1";
+          fg = "#d8d0b8";
+          bg = "#d8d0b8";
         };
         tab_active = {
           fg = "#1c1c1c";
@@ -61,7 +62,7 @@ in
         };
         count_selected = {
           fg = "#1c1c1c";
-          bg = "#f6e3a1";
+          bg = "#d8d0b8";
         };
         border_symbol = "│";
         border_style = {
@@ -106,7 +107,7 @@ in
           fg = "#8fa8c9";
         };
         perm_read = {
-          fg = "#f6e3a1";
+          fg = "#d8d0b8";
         };
         perm_write = {
           fg = "#d08080";
@@ -195,7 +196,7 @@ in
           fg = "#a8d8ea";
         };
         title_warn = {
-          fg = "#f6e3a1";
+          fg = "#d8d0b8";
         };
         title_error = {
           fg = "#d08080";
@@ -205,7 +206,7 @@ in
         rules = [
           {
             mime = "image/*";
-            fg = "#f6e3a1";
+            fg = "#d8d0b8";
           }
           {
             mime = "{audio,video}/*";
