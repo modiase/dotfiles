@@ -18,12 +18,12 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel)"
 
 export NIX_CONFIG="experimental-features = nix-command flakes"
 
-LOGGING_UTILS_PATH=$(nix build "path:$REPO_ROOT#logging-utils" --print-out-paths --no-link 2>/dev/null) || {
-    echo "ERROR: Failed to build logging-utils" >&2
-    exit 1
-}
 # shellcheck source=/dev/null
-source "$LOGGING_UTILS_PATH/lib/logging-utils.sh"
+source "$REPO_ROOT/nix/nixpkgs/shellutils/hook-utils.sh"
+_DATE=date _MKDIR=mkdir _MKTEMP=mktemp _CAT=cat _TAIL=tail
+_FLOCK=$(command -v flock) || _FLOCK="nix shell nixpkgs#flock -c flock"
+# shellcheck source=/dev/null
+source "$REPO_ROOT/nix/nixpkgs/shellutils/logging-utils.sh"
 
 GIT_COMMON_DIR="$(git -C "$REPO_ROOT" rev-parse --git-common-dir)"
 GITCRYPT_KEY="$GIT_COMMON_DIR/git-crypt/keys/default"
@@ -98,52 +98,6 @@ if [ "$(uname -s)" = "Darwin" ]; then
 else
     LOCKFILE="${XDG_RUNTIME_DIR:-/tmp}/dotfiles-activate-${UID}.lock"
 fi
-LOCK_ACQUIRED=0
-
-acquire_lock() {
-    local lockdir="${LOCKFILE}.d"
-    local pidfile="$lockdir/pid" tsfile="$lockdir/timestamp" timeoutfile="$lockdir/timeout"
-    local timeout_seconds=$((LOCK_TIMEOUT * 60)) wait_elapsed=0
-
-    while ! mkdir "$lockdir" 2>/dev/null; do
-        local lock_pid lock_ts lock_timeout lock_age
-        lock_pid=$(cat "$pidfile" 2>/dev/null || echo "")
-        lock_ts=$(cat "$tsfile" 2>/dev/null || echo "")
-        lock_timeout=$(cat "$timeoutfile" 2>/dev/null || echo "")
-
-        [ -n "$lock_pid" ] && ! kill -0 "$lock_pid" 2>/dev/null && {
-            echo "Removing stale lock (PID $lock_pid no longer exists)"
-            rm -rf "$lockdir"
-            continue
-        }
-
-        [ -n "$lock_ts" ] && [ -n "$lock_timeout" ] && {
-            lock_age=$(($(date +%s) - lock_ts))
-            local lock_timeout_seconds=$((lock_timeout * 60))
-            [ "$lock_age" -ge "$lock_timeout_seconds" ] && {
-                echo "Removing stale lock (held for ${lock_age}s, timeout ${lock_timeout_seconds}s)"
-                rm -rf "$lockdir"
-                continue
-            }
-        }
-
-        [ "$wait_elapsed" -ge "$timeout_seconds" ] && {
-            echo "Error: Could not acquire lock after ${LOCK_TIMEOUT} minutes" >&2
-            return 1
-        }
-
-        [ "$wait_elapsed" -eq 0 ] && echo "Waiting for lock held by PID ${lock_pid:-unknown}"
-        sleep 5
-        wait_elapsed=$((wait_elapsed + 5))
-    done
-
-    echo $$ >"$pidfile"
-    date +%s >"$tsfile"
-    echo "$LOCK_TIMEOUT" >"$timeoutfile"
-    LOCK_ACQUIRED=1
-}
-
-release_lock() { [ "$LOCK_ACQUIRED" -eq 1 ] && rm -rf "${LOCKFILE}.d" || true; }
 
 is_in_worktree() {
     local script_dir
@@ -243,7 +197,7 @@ get_manage_options() {
     local host="$1" result
     result=$(nix eval --impure --json --expr "
         let
-            flake = builtins.getFlake \"path:$REPO_ROOT\";
+            flake = builtins.getFlake \"git+file://$REPO_ROOT\";
             cfg = flake.darwinConfigurations.$host.config.dotfiles
                 or flake.nixosConfigurations.$host.config.dotfiles
                 or null;
@@ -263,7 +217,7 @@ deploy_all() {
     get_manageable_hosts() {
         nix eval --impure --raw --expr "
             let
-                flake = builtins.getFlake \"path:$REPO_ROOT\";
+                flake = builtins.getFlake \"git+file://$REPO_ROOT\";
                 lib = flake.inputs.nixpkgs.lib;
                 darwin = lib.mapAttrsToList (name: cfg:
                     if cfg.config.dotfiles.manageRemotely or false then name else null
@@ -354,13 +308,13 @@ do_activate() {
         exit 1
     fi
 
-    add_exit_hook 'release_lock'
     trap 'exit 130' INT TERM
 
     log_to_system "info" "Activation started by $USER (timeout: ${LOCK_TIMEOUT}m, cores: ${MAX_CORES})"
 
-    acquire_lock || {
-        log_to_system "error" "Failed to acquire lock"
+    exec 9>"$LOCKFILE"
+    $_FLOCK -w $((LOCK_TIMEOUT * 60)) 9 || {
+        log_to_system "error" "Failed to acquire lock after ${LOCK_TIMEOUT} minutes"
         exit 1
     }
     log_to_system "info" "Lock acquired successfully"
@@ -389,7 +343,7 @@ do_activate() {
     local config_hostname flake_target
     config_hostname="${SYSTEM_OVERRIDE:-$(hostname -s)}"
     HOME_MANAGER_TARGET="$USER-$config_hostname"
-    flake_target="path:$REPO_ROOT#$config_hostname"
+    flake_target="git+file://$REPO_ROOT#$config_hostname"
 
     [ -n "$SYSTEM_OVERRIDE" ] && log_debug "Using system: $SYSTEM_OVERRIDE"
 
@@ -436,7 +390,7 @@ do_activate() {
 
     if [ "$manage_home" = "true" ]; then
         run_logged "home-manager" nix shell nixpkgs#home-manager -c home-manager switch \
-            -b backup --flake "path:$REPO_ROOT#$HOME_MANAGER_TARGET" &&
+            -b backup --flake "git+file://$REPO_ROOT#$HOME_MANAGER_TARGET" &&
             record_state "$HOME_STATE" "$target_hash" || exit 1
     else
         log_info "Skipping home management (manageHome=false)"
