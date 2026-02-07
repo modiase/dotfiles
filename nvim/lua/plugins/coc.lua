@@ -1,5 +1,3 @@
----@diagnostic disable-next-line: undefined-global
-local vim = vim
 return {
 	"neoclide/coc.nvim",
 	branch = "release",
