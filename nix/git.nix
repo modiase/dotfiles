@@ -6,7 +6,7 @@
     settings = {
       user.name = "Moye Odiase";
       user.email = "moyeodiase@gmail.com";
-      core.editor = "nvim";
+      core.editor = ''nvim --cmd "let g:pager_mode=1" -c "set nonumber norelativenumber wrap linebreak" -c "nnoremap <buffer> q :cq<CR>"'';
       core.pager = "delta";
       credential.helper =
         if pkgs.stdenv.isDarwin then "osxkeychain" else "${pkgs.pass-git-helper}/bin/pass-git-helper";
