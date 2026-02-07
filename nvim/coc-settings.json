@@ -23,6 +23,7 @@
     "mA": "addDirectory"
   },
   "explorer.width": 40,
+  "Lua.diagnostics.globals": ["vim"],
   "languageserver": {},
   "notification.statusLineProgress": false,
   "python.linting.enabled": true,
