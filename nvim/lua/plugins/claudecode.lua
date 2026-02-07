@@ -3,7 +3,17 @@ return {
 	cond = not vim.g.pager_mode,
 	event = "VeryLazy",
 	dependencies = { "folke/snacks.nvim" },
-	opts = {},
+	opts = {
+		diff_opts = {
+			auto_close_on_accept = true,
+			vertical_split = true,
+			open_in_current_tab = false,
+		},
+	},
+	config = function(_, opts)
+		require("claudecode").setup(opts)
+		vim.opt.fillchars:append({ diff = " " })
+	end,
 	keys = {
 		{ "<leader>C", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude Code" },
 		{ "<leader>Cs", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send selection to Claude" },
