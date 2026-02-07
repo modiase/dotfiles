@@ -77,11 +77,20 @@ repos:
         name: lint typescript
         entry: bash
         language: system
-        files: ^systems/hekate/run/dashboard/frontend/src/.*\.(ts|html)$
+        files: ^systems/hekate/run/dashboard/webui/src/.*\.(ts|html)$
         pass_filenames: false
         args:
           - -c
-          - "cd systems/hekate/run/dashboard/frontend && pnpm run lint"
+          - "cd systems/hekate/run/dashboard/webui && pnpm run lint"
+      - id: organize-imports
+        name: organize typescript imports
+        entry: bash
+        language: system
+        files: ^systems/hekate/run/dashboard/webui/src/.*\.ts$
+        pass_filenames: false
+        args:
+          - -c
+          - "cd systems/hekate/run/dashboard/webui && pnpm dlx organize-imports-cli src/app/**/*.ts"
       - id: bash-syntax
         name: bash syntax check
         entry: bash
