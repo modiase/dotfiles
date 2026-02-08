@@ -65,14 +65,23 @@ module "ntfy_pubsub" {
   region     = var.region
 }
 
-module "backup_monitor" {
-  source           = "./modules/backup-monitor"
+module "hestia_backup_monitor" {
+  source           = "./modules/gcs-freshness-monitor"
   project_id       = var.project_id
   region           = var.region
-  backups_bucket   = var.backup_bucket_name
+  functions_bucket = module.ntfy_pubsub.functions_bucket
   ntfy_topic_id    = module.ntfy_pubsub.topic_id
   ntfy_topic_name  = module.ntfy_pubsub.topic_name
-  functions_bucket = module.ntfy_pubsub.functions_bucket
+
+  name          = "hestia-backup"
+  bucket        = var.backup_bucket_name
+  object        = "hestia/metadata.json"
+  schedule      = "0 0 */2 * *"
+  max_age_hours = 48
+  ntfy_topic    = "backups"
+  ntfy_priority = "1"
+  ntfy_title    = "Backup Alert"
+  ntfy_message  = "Expected backup from hestia missing"
 }
 
 module "cve_monitor" {
