@@ -33,6 +33,12 @@ module "hermes" {
   zone                  = var.zone
 }
 
+module "hestia" {
+  source         = "./modules/hestia"
+  project_id     = var.project_id
+  backups_bucket = var.backup_bucket_name
+}
+
 resource "google_storage_bucket" "backups" {
   name                        = var.backup_bucket_name
   location                    = var.backup_bucket_location
@@ -51,4 +57,33 @@ resource "google_storage_bucket" "backups" {
   versioning {
     enabled = true
   }
+}
+
+module "ntfy_pubsub" {
+  source     = "./modules/ntfy-pubsub"
+  project_id = var.project_id
+  region     = var.region
+}
+
+module "backup_monitor" {
+  source           = "./modules/backup-monitor"
+  project_id       = var.project_id
+  region           = var.region
+  backups_bucket   = var.backup_bucket_name
+  ntfy_topic_id    = module.ntfy_pubsub.topic_id
+  ntfy_topic_name  = module.ntfy_pubsub.topic_name
+  functions_bucket = module.ntfy_pubsub.functions_bucket
+}
+
+module "cve_monitor" {
+  source        = "./modules/cve-monitor"
+  project_id    = var.project_id
+  ntfy_topic_id = module.ntfy_pubsub.topic_id
+}
+
+resource "google_pubsub_topic_iam_member" "hermes_publisher" {
+  project = var.project_id
+  topic   = module.ntfy_pubsub.topic_name
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${module.hermes.hermes_service_account_email}"
 }
