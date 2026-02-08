@@ -6,10 +6,85 @@
   };
   permissions = {
     allow = [
+      # Nix
       "Bash(nix eval:*)"
+      "Bash(nix build:*)"
+      "Bash(nix flake show:*)"
+      "Bash(nix flake metadata:*)"
+      "Bash(nix flake check:*)"
+      "Bash(nix-instantiate:*)"
+      "Bash(nix-build:*)"
+      "Bash(nixos-option:*)"
+
+      # Git (read-only)
+      "Bash(git status:*)"
+      "Bash(git log:*)"
+      "Bash(git diff:*)"
+      "Bash(git show:*)"
+      "Bash(git branch:*)"
+      "Bash(git remote:*)"
+      "Bash(git rev-parse:*)"
+      "Bash(git ls-files:*)"
+      "Bash(git ls-tree:*)"
+
+      # GCloud logging (read-only)
+      "Bash(gcloud logging read:*)"
+      "Bash(gcloud logging logs list:*)"
+      "Bash(gcloud logging buckets list:*)"
+      "Bash(gcloud logging buckets describe:*)"
+      "Bash(gcloud logging locations list:*)"
+      "Bash(gcloud logging locations describe:*)"
+      "Bash(gcloud logging metrics list:*)"
+      "Bash(gcloud logging metrics describe:*)"
+      "Bash(gcloud logging operations list:*)"
+      "Bash(gcloud logging operations describe:*)"
+      "Bash(gcloud logging resource-descriptors list:*)"
+      "Bash(gcloud logging scopes list:*)"
+      "Bash(gcloud logging scopes describe:*)"
+      "Bash(gcloud logging settings describe:*)"
+      "Bash(gcloud logging sinks list:*)"
+      "Bash(gcloud logging sinks describe:*)"
+      "Bash(gcloud logging views list:*)"
+      "Bash(gcloud logging views describe:*)"
+      "Bash(gcloud logging links list:*)"
+      "Bash(gcloud logging links describe:*)"
+
+      # GCloud other (read-only)
+      "Bash(gcloud compute instances list:*)"
+      "Bash(gcloud compute instances describe:*)"
+      "Bash(gcloud projects describe:*)"
+      "Bash(gcloud config list:*)"
+      "Bash(gcloud storage ls:*)"
+
+      # System inspection
+      "Bash(systemctl status:*)"
+      "Bash(systemctl show:*)"
+      "Bash(systemctl list-units:*)"
+      "Bash(systemctl list-unit-files:*)"
+      "Bash(journalctl:*)"
+      "Bash(which:*)"
+      "Bash(type:*)"
+      "Bash(file:*)"
+      "Bash(uname:*)"
+      "Bash(hostname:*)"
+      "Bash(env:*)"
+      "Bash(printenv:*)"
+      "Bash(id:*)"
+      "Bash(whoami:*)"
+      "Bash(df:*)"
+      "Bash(du:*)"
+      "Bash(free:*)"
+      "Bash(uptime:*)"
+      "Bash(ps:*)"
+      "Bash(pgrep:*)"
+      "Bash(lsof:*)"
+
+      # MCP tools
       "mcp__exa__web_search_exa"
       "mcp__exa__get_code_context_exa"
       "mcp__exa__company_research_exa"
+
+      # Documentation domains
       "WebFetch(domain:crates.io)"
       "WebFetch(domain:developer.mozilla.org)"
       "WebFetch(domain:docs.anthropic.com)"
