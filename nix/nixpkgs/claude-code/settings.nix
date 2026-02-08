@@ -5,6 +5,10 @@
     "gopls-lsp@claude-plugins-official" = true;
   };
   permissions = {
+    deny = [
+      "Bash(gcloud secrets versions access:*)"
+      "Bash(secrets get:*)"
+    ];
     allow = [
       # Nix
       "Bash(nix eval:*)"
