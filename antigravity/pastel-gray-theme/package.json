@@ -1,0 +1,26 @@
+{
+  "name": "pastel-gray-theme",
+  "displayName": "Pastel Gray",
+  "description": "A soft dark theme with pastel accent colours",
+  "version": "1.0.0",
+  "publisher": "moye",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/modiase/Dotfiles",
+    "directory": "antigravity/pastel-gray-theme"
+  },
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": ["Themes"],
+  "contributes": {
+    "themes": [
+      {
+        "label": "Pastel Gray",
+        "uiTheme": "vs-dark",
+        "path": "./themes/pastel-gray.json"
+      }
+    ]
+  }
+}
