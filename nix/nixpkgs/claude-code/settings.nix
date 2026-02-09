@@ -30,6 +30,15 @@
       "Bash(git rev-parse:*)"
       "Bash(git ls-files:*)"
       "Bash(git ls-tree:*)"
+      "Bash(git -C * status:*)"
+      "Bash(git -C * log:*)"
+      "Bash(git -C * diff:*)"
+      "Bash(git -C * show:*)"
+      "Bash(git -C * branch:*)"
+      "Bash(git -C * remote:*)"
+      "Bash(git -C * rev-parse:*)"
+      "Bash(git -C * ls-files:*)"
+      "Bash(git -C * ls-tree:*)"
 
       # GCloud logging (read-only)
       "Bash(gcloud logging read:*)"
