@@ -121,15 +121,16 @@
         nix-homebrew.darwinModules.nix-homebrew
       ];
 
-      sharedOverlays = [ ];
-
-      fontOverlays = [
+      sharedOverlays = [
         (self: super: {
           aleo = super.callPackage ./nix/nixpkgs/aleo { };
+          claude-wrapper = super.callPackage ./nix/nixpkgs/claude-code/package.nix { };
           lato = super.callPackage ./nix/nixpkgs/lato { };
           space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
         })
       ];
+
+      fontOverlays = [ ];
 
       mkSystem =
         {
