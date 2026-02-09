@@ -231,14 +231,22 @@ http --session=hass GET http://hestia.local/hass/api/states
 - **Batch related changes** into single deployments
 - **Trace root causes** - symptoms mislead; find actual problems
 
+## Git Staging
+
+- **Use `git add -u`** to stage modified/deleted tracked files
+- **Then mindfully add new files** with `git add file1 file2 file3` (single command, multiple files)
+- **Avoid `git add -A`** which indiscriminately stages everything including garbage
+- **Review before staging**: check `git status` to identify what's new vs modified
+
 ## Pre-commit Checks
 
-- Default: run `pre-commit run` (checks only staged files). Stage your edits before running to lint exactly what will be committed.
-- If you need to lint without staging: run `pre-commit run --files $(git diff --name-only)` to check only your working changes.
-- When `.pre-commit-config.yaml` changes or after adding new hooks: run `pre-commit run --all-files` (aka `-a`) once to baseline the repo, then revert to the default flow above.
-- Address all issues reported by hooks, then re-run the relevant `pre-commit run` until clean.
-- Run checks inside the activate shell when applicable to ensure the correct environment.
-- Do not bypass or disable hooks; fix code to satisfy them unless explicitly instructed otherwise.
+- Default: run `git add -u && pre-commit run` (stages tracked changes, checks staged files)
+- To include new files: `git add -u && git add path/to/new/file.nix && pre-commit run`
+- If you need to lint without staging: run `pre-commit run --files $(git diff --name-only)` to check only your working changes
+- When `.pre-commit-config.yaml` changes or after adding new hooks: run `pre-commit run --all-files` (aka `-a`) once to baseline the repo, then revert to the default flow above
+- Address all issues reported by hooks, then re-run the relevant `pre-commit run` until clean
+- Run checks inside the activate shell when applicable to ensure the correct environment
+- Do not bypass or disable hooks; fix code to satisfy them unless explicitly instructed otherwise
 
 ## Shell Scripting Style
 
