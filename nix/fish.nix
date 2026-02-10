@@ -85,7 +85,7 @@ in
       set -gx DOTFILES "$HOME/dotfiles"
       set -gx MANPAGER 'nvim -M --cmd "let g:pager_mode=1" +Man! -c "set nonumber norelativenumber wrap linebreak" -c "nnoremap <buffer> q :q<CR>"'
       set -gx MOOR "--no-linenumbers --no-statusbar --quit-if-one-screen -terminal-fg -style gruvbox"
-      set -gx FZF_DEFAULT_OPTS "--color=fg:#${colors.foreground},bg:#${colors.background},hl:#${colors.base16.base0C},fg+:#${colors.base16.base06},bg+:#${colors.selection},hl+:#b8e8f0,info:#${colors.base16.base0D},prompt:#${colors.base16.base0E},pointer:#${colors.base16.base0C},marker:#${colors.base16.base09},spinner:#${colors.base16.base0E},header:#${colors.base16.base0D}"
+      set -gx FZF_DEFAULT_OPTS "--color=fg:#${colors.foreground},bg:-1,hl:#${colors.base16.base0C},fg+:#${colors.base16.base06},bg+:#${colors.selection},hl+:#b8e8f0,info:#${colors.base16.base0D},prompt:#${colors.base16.base0E},pointer:#${colors.base16.base0C},marker:#${colors.base16.base09},spinner:#${colors.base16.base0E},header:#${colors.base16.base0D}"
       set -q fish_prompt_prefix; or set -U fish_prompt_prefix (set -q hostname_override; and echo $hostname_override; or hostname)
     '';
     interactiveShellInit = ''

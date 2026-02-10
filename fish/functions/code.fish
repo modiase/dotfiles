@@ -36,12 +36,11 @@ if set -q _flag_agent
     end
 end
 
-# Layout: yazi (20%) | nvim (top) / terminal (bottom) | agent (25%, optional)
-# Split: left 20% for yazi, right 80% for rest
-tmux split-window -h -p 80
+# Layout: yazi (15%) | nvim (top) / terminal (bottom) | agent (25%, optional)
+tmux split-window -h -p 85
 
-# Now in right pane (nvim area). Split for terminal (bottom 33%)
-tmux split-window -v -p 33
+# Now in right pane (nvim area). Split for terminal (bottom 20%)
+tmux split-window -v -p 20
 tmux select-pane -U
 
 if test -n "$agent_cmd"
