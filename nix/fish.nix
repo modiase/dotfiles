@@ -4,6 +4,7 @@
   ...
 }:
 let
+  colors = import ./colors.nix;
   dotfiles = ../.;
   functionFiles = builtins.attrNames (builtins.readDir (dotfiles + /fish/functions));
   toFunctionName = file: pkgs.lib.strings.removeSuffix ".fish" file;
@@ -84,7 +85,7 @@ in
       set -gx DOTFILES "$HOME/dotfiles"
       set -gx MANPAGER 'nvim -M --cmd "let g:pager_mode=1" +Man! -c "set nonumber norelativenumber wrap linebreak" -c "nnoremap <buffer> q :q<CR>"'
       set -gx MOOR "--no-linenumbers --no-statusbar --quit-if-one-screen -terminal-fg -style gruvbox"
-      set -gx FZF_DEFAULT_OPTS "--color=fg:#e0e0e0,bg:#1c1c1c,hl:#a8d8ea,fg+:#f0f0f0,bg+:#3a3a3a,hl+:#b8e8f0,info:#8fa8c9,prompt:#c9a8c9,pointer:#a8d8ea,marker:#a8c99a,spinner:#c9a8c9,header:#8fa8c9"
+      set -gx FZF_DEFAULT_OPTS "--color=fg:#${colors.foreground},bg:#${colors.background},hl:#${colors.base16.base0C},fg+:#${colors.base16.base06},bg+:#${colors.selection},hl+:#b8e8f0,info:#${colors.base16.base0D},prompt:#${colors.base16.base0E},pointer:#${colors.base16.base0C},marker:#${colors.base16.base09},spinner:#${colors.base16.base0E},header:#${colors.base16.base0D}"
       set -q fish_prompt_prefix; or set -U fish_prompt_prefix (set -q hostname_override; and echo $hostname_override; or hostname)
     '';
     interactiveShellInit = ''

@@ -1,5 +1,5 @@
-set -l fg_dim (set_color e0e0e0)
-set -l accent (set_color a8d8ea)
+set -l fg_dim (set_color brwhite)
+set -l accent (set_color cyan)
 set -l normal (set_color normal)
 
 if set -q fish_prompt_prefix

@@ -1,5 +1,6 @@
 ---@diagnostic disable-next-line: undefined-global
 local vim = vim
+local colors = require("colors")
 
 vim.opt.autoindent = true
 vim.opt.listchars = { extends = ">", precedes = "<" }
@@ -15,7 +16,7 @@ vim.opt.termguicolors = true
 
 vim.cmd("syntax on")
 
-vim.api.nvim_set_hl(0, "Normal", { bg = "NONE" })
+vim.api.nvim_set_hl(0, "Normal", { bg = colors.background })
 vim.api.nvim_set_hl(0, "NormalFloat", { bg = "NONE" })
 
 vim.g.clipboard = {
@@ -48,9 +49,9 @@ vim.api.nvim_set_hl(0, "DiffDelete", {
 	bg = "#401010",
 })
 
-vim.api.nvim_set_hl(0, "CocInlayHint", { fg = "#a8d8ea", bg = "NONE" })
-vim.api.nvim_set_hl(0, "CocInlayHintParameter", { fg = "#a8d8ea", bg = "NONE" })
-vim.api.nvim_set_hl(0, "CocInlayHintType", { fg = "#a8d8ea", bg = "NONE" })
+vim.api.nvim_set_hl(0, "CocInlayHint", { fg = colors.base0C, bg = "NONE" })
+vim.api.nvim_set_hl(0, "CocInlayHintParameter", { fg = colors.base0C, bg = "NONE" })
+vim.api.nvim_set_hl(0, "CocInlayHintType", { fg = colors.base0C, bg = "NONE" })
 
 -- Set filetype for OpenTofu files
 vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {

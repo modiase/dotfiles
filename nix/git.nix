@@ -19,7 +19,7 @@
       init.defaultBranch = "main";
       interactive.diffFilter = "delta --color-only";
       delta.navigate = true;
-      delta."syntax-theme" = "gruvbox-dark";
+      delta."syntax-theme" = "ansi";
       merge.conflictstyle = "diff3";
       diff.colorMoved = "default";
     };
