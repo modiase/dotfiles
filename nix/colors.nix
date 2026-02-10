@@ -1,13 +1,13 @@
 {
-  background = "1c1c1c";
+  background = "282828";
   foreground = "e0e0e0";
   foregroundDim = "707070";
   cursor = "e0e0e0";
-  cursorText = "1c1c1c";
+  cursorText = "282828";
   selection = "3a3a3a";
 
   palette = [
-    "0=#1c1c1c"
+    "0=#282828"
     "1=#d08080"
     "2=#a8c99a"
     "3=#d8d0b8"
@@ -26,7 +26,7 @@
   ];
 
   base16 = {
-    base00 = "1c1c1c";
+    base00 = "282828";
     base01 = "2a2a2a";
     base02 = "3a3a3a";
     base03 = "707070";

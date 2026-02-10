@@ -1,6 +1,7 @@
 { config, pkgs, ... }:
 
 let
+  colors = import ../../colors.nix;
   yaziNvim = pkgs.writeShellScript "yazi-nvim" (builtins.readFile ./yazi-nvim.sh);
   pastelGrayTheme = pkgs.writeText "pastel-gray.tmTheme" (builtins.readFile ./pastel-gray.tmTheme);
 in
@@ -11,7 +12,7 @@ in
       mgr = {
         syntect_theme = "${pastelGrayTheme}";
         cwd = {
-          fg = "#a8d8ea";
+          fg = "#${colors.base16.base0C}";
         };
         hovered = {
           reversed = true;
@@ -20,118 +21,118 @@ in
           underline = true;
         };
         find_keyword = {
-          fg = "#d8d0b8";
+          fg = "#${colors.base16.base0B}";
           bold = true;
         };
         find_position = {
-          fg = "#f4b6c2";
+          fg = "#${colors.base16.base0A}";
           bg = "reset";
           bold = true;
         };
         marker_copied = {
-          fg = "#a8c99a";
-          bg = "#a8c99a";
+          fg = "#${colors.base16.base09}";
+          bg = "#${colors.base16.base09}";
         };
         marker_cut = {
-          fg = "#d08080";
-          bg = "#d08080";
+          fg = "#${colors.base16.base08}";
+          bg = "#${colors.base16.base08}";
         };
         marker_marked = {
-          fg = "#a8d8ea";
-          bg = "#a8d8ea";
+          fg = "#${colors.base16.base0C}";
+          bg = "#${colors.base16.base0C}";
         };
         marker_selected = {
-          fg = "#d8d0b8";
-          bg = "#d8d0b8";
+          fg = "#${colors.base16.base0B}";
+          bg = "#${colors.base16.base0B}";
         };
         tab_active = {
-          fg = "#1c1c1c";
-          bg = "#a8d8ea";
+          fg = "#${colors.background}";
+          bg = "#${colors.base16.base0C}";
         };
         tab_inactive = {
-          fg = "#e0e0e0";
-          bg = "#3a3a3a";
+          fg = "#${colors.foreground}";
+          bg = "#${colors.selection}";
         };
         count_copied = {
-          fg = "#1c1c1c";
-          bg = "#a8c99a";
+          fg = "#${colors.background}";
+          bg = "#${colors.base16.base09}";
         };
         count_cut = {
-          fg = "#1c1c1c";
-          bg = "#d08080";
+          fg = "#${colors.background}";
+          bg = "#${colors.base16.base08}";
         };
         count_selected = {
-          fg = "#1c1c1c";
-          bg = "#d8d0b8";
+          fg = "#${colors.background}";
+          bg = "#${colors.base16.base0B}";
         };
         border_symbol = "│";
         border_style = {
-          fg = "#3a3a3a";
+          fg = "#${colors.selection}";
         };
       };
       status = {
         separator_open = "";
         separator_close = "";
         separator_style = {
-          fg = "#3a3a3a";
-          bg = "#3a3a3a";
+          fg = "#${colors.selection}";
+          bg = "#${colors.selection}";
         };
         mode_normal = {
-          fg = "#1c1c1c";
-          bg = "#8fa8c9";
+          fg = "#${colors.background}";
+          bg = "#${colors.base16.base0D}";
           bold = true;
         };
         mode_select = {
-          fg = "#1c1c1c";
-          bg = "#f4b6c2";
+          fg = "#${colors.background}";
+          bg = "#${colors.base16.base0A}";
           bold = true;
         };
         mode_unset = {
-          fg = "#1c1c1c";
-          bg = "#d08080";
+          fg = "#${colors.background}";
+          bg = "#${colors.base16.base08}";
           bold = true;
         };
         progress_label = {
-          fg = "#e0e0e0";
+          fg = "#${colors.foreground}";
           bold = true;
         };
         progress_normal = {
-          fg = "#8fa8c9";
-          bg = "#3a3a3a";
+          fg = "#${colors.base16.base0D}";
+          bg = "#${colors.selection}";
         };
         progress_error = {
-          fg = "#d08080";
-          bg = "#3a3a3a";
+          fg = "#${colors.base16.base08}";
+          bg = "#${colors.selection}";
         };
         perm_type = {
-          fg = "#8fa8c9";
+          fg = "#${colors.base16.base0D}";
         };
         perm_read = {
-          fg = "#d8d0b8";
+          fg = "#${colors.base16.base0B}";
         };
         perm_write = {
-          fg = "#d08080";
+          fg = "#${colors.base16.base08}";
         };
         perm_exec = {
-          fg = "#a8c99a";
+          fg = "#${colors.base16.base09}";
         };
         perm_sep = {
-          fg = "#707070";
+          fg = "#${colors.foregroundDim}";
         };
       };
       select = {
         border = {
-          fg = "#8fa8c9";
+          fg = "#${colors.base16.base0D}";
         };
         active = {
-          fg = "#f4b6c2";
+          fg = "#${colors.base16.base0A}";
           bold = true;
         };
         inactive = { };
       };
       input = {
         border = {
-          fg = "#8fa8c9";
+          fg = "#${colors.base16.base0D}";
         };
         title = { };
         value = { };
@@ -141,7 +142,7 @@ in
       };
       completion = {
         border = {
-          fg = "#8fa8c9";
+          fg = "#${colors.base16.base0D}";
         };
         active = {
           reversed = true;
@@ -150,93 +151,102 @@ in
       };
       tasks = {
         border = {
-          fg = "#8fa8c9";
+          fg = "#${colors.base16.base0D}";
         };
         title = { };
         hovered = {
-          fg = "#f4b6c2";
+          fg = "#${colors.base16.base0A}";
           underline = true;
         };
       };
       which = {
         mask = {
-          bg = "#2a2a2a";
+          bg = "#${colors.base16.base01}";
         };
         cand = {
-          fg = "#a8d8ea";
+          fg = "#${colors.base16.base0C}";
         };
         rest = {
-          fg = "#707070";
+          fg = "#${colors.foregroundDim}";
         };
         desc = {
-          fg = "#c9a8c9";
+          fg = "#${colors.base16.base0E}";
         };
         separator = "  ";
         separator_style = {
-          fg = "#3a3a3a";
+          fg = "#${colors.selection}";
         };
       };
       help = {
         on = {
-          fg = "#a8d8ea";
+          fg = "#${colors.base16.base0C}";
         };
         run = {
-          fg = "#c9a8c9";
+          fg = "#${colors.base16.base0E}";
         };
         hovered = {
           reversed = true;
           bold = true;
         };
         footer = {
-          fg = "#707070";
+          fg = "#${colors.foregroundDim}";
         };
       };
       notify = {
         title_info = {
-          fg = "#a8d8ea";
+          fg = "#${colors.base16.base0C}";
         };
         title_warn = {
-          fg = "#d8d0b8";
+          fg = "#${colors.base16.base0B}";
         };
         title_error = {
-          fg = "#d08080";
+          fg = "#${colors.base16.base08}";
         };
+      };
+      icon = {
+        prepend_conds = [
+          {
+            "if" = "dir";
+            text = "󰉖";
+            fg = "#${colors.base16.base0B}";
+          }
+        ];
       };
       filetype = {
         rules = [
           {
             mime = "image/*";
-            fg = "#d8d0b8";
+            fg = "#${colors.base16.base0B}";
           }
           {
             mime = "{audio,video}/*";
-            fg = "#c9a8c9";
+            fg = "#${colors.base16.base0E}";
           }
           {
             mime = "application/{,g}zip";
-            fg = "#d08080";
+            fg = "#${colors.base16.base08}";
           }
           {
             mime = "application/x-{tar,bzip*,7z-compressed,xz,rar}";
-            fg = "#d08080";
+            fg = "#${colors.base16.base08}";
           }
           {
             mime = "application/{pdf,doc,rtf,vnd.*}";
-            fg = "#a8d8ea";
+            fg = "#${colors.base16.base0C}";
           }
           {
             name = "*";
             is = "orphan";
-            fg = "#d08080";
+            fg = "#${colors.base16.base08}";
           }
           {
             name = "*";
             is = "exec";
-            fg = "#a8c99a";
+            fg = "#${colors.base16.base09}";
           }
           {
             name = "*/";
-            fg = "#8fa8c9";
+            fg = "#${colors.base16.base0B}";
             bold = true;
           }
         ];

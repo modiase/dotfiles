@@ -51,43 +51,17 @@ in
       set -ga terminal-overrides ",xterm-ghostty:Tc,xterm-256color:Tc,tmux-256color:Tc"
       set -as terminal-features ',xterm-256color:clipboard,xterm-ghostty:clipboard,tmux-256color:clipboard'
 
-      set -g status-style "bg=#2a2a2a,fg=#e0e0e0"
-      set -g status-left "#[bg=#3a3a3a,fg=#a8d8ea] #S #[bg=#2a2a2a] "
-      set -g status-right "#[fg=#707070]%H:%M #[fg=#a8d8ea]#h "
-      set -g window-status-current-style "bg=#3a3a3a,fg=#a8d8ea,bold"
-      set -g window-status-style "bg=#2a2a2a,fg=#707070"
-      set -g window-status-format " #{?window_bell_flag,#[fg=#d8d0b8],}#I:#W#F "
+      set -g status-style "bg=#${colors.base16.base01},fg=#${colors.foreground}"
+      set -g status-left "#[bg=#${colors.base16.base02},fg=#${colors.base16.base0C}] #S #[bg=#${colors.base16.base01}] "
+      set -g status-right "#[fg=#${colors.foregroundDim}]%H:%M #[fg=#${colors.base16.base0C}]#h "
+      set -g window-status-current-style "bg=#${colors.base16.base02},fg=#${colors.base16.base0C},bold"
+      set -g window-status-style "bg=#${colors.base16.base01},fg=#${colors.foregroundDim}"
+      set -g window-status-format " #{?window_bell_flag,#[fg=#${colors.base16.base0B}],}#I:#W#F "
       set -g window-status-current-format " #I:#W#F "
-      set -g pane-border-style "fg=#3a3a3a"
-      set -g pane-active-border-style "fg=#a8d8ea"
-      set -g message-style "bg=#3a3a3a,fg=#e0e0e0"
+      set -g pane-border-style "fg=#${colors.base16.base02}"
+      set -g pane-active-border-style "fg=#${colors.base16.base0B}"
+      set -g message-style "bg=#${colors.base16.base02},fg=#${colors.foreground}"
     '';
   };
 
-  home.file.".config/tmux/tmux-vscode.conf".text = commonTmuxConfig + ''
-    bind r source-file ~/.config/tmux/tmux-vscode.conf
-
-    set -g default-terminal "xterm-256color"
-    set -g terminal-overrides ',xterm-256color:Tc'
-    set -ga terminal-overrides ',*:XT:Smulx@:Setulc@'
-    set -ga terminal-overrides ',*:setrgbf@:setrgbb@:setrgbaf@:setrgbab@'
-    set -as terminal-features ',xterm-256color:clipboard'
-
-    set -g status-style "bg=#2a2a2a,fg=#e0e0e0"
-    set -g status-left "#[bg=#3a3a3a,fg=#a8d8ea] #S #[bg=#2a2a2a] "
-    set -g status-right "#[fg=#707070]%H:%M #[fg=#a8d8ea]#h "
-    set -g window-status-current-style "bg=#3a3a3a,fg=#a8d8ea,bold"
-    set -g window-status-style "bg=#2a2a2a,fg=#707070"
-    set -g window-status-format " #{?window_bell_flag,#[fg=#d8d0b8],}#I:#W#F "
-    set -g window-status-current-format " #I:#W#F "
-    set -g pane-border-style "fg=#3a3a3a"
-    set -g pane-active-border-style "fg=#a8d8ea"
-    set -g message-style "bg=#3a3a3a,fg=#e0e0e0"
-
-    run-shell '${pkgs.tmuxPlugins.sensible}/share/tmux-plugins/sensible/sensible.tmux'
-    run-shell '${pkgs.tmuxPlugins.vim-tmux-navigator}/share/tmux-plugins/vim-tmux-navigator/vim-tmux-navigator.tmux'
-    run-shell '${pkgs.tmuxPlugins.resurrect}/share/tmux-plugins/resurrect/resurrect.tmux'
-    run-shell '${pkgs.tmuxPlugins.continuum}/share/tmux-plugins/continuum/continuum.tmux'
-    run-shell '${pkgs.tmuxPlugins.sysstat}/share/tmux-plugins/sysstat/sysstat.tmux'
-  '';
 }
