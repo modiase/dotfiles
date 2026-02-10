@@ -64,88 +64,11 @@ return {
 		})
 		require("telescope").load_extension("fzf")
 
-		local fidget_handle = nil
-		local last_spinner_time = 0
-
-		local function stop_spinner()
-			if fidget_handle then
-				fidget_handle:finish()
-				fidget_handle = nil
-			end
-		end
-
-		local function call_with_spinner(picker_fn, opts)
-			opts = opts or {}
-
-			local ok, fidget = pcall(require, "fidget.progress.handle")
-			if not ok then
-				picker_fn(opts)
-				return
-			end
-
-			local function start_spinner()
-				if fidget_handle then
-					return
-				end
-
-				local now = vim.uv.now()
-				if now - last_spinner_time < 1000 then
-					return
-				end
-				last_spinner_time = now
-
-				fidget_handle = fidget.create({
-					title = "Telescope",
-					message = "Searching...",
-					lsp_client = { name = "telescope" },
-				})
-			end
-
-			local original_input_filter = opts.on_input_filter_cb
-			opts.on_input_filter_cb = function(prompt)
-				if #prompt > 0 then
-					start_spinner()
-				end
-
-				if original_input_filter then
-					return original_input_filter(prompt)
-				end
-				return { prompt = prompt }
-			end
-
-			local original_attach = opts.attach_mappings
-			opts.attach_mappings = function(prompt_bufnr, map)
-				local picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
-
-				vim.api.nvim_create_autocmd("BufWinLeave", {
-					buffer = prompt_bufnr,
-					once = true,
-					callback = stop_spinner,
-				})
-
-				local original_completor = picker.get_result_completor
-				picker.get_result_completor = function(self, ...)
-					local completor = original_completor(self, ...)
-					return function()
-						stop_spinner()
-						completor()
-					end
-				end
-
-				if original_attach then
-					return original_attach(prompt_bufnr, map)
-				end
-				return true
-			end
-
-			picker_fn(opts)
-		end
-
 		vim.keymap.set("n", "<leader>fg", function()
 			if is_citc() then
-				call_with_spinner(require("telescope").extensions.codesearch.find_query)
+				require("telescope").extensions.codesearch.find_query()
 			else
-				call_with_spinner(require("telescope").extensions.live_grep_args.live_grep_args)
+				require("telescope").extensions.live_grep_args.live_grep_args()
 			end
 		end, { desc = "Live grep" })
 
@@ -160,11 +83,9 @@ return {
 
 		vim.keymap.set("n", "<leader>ff", function()
 			if is_citc() then
-				call_with_spinner(require("telescope").extensions.codesearch.find_files)
+				require("telescope").extensions.codesearch.find_files()
 			else
-				call_with_spinner(function(opts)
-					require("telescope.builtin").find_files(vim.tbl_extend("force", { hidden = true }, opts or {}))
-				end)
+				require("telescope.builtin").find_files({ hidden = true })
 			end
 		end, { desc = "Find files" })
 
