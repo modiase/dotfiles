@@ -264,8 +264,8 @@ in
     settings = {
       mgr = {
         ratio = [
+          0
           1
-          2
           4
         ];
       };
