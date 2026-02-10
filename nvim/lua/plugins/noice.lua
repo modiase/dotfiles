@@ -7,13 +7,19 @@ return {
 	},
 	opts = {
 		lsp = {
-			progress = { enabled = false },
+			progress = { enabled = true },
 			hover = { enabled = false },
 			signature = { enabled = false },
 			message = { enabled = false },
 		},
 		views = {
 			popup = { enter = true },
+			mini = {
+				position = {
+					row = -2,
+					col = "50%",
+				},
+			},
 		},
 		routes = {
 			{ filter = { min_height = 10 }, view = "popup" },
