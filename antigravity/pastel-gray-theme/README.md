@@ -24,7 +24,7 @@ Then activate via Command Palette: `Preferences: Color Theme` → **Pastel Gray*
 
 | Role       | Colour                                                   | Hex       |
 | ---------- | -------------------------------------------------------- | --------- |
-| Background | ![#1c1c1c](https://via.placeholder.com/16/1c1c1c/1c1c1c) | `#1c1c1c` |
+| Background | ![#282828](https://via.placeholder.com/16/282828/282828) | `#282828` |
 | Foreground | ![#e0e0e0](https://via.placeholder.com/16/e0e0e0/e0e0e0) | `#e0e0e0` |
 | Comments   | ![#707070](https://via.placeholder.com/16/707070/707070) | `#707070` |
 | Strings    | ![#d8d0b8](https://via.placeholder.com/16/d8d0b8/d8d0b8) | `#d8d0b8` |
