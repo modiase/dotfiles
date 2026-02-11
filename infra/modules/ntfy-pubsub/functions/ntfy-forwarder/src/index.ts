@@ -44,6 +44,7 @@ export const handlePubSub = async (
               Priority: attributes.priority ?? "3",
               ...(attributes.title && { Title: attributes.title }),
               ...(attributes.tags && { Tags: attributes.tags }),
+              ...(attributes.markdown && { Markdown: attributes.markdown }),
             },
           },
           (res) => {

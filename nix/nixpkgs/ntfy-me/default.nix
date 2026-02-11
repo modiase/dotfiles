@@ -2,7 +2,7 @@
   writeShellApplication,
   symlinkJoin,
   curl,
-  httpie,
+  google-cloud-sdk,
   jq,
   secrets,
 }:
@@ -11,8 +11,7 @@ let
   ntfy-me = writeShellApplication {
     name = "ntfy-me";
     runtimeInputs = [
-      secrets
-      httpie
+      google-cloud-sdk
       jq
     ];
     text = builtins.readFile ./ntfy-me.sh;
