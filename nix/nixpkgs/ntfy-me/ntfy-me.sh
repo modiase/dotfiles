@@ -11,8 +11,7 @@ usage() {
     echo "  --max-tries N          Max retry attempts (default: 3)"
     echo "  --max-wait S           Max wait between retries (default: 300)"
     echo "  -p, --priority N       Priority 1-5 (default: 3)"
-    echo "  -r, --refresh          Force refresh password from network"
-    echo "  -R, --recipient HOST   Target recipient hostname (default: * for all)"
+    echo "  -R, --recipient HOST   Target recipient hostname (default: all)"
     echo "  -t, --topic TOPIC      Topic to publish to (default: general)"
     echo "  -T, --title TITLE      Notification title"
     echo "  -v, --verbose          Verbose output"
@@ -23,11 +22,10 @@ topic="general"
 title=""
 priority=""
 alert_type=""
-recipient="*"
+recipient="all"
 command=""
 markdown=0
 verbose=0
-refresh=0
 max_tries=3
 max_wait=300
 message=""
@@ -80,10 +78,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         -v | --verbose)
             verbose=1
-            shift
-            ;;
-        -r | --refresh)
-            refresh=1
             shift
             ;;
         -R | --recipient)
@@ -155,65 +149,42 @@ if [[ -z "$message" ]]; then
     usage
 fi
 
-password=""
-if [[ $refresh -eq 0 ]]; then
-    password=$(secrets get ntfy-basic-auth-password 2>/dev/null)
-fi
-if [[ -z "$password" ]]; then
-    [[ $verbose -eq 1 ]] && echo "Fetching password from network..."
-    password=$(secrets get ntfy-basic-auth-password --network 2>/dev/null)
-    if [[ -z "$password" ]]; then
-        echo "Failed to get ntfy password from secrets" >&2
-        exit 1
-    fi
-    [[ $verbose -eq 1 ]] && echo "Caching password locally..."
-    secrets store ntfy-basic-auth-password "$password" --force 2>/dev/null || true
-fi
-
 [[ $verbose -eq 1 ]] && echo "Sending to topic: $topic"
 
-tags="source-$(hostname -s),recipient-$recipient"
+tags="source-$(hostname -s)"
+tags="$tags,recipient-$recipient"
 [[ -n "$alert_type" ]] && tags="$tags,type-$alert_type"
-headers=("Content-Type:text/plain" "Tags:$tags")
-[[ -n "$title" ]] && headers+=("Title:$title")
-[[ -n "$priority" ]] && headers+=("Priority:$priority")
-[[ $markdown -eq 1 ]] && headers+=("Markdown:yes")
 
-url="ntfy.modiase.dev/$topic"
+attrs="^:^topic=$topic"
+attrs="$attrs:priority=${priority:-3}"
+[[ -n "$title" ]] && attrs="$attrs:title=$title"
+[[ $markdown -eq 1 ]] && attrs="$attrs:markdown=yes"
+attrs="$attrs:tags=$tags"
+
 attempt=1
 wait_time=1
+
+gcloud_verbosity="warning"
+if [[ $verbose -eq 1 ]]; then gcloud_verbosity="debug"; fi
 
 while [[ $attempt -le $max_tries ]]; do
     [[ $verbose -eq 1 ]] && echo "Attempt $attempt/$max_tries..."
 
-    response=$(https --print=hb --follow POST "$url" \
-        -a "ntfy:$password" \
-        "${headers[@]}" <<<"$message" 2>/dev/null)
-
-    http_code=$(echo "$response" | head -1 | awk '{print $2}')
-    body=$(echo "$response" | tail -n +2)
-
-    [[ $verbose -eq 1 ]] && echo "HTTP $http_code: $body"
-
-    if [[ "$http_code" == "200" ]]; then
-        [[ $verbose -eq 1 ]] && echo "Message sent successfully"
+    if output=$(gcloud pubsub topics publish ntfy \
+        --project=modiase-infra \
+        --message="$message" \
+        --attribute="$attrs" \
+        --verbosity="$gcloud_verbosity" 2>&1); then
+        [[ $verbose -eq 1 ]] && echo "$output"
         exit 0
     fi
 
-    if [[ "$http_code" == "401" || "$http_code" == "403" ]]; then
-        [[ $verbose -eq 1 ]] && echo "Auth error, refreshing password from network..."
-        password=$(secrets get ntfy-basic-auth-password --network 2>/dev/null)
-        if [[ -n "$password" ]]; then
-            secrets store ntfy-basic-auth-password "$password" --force 2>/dev/null || true
-        fi
-    fi
-
     if [[ $attempt -eq $max_tries ]]; then
-        echo "Failed after $max_tries attempts (HTTP $http_code)" >&2
+        echo "Failed after $max_tries attempts" >&2
         exit 1
     fi
 
-    echo "Attempt $attempt failed (HTTP $http_code), retrying in ${wait_time}s..." >&2
+    echo "Attempt $attempt failed, retrying in ${wait_time}s..." >&2
     sleep "$wait_time"
 
     wait_time=$((wait_time * 2))
