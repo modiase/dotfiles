@@ -95,7 +95,6 @@ return {
 				last_spinner_time = now
 
 				fidget_handle = fidget.create({
-					title = "Telescope",
 					message = "Searching...",
 					lsp_client = { name = "telescope" },
 				})
