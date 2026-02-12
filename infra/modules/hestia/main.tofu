@@ -10,9 +10,9 @@ resource "google_storage_bucket_iam_member" "hestia_backup" {
   member = "serviceAccount:${google_service_account.hestia_backup.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "hestia_ntfy" {
-  project   = var.project_id
-  secret_id = "ntfy-basic-auth-password"
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.hestia_backup.email}"
+resource "google_pubsub_topic_iam_member" "hestia_ntfy" {
+  project = var.project_id
+  topic   = "ntfy"
+  role    = "roles/pubsub.publisher"
+  member  = "serviceAccount:${google_service_account.hestia_backup.email}"
 }
