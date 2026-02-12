@@ -128,7 +128,9 @@ in
       src = ../nvim;
       filter =
         path: type:
-        !(lib.hasSuffix "coc-settings.json" path) && !(lib.hasSuffix "lua/plugins/coc.lua" path);
+        !(lib.hasSuffix "coc-settings.json" path)
+        && !(lib.hasSuffix "lua/plugins/coc.lua" path)
+        && !(lib.hasSuffix "lua/plugins/claudecode.lua" path);
     };
     recursive = true;
   };
@@ -152,6 +154,10 @@ in
         extsList = builtins.concatStringsSep ", " (map (e: ''"${e}"'') (baseExts ++ frontendExts));
       in
       builtins.replaceStrings [ "-- @COC_EXTENSIONS@" ] [ extsList ] cocLua;
+  };
+
+  home.file.".config/nvim/lua/plugins/claudecode.lua" = lib.mkDefault {
+    text = builtins.readFile ../nvim/lua/plugins/claudecode.lua;
   };
 
   home.file.".config/pass-git-helper/git-pass-mapping.ini" =
