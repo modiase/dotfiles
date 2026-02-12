@@ -123,6 +123,17 @@
     ];
   };
   hooks = {
+    SessionStart = [
+      {
+        matcher = "compact";
+        hooks = [
+          {
+            type = "command";
+            command = "cat ~/.claude/CLAUDE.md 2>/dev/null; cat CLAUDE.md 2>/dev/null; true";
+          }
+        ];
+      }
+    ];
     Stop = [
       {
         hooks = [
