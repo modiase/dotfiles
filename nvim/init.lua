@@ -23,5 +23,6 @@ local function _pcall(f_name)
 end
 
 _pcall("bindings")
+_pcall("filetypes")
 _pcall("functions")
 _pcall("options")
