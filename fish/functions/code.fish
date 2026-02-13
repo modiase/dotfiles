@@ -27,7 +27,7 @@ if set -q _flag_agent
         case gemini
             set agent_cmd gemini
         case gemini-gfg
-            set agent_cmd gemini --gfg
+            set agent_cmd gemini --gfg --resume
         case claude
             set agent_cmd claude
         case '*'
