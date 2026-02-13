@@ -2,8 +2,11 @@ return {
 	"j-hui/fidget.nvim",
 	event = "VeryLazy",
 	config = function()
+		local colors = require("colors")
+		vim.api.nvim_set_hl(0, "FidgetNormal", { bg = colors.base0B, fg = colors.base02 })
+
 		local function centered_padding()
-			local width = 40
+			local width = 50
 			return math.max(1, math.floor((vim.o.columns - width) / 2))
 		end
 
@@ -16,8 +19,14 @@ return {
 					},
 				},
 				notification = {
+					configs = {
+						default = {
+							info_annote = "",
+						},
+					},
 					window = {
-						winblend = 100,
+						normal_hl = "FidgetNormal",
+						winblend = 0,
 						border = "none",
 						align = "bottom",
 						x_padding = centered_padding(),
