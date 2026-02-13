@@ -12,7 +12,7 @@ let
   ntfy-me = pkgs.callPackage ./nixpkgs/ntfy-me { inherit secrets; };
 
   commonPackages = with pkgs; [
-    eternal-terminal
+    git-crypt
   ];
 
   devPackages = with pkgs; [
@@ -46,13 +46,13 @@ let
     doggo
     duf
     dust
+    eternal-terminal
     eza
     fd
     fzf
     gcc
     gemini-cli
     gh
-    git-crypt
     gnused
     go
     google-cloud-sdk
