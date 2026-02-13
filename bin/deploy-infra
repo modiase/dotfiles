@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+_TOFU=$(command -v tofu 2>/dev/null) || _TOFU="nix shell nixpkgs#opentofu -c tofu"
+_SED=$(command -v gsed 2>/dev/null || command -v sed 2>/dev/null) || _SED="nix shell nixpkgs#gnused -c sed"
+_GREP=$(command -v grep 2>/dev/null) || _GREP="nix shell nixpkgs#gnugrep -c grep"
+_AWK=$(command -v gawk 2>/dev/null || command -v awk 2>/dev/null) || _AWK="nix shell nixpkgs#gawk -c awk"
+
 auto_approve=false
 force_unlock=false
 auto_upgrade=false
@@ -24,17 +29,17 @@ cd "$INFRA_DIR"
 
 if [[ ! -d .terraform ]]; then
     echo "Initialising tofu..."
-    tofu init
+    $_TOFU init
 elif [[ "$auto_upgrade" == "true" ]]; then
     echo "Upgrading providers..."
-    tofu init -upgrade
+    $_TOFU init -upgrade
 fi
 
 if [[ "$force_unlock" == "true" ]]; then
-    lock_id=$(tofu plan -var-file=tofu.tfvars 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -A1 'Lock Info' | grep 'ID:' | awk -F': +' '{print $2}' || true)
+    lock_id=$($_TOFU plan -var-file=tofu.tfvars 2>&1 | $_SED 's/\x1b\[[0-9;]*m//g' | $_GREP -A1 'Lock Info' | $_GREP 'ID:' | $_AWK -F': +' '{print $2}' || true)
     if [[ -n "$lock_id" ]]; then
         echo "Force unlocking state (ID: $lock_id)..."
-        tofu force-unlock -force "$lock_id"
+        $_TOFU force-unlock -force "$lock_id"
     fi
 fi
 
@@ -42,11 +47,11 @@ planfile=$(mktemp)
 trap 'rm -f "$planfile"' EXIT
 
 echo "Planning..."
-tofu plan -var-file=tofu.tfvars -out="$planfile"
+$_TOFU plan -var-file=tofu.tfvars -out="$planfile"
 
 if [[ "$auto_approve" == "false" ]]; then
     read -rp "Apply? [y/N] " confirm
     [[ "$confirm" =~ ^[Yy]$ ]] || exit 0
 fi
 
-tofu apply "$planfile"
+$_TOFU apply "$planfile"

@@ -22,6 +22,8 @@ export NIX_CONFIG="experimental-features = nix-command flakes"
 source "$REPO_ROOT/nix/nixpkgs/shellutils/hook-utils.sh"
 _DATE=date _MKDIR=mkdir _MKTEMP=mktemp _CAT=cat _TAIL=tail
 _FLOCK=$(command -v flock) || _FLOCK="nix shell nixpkgs#flock -c flock"
+_SHA256SUM=$(command -v sha256sum) || _SHA256SUM="nix shell nixpkgs#coreutils -c sha256sum"
+_CURL=$(command -v curl) || _CURL="nix shell nixpkgs#curl -c curl"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/nix/nixpkgs/shellutils/logging-utils.sh"
 
@@ -304,7 +306,7 @@ do_activate() {
     if [ "$LOG_LEVEL" -ge 4 ]; then enable_log_tracing; fi
 
     if [ -f "$GITCRYPT_KEY" ]; then
-        actual_fp=$(sha256sum "$GITCRYPT_KEY" | cut -d' ' -f1)
+        actual_fp=$($_SHA256SUM "$GITCRYPT_KEY" | cut -d' ' -f1)
         if [ "$actual_fp" = "$GITCRYPT_FINGERPRINT" ]; then
             log_debug "git-crypt key verified"
         else
@@ -328,7 +330,7 @@ do_activate() {
     log_to_system "info" "Lock acquired successfully"
 
     [ "$(uname -s)" = "Darwin" ] &&
-        curl --proto '=https' --tlsv1.2 -sSf -L https://github.com/NixOS/nix/raw/master/scripts/sequoia-nixbld-user-migration.sh | bash - 2>&1 | log_debug_to_pipe "nix-migration" || true
+        $_CURL --proto '=https' --tlsv1.2 -sSf -L https://github.com/NixOS/nix/raw/master/scripts/sequoia-nixbld-user-migration.sh | bash - 2>&1 | log_debug_to_pipe "nix-migration" || true
 
     # shellcheck source=/dev/null
     [ -e "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh" ] &&

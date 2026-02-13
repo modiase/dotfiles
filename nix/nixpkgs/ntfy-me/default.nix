@@ -1,6 +1,7 @@
 {
   writeShellApplication,
   symlinkJoin,
+  coreutils,
   curl,
   google-cloud-sdk,
   jq,
@@ -19,16 +20,20 @@ let
 
   ding = writeShellApplication {
     name = "ding";
-    runtimeInputs = [ ntfy-me ];
+    runtimeInputs = [
+      coreutils
+      ntfy-me
+    ];
     text = builtins.readFile ./ding.sh;
   };
 
   ntfy-listen = writeShellApplication {
     name = "ntfy-listen";
     runtimeInputs = [
-      secrets
+      coreutils
       curl
       jq
+      secrets
       ding
     ];
     text = builtins.readFile ./ntfy-listen.sh;

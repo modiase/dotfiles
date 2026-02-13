@@ -2,7 +2,7 @@
   config,
   pkgs,
   lib,
-  isFrontend ? false,
+  isDev ? false,
   user ? "moye",
   ...
 }:
@@ -12,43 +12,14 @@ let
   ntfy-me = pkgs.callPackage ./nixpkgs/ntfy-me { inherit secrets; };
 
   commonPackages = with pkgs; [
-    bat
-    coreutils
-    delta
-    direnv
-    doggo
-    duf
-    dust
     eternal-terminal
-    eza
-    fd
-    fzf
-    git-crypt
-    gnused
-    google-cloud-sdk
-    gum
-    httpie
-    jq
-    just
-    lsof
-    moor
-    neovim-remote
-    ntfy-me
-    pre-commit
-    procs
-    pstree
-    ripgrep
-    sd
-    secrets
-    watch
   ];
 
-  frontendPackages = with pkgs; [
+  devPackages = with pkgs; [
     (callPackage ./nixpkgs/ankigen { })
     (callPackage ./nixpkgs/semsearch { })
     (callPackage ./nixpkgs/awrit { })
     (callPackage ./nixpkgs/coder { })
-    cargo
     (writeShellScriptBin "chafa" ''
       if [[ -n "$TMUX" ]]; then
         exec ${chafa}/bin/chafa --format kitty --passthrough tmux "$@"
@@ -56,29 +27,6 @@ let
         exec ${chafa}/bin/chafa "$@"
       fi
     '')
-    docker
-    gcc
-    gemini-cli
-    gh
-    go
-    gopls
-    imagemagick
-    jwt-cli
-    kubectl
-    ncdu
-    ngrok
-    nix-prefetch-git
-    nix-tree
-    nixfmt-rfc-style
-    nmap
-    nodePackages.pnpm
-    nodePackages.svelte-language-server
-    nodePackages.typescript
-    nodejs
-    ntfy-sh
-    opentofu
-    pgcli
-    pre-commit
     (python313.withPackages (
       ps: with ps; [
         boto3
@@ -89,10 +37,61 @@ let
         ruff
       ]
     ))
+    bat
+    cargo
+    coreutils
+    delta
+    direnv
+    docker
+    doggo
+    duf
+    dust
+    eza
+    fd
+    fzf
+    gcc
+    gemini-cli
+    gh
+    git-crypt
+    gnused
+    go
+    google-cloud-sdk
+    gopls
+    gum
+    httpie
+    imagemagick
+    jq
+    just
+    jwt-cli
+    kubectl
+    lsof
+    moor
+    ncdu
+    neovim-remote
+    ngrok
+    nix-prefetch-git
+    nix-tree
+    nixfmt-rfc-style
+    nmap
+    nodePackages.pnpm
+    nodePackages.svelte-language-server
+    nodePackages.typescript
+    nodejs
+    ntfy-me
+    ntfy-sh
+    opentofu
+    pgcli
+    pre-commit
+    procs
+    pstree
+    ripgrep
+    sd
+    secrets
     terraform-ls
     tldr
     tshark
     uv
+    watch
     wireguard-tools
   ];
 in
@@ -114,8 +113,8 @@ in
 
   home.packages =
     commonPackages
-    ++ lib.optionals isFrontend frontendPackages
-    ++ lib.optionals (isFrontend && pkgs.stdenv.isLinux) (
+    ++ lib.optionals isDev devPackages
+    ++ lib.optionals (isDev && pkgs.stdenv.isLinux) (
       with pkgs;
       [
         pass
@@ -160,16 +159,18 @@ in
     text = builtins.readFile ../nvim/lua/plugins/claudecode.lua;
   };
 
-  home.file.".config/pass-git-helper/git-pass-mapping.ini" =
-    lib.mkIf (isFrontend && pkgs.stdenv.isLinux)
-      {
-        text = ''
-          [github.com*]
-          target=git/github.com
-        '';
-      };
+  home.file.".config/pass-git-helper/git-pass-mapping.ini" = lib.mkIf (isDev && pkgs.stdenv.isLinux) {
+    text = ''
+      [github.com*]
+      target=git/github.com
+    '';
+  };
 
-  programs.claude-code.enable = isFrontend;
+  programs.claude-code.enable = isDev;
+
+  programs.tmux.enable = lib.mkDefault isDev;
+  programs.neovim.enable = lib.mkDefault isDev;
+  programs.fish.enable = lib.mkDefault isDev;
 
   home.stateVersion = "24.05";
 }

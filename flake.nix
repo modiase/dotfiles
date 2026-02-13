@@ -143,7 +143,7 @@
           homeDirectory ? null,
           homeExtraModules ? [ ],
           hostname ? name,
-          isFrontend ? false,
+          isDev ? false,
           manageHome ? true,
           manageRemotely ? false,
           manageSystem ? null,
@@ -153,8 +153,7 @@
         }:
         let
           isDarwin = type == "darwin";
-          systemOverlays =
-            sharedOverlays ++ lib.optionals (isDarwin && isFrontend) fontOverlays ++ extraOverlays;
+          systemOverlays = sharedOverlays ++ lib.optionals (isDarwin && isDev) fontOverlays ++ extraOverlays;
           pkgs = import nixpkgs {
             inherit system;
             config.allowUnfree = true;
@@ -186,7 +185,7 @@
                   type = lib.types.bool;
                   default = false;
                 };
-                isFrontend = lib.mkOption {
+                isDev = lib.mkOption {
                   type = lib.types.bool;
                   default = false;
                 };
@@ -209,7 +208,7 @@
               config.dotfiles = {
                 inherit
                   manageRemotely
-                  isFrontend
+                  isDev
                   os
                   manageHome
                   ;
@@ -257,7 +256,7 @@
           homeConfig = mkHomeConfig {
             inherit
               homeDirectory
-              isFrontend
+              isDev
               name
               system
               user
@@ -281,7 +280,7 @@
           system,
           extraModules ? [ ],
           homeDirectory ? null,
-          isFrontend ? false,
+          isDev ? false,
           user ? username,
         }:
         let
@@ -294,7 +293,7 @@
             config.allowUnfree = true;
             overlays = sharedOverlays;
           };
-          extraSpecialArgs = { inherit isFrontend user; };
+          extraSpecialArgs = { inherit isDev user; };
           modules = [
             ./nix/home.nix
             (if isDarwin then ./nix/platforms/darwin.nix else ./nix/platforms/linux.nix)
