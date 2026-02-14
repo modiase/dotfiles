@@ -14,7 +14,7 @@ pkgs.buildGoModule {
   src = combinedSrc;
   sourceRoot = "${combinedSrc.name}/ankigen";
 
-  vendorHash = "sha256-msaYLbOFOK3xGDWK0t2+HnwH+8XHOKS4RIbgtDYA2tE=";
+  vendorHash = "sha256-7E8Em9BiZIkyfpQMzcfAEtwztC/ShtSwejFRFVfleYc=";
 
   meta = with lib; {
     description = "Generate Anki flashcards using AI with web search";
