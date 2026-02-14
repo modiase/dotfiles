@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/atotto/clipboard"
@@ -37,7 +38,7 @@ var (
 
 const (
 	claudeHaiku = "claude-haiku-4-5-20251001"
-	claudeOpus  = "claude-opus-4-5-20251101"
+	claudeOpus  = "claude-opus-4-6"
 
 	geminiFlash = "gemini-2.5-flash"
 	geminiPro   = "gemini-2.5-pro"
@@ -926,14 +927,34 @@ func performWebSearch(terms []string) (string, error) {
 		return "", fmt.Errorf("EXA_API_KEY not found")
 	}
 
-	var results strings.Builder
+	type searchResult struct {
+		result string
+		err    error
+	}
+
+	resultsChan := make(chan searchResult, len(terms))
+	var wg sync.WaitGroup
 
 	for _, term := range terms {
-		result, err := searchExa(term)
-		if err != nil {
+		wg.Add(1)
+		go func(t string) {
+			defer wg.Done()
+			result, err := searchExa(t)
+			resultsChan <- searchResult{result: result, err: err}
+		}(term)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+
+	var results strings.Builder
+	for r := range resultsChan {
+		if r.err != nil {
 			continue
 		}
-		results.WriteString(result)
+		results.WriteString(r.result)
 		results.WriteString("\n---\n")
 	}
 
@@ -1729,6 +1750,8 @@ func run(cmd *cobra.Command, args []string) {
 	if len(args) > 0 && providers[args[0]] {
 		provider = args[0]
 		args = args[1:]
+	} else if envProvider := os.Getenv("ANKIGEN_DEFAULT_PROVIDER"); envProvider != "" && providers[envProvider] {
+		provider = envProvider
 	} else if isHeraklesLLMServerAvailable() {
 		provider = "herakles"
 	} else if isLocalAvailable() {
