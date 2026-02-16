@@ -41,7 +41,6 @@ let
     cargo
     coreutils
     delta
-    direnv
     docker
     doggo
     duf
@@ -121,6 +120,11 @@ in
         pass-git-helper
       ]
     );
+
+  programs.direnv = {
+    enable = true;
+    nix-direnv.enable = true;
+  };
 
   home.file.".config/nvim" = {
     source = lib.cleanSourceWith {
