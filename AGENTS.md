@@ -63,6 +63,49 @@ Compare log timestamps against your last message to determine if activation ran 
 - `deploy` and `show` commands use a git worktree at `worktrees/main` to ensure they run from the latest origin/main
 - Treat this repository as source-only automation—build, lint, or test inside the activate shell, but avoid out-of-band host mutations
 
+## Infrastructure Deployment (OpenTofu)
+
+GCP infrastructure is managed with OpenTofu in the `infra/` directory. Use `bin/deploy-infra` to deploy changes.
+
+### Commands
+
+| Command                        | Description                                      |
+| ------------------------------ | ------------------------------------------------ |
+| `bin/deploy-infra`             | Plan and apply with confirmation prompt          |
+| `bin/deploy-infra -y`          | Auto-approve (no confirmation)                   |
+| `bin/deploy-infra -f`          | Force unlock stale state lock before planning    |
+| `bin/deploy-infra -a`          | Upgrade providers before planning                |
+| `bin/deploy-infra -p PROJECT`  | Use a different GCP project (default: modiase-infra) |
+
+### Workflow
+
+1. Make changes to `.tofu` files in `infra/` or `infra/modules/`
+2. Run `bin/deploy-infra` to see the plan
+3. Review the plan carefully
+4. Type `y` to apply (or use `-y` flag)
+
+### Important
+
+- **Do NOT run `tofu` directly** - use the wrapper script which handles initialisation and tooling
+- **Do NOT deploy without explicit user request** - infrastructure changes can be destructive
+- **State is stored in GCS** - `gs://modiase-infra-tofu-state/infra`
+- **Force unlock sparingly** - only when you're certain the lock is stale (e.g., previous run crashed)
+
+### Module Structure
+
+```
+infra/
+├── main.tofu           # Root module, instantiates all modules
+├── variables.tofu      # Input variables
+├── outputs.tofu        # Exported values
+├── tofu.tfvars         # Variable values (gitcrypted)
+└── modules/
+    ├── ntfy-pubsub/    # Pub/Sub → ntfy forwarding
+    ├── gmail-dispatcher/  # Gmail push notifications
+    ├── hestia/         # Home Assistant VM
+    └── ...
+```
+
 ## Hekate (Locked-Down VPN Gateway)
 
 Hekate is a Raspberry Pi 4 configured as a hardened WireGuard VPN gateway with minimal attack surface. It has special restrictions that differ from other hosts:

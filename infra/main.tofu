@@ -65,6 +65,12 @@ module "ntfy_pubsub" {
   region     = var.region
 }
 
+module "gmail_dispatcher" {
+  source     = "./modules/gmail-dispatcher"
+  project_id = var.project_id
+  region     = var.region
+}
+
 module "hestia_backup_monitor" {
   source           = "./modules/gcs-freshness-monitor"
   project_id       = var.project_id
