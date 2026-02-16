@@ -59,6 +59,15 @@ vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
 	command = "set filetype=terraform",
 })
 
+vim.api.nvim_create_autocmd({ "TermOpen", "BufEnter" }, {
+	pattern = "term://*",
+	callback = function()
+		if vim.bo.buftype == "terminal" then
+			vim.cmd("startinsert")
+		end
+	end,
+})
+
 if vim.env.TMUX and vim.g.pager_mode ~= 1 then
 	local env_var = "NVIM_" .. vim.env.TMUX_PANE
 	vim.fn.system({ "tmux", "set-environment", env_var, vim.v.servername })
