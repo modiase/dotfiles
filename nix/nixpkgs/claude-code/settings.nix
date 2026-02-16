@@ -92,10 +92,9 @@
       "Bash(pgrep:*)"
       "Bash(lsof:*)"
 
-      # MCP tools
-      "mcp__exa__web_search_exa"
-      "mcp__exa__get_code_context_exa"
-      "mcp__exa__company_research_exa"
+      # MCP tools (read-only)
+      "mcp__exa__*"
+      "mcp__nixos__*"
 
       # Documentation domains
       "WebFetch(domain:crates.io)"
