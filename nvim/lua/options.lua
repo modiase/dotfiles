@@ -13,6 +13,7 @@ vim.opt.tabstop = 4
 vim.opt.updatetime = 300
 vim.opt.wrap = false
 vim.opt.termguicolors = true
+vim.opt.fillchars = { eob = " " }
 
 vim.cmd("syntax on")
 
