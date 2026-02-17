@@ -299,11 +299,13 @@ def store(
     backend_obj = get_backend(ctx)
 
     if value is None:
-        passphrase = ctx.obj.get("passphrase")
-        if passphrase:
-            error_console.print("[red]Error: No value provided[/red]")
-            raise SystemExit(1)
-        value = Prompt.ask(f"[cyan]Enter secret value for {name}[/cyan]", password=True)
+        if not sys.stdin.isatty():
+            value = sys.stdin.read().rstrip("\n")
+        elif not ctx.obj.get("passphrase"):
+            value = Prompt.ask(
+                f"[cyan]Enter secret value for {name}[/cyan]", password=True
+            )
+
         if not value:
             error_console.print("[red]Error: No value provided[/red]")
             raise SystemExit(1)
