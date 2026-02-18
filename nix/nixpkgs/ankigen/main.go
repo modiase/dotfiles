@@ -612,7 +612,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.done = false
 				m.substage = "iterating"
 				m.iterInput.Reset()
-				return m, runIterate(m.context, instructions)
+				return m, tea.Batch(runIterate(m.context, instructions), m.spinner.Tick)
 			}
 		}
 		var cmd tea.Cmd
@@ -1955,26 +1955,47 @@ func callRemote(systemPrompt, userPrompt string, _ bool) (string, error) {
 		return "", err
 	}
 
-	req, err := http.NewRequest("POST", remoteURL+"/chat/completions", bytes.NewReader(body))
-	if err != nil {
-		return "", err
-	}
-	req.Header.Set("Content-Type", "application/json")
-
 	client := &http.Client{Timeout: 300 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("remote LLM unavailable: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
+	var respBody []byte
+	var lastErr error
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
+	for attempt := range 3 {
+		if attempt > 0 {
+			time.Sleep(time.Duration(attempt*2) * time.Second)
+		}
+
+		req, err := http.NewRequest("POST", remoteURL+"/chat/completions", bytes.NewReader(body))
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("remote LLM unavailable: %w", err)
+			continue
+		}
+
+		respBody, err = io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		if resp.StatusCode == 200 {
+			lastErr = nil
+			break
+		}
+
+		lastErr = fmt.Errorf("remote LLM error: %s", string(respBody))
+		if resp.StatusCode < 500 && !strings.Contains(string(respBody), "try again") {
+			return "", lastErr
+		}
 	}
 
-	if resp.StatusCode != 200 {
-		return "", fmt.Errorf("remote LLM error: %s", string(respBody))
+	if lastErr != nil {
+		return "", lastErr
 	}
 
 	var result struct {
