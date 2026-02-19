@@ -3,7 +3,40 @@
   lib ? pkgs.lib,
 }:
 let
-  settings = import ./settings.nix;
+  openPlanScript = pkgs.writeShellApplication {
+    name = "open-plan-in-nvim";
+    runtimeInputs = with pkgs; [
+      jq
+      neovim-remote
+    ];
+    text = builtins.readFile ./open-plan-in-nvim.sh;
+  };
+
+  baseSettings = import ./settings.nix;
+
+  settings = lib.recursiveUpdate baseSettings {
+    hooks.PostToolUse = [
+      {
+        matcher = "Write";
+        hooks = [
+          {
+            type = "command";
+            command = "${openPlanScript}/bin/open-plan-in-nvim";
+          }
+        ];
+      }
+      {
+        matcher = "Edit";
+        hooks = [
+          {
+            type = "command";
+            command = "${openPlanScript}/bin/open-plan-in-nvim";
+          }
+        ];
+      }
+    ];
+  };
+
   settingsJson = pkgs.writeText "claude-settings.json" (builtins.toJSON settings);
   claudeMd = ./CLAUDE.md;
 in
