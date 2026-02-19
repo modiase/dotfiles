@@ -16,9 +16,15 @@ return {
 		vim.opt.fillchars:append({ diff = " " })
 	end,
 	keys = {
-		{ "<leader>C", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude Code" },
+		{ "<leader>Cc", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude Code" },
 		{ "<leader>Cn", "<cmd>ClaudeCode<cr>", desc = "New Claude Code session" },
-		{ "<leader>Cs", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send selection to Claude" },
+		{ "<leader>Cr", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude Code session" },
+		{
+			"<leader>Cs",
+			"<cmd>ClaudeCodeSend<cr>",
+			mode = "v",
+			desc = "Send selection to Claude",
+		},
 		{ "<leader>Ca", "<cmd>ClaudeCodeAdd<cr>", desc = "Add file to Claude context" },
 	},
 }
