@@ -14,6 +14,7 @@ vim.opt.updatetime = 300
 vim.opt.wrap = false
 vim.opt.termguicolors = true
 vim.opt.fillchars = { eob = " " }
+vim.opt.laststatus = 3
 
 vim.cmd("syntax on")
 
