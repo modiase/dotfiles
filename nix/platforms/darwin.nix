@@ -22,6 +22,7 @@ in
 
   home.file.".hammerspoon/init.lua".text = ''
     hs.hotkey.bind({"cmd", "shift"}, "b", function() hs.application.launchOrFocus("Google Chrome") end)
+    hs.hotkey.bind({"cmd", "shift"}, "c", function() hs.application.launchOrFocus("Antigravity") end)
     hs.hotkey.bind({"cmd", "shift"}, "d", function() hs.application.launchOrFocus("Notion") end)
     hs.hotkey.bind({"cmd", "shift"}, "q", function() hs.application.launchOrFocus("Google Gemini") end)
     hs.hotkey.bind({"cmd", "shift"}, "k", function() hs.application.launchOrFocus("Google Calendar") end)
