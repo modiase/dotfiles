@@ -170,7 +170,7 @@ in
     '';
   };
 
-  programs.claude-code.enable = isDev;
+  dotfiles.claude-code.enable = isDev;
 
   programs.tmux.enable = lib.mkDefault isDev;
   programs.neovim.enable = lib.mkDefault isDev;

@@ -1,18 +1,24 @@
 local M = {}
 
-local TMP_RESOLVED = vim.fn.resolve("/tmp")
-local PLANS_DIR = TMP_RESOLVED .. "/claude-nix/plans"
+local current_plans_dir = nil
 
-local function is_plan_file(path)
-	return path and path:match("^" .. vim.pesc(PLANS_DIR) .. "/.*%.md$")
+local function get_plans_dir(config_dir)
+	config_dir = config_dir or os.getenv("CLAUDE_CONFIG_DIR") or (os.getenv("HOME") .. "/.claude")
+	return vim.fn.resolve(config_dir) .. "/plans"
+end
+
+local function is_plan_file(path, plans_dir)
+	plans_dir = plans_dir or current_plans_dir or get_plans_dir()
+	return path and path:match("^" .. vim.pesc(plans_dir) .. "/.*%.md$")
 end
 
 function M.find_existing_plan_tab()
+	local plans_dir = current_plans_dir or get_plans_dir()
 	for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
 		local win = vim.api.nvim_tabpage_get_win(tab)
 		local buf = vim.api.nvim_win_get_buf(win)
 		local name = vim.api.nvim_buf_get_name(buf)
-		if is_plan_file(name) then
+		if is_plan_file(name, plans_dir) then
 			return tab, buf
 		end
 	end
@@ -35,13 +41,14 @@ function M.find_claude_terminal_win()
 	return nil, nil
 end
 
-function M.open(file_path)
+function M.open(file_path, config_dir)
 	if not file_path then
 		return
 	end
 
+	current_plans_dir = get_plans_dir(config_dir)
 	file_path = vim.fn.resolve(file_path)
-	if not is_plan_file(file_path) then
+	if not is_plan_file(file_path, current_plans_dir) then
 		return
 	end
 
