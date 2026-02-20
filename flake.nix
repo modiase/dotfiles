@@ -124,7 +124,6 @@
       sharedOverlays = [
         (self: super: {
           aleo = super.callPackage ./nix/nixpkgs/aleo { };
-          claude-wrapper = super.callPackage ./nix/nixpkgs/claude-code/package.nix { };
           lato = super.callPackage ./nix/nixpkgs/lato { };
           space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
         })
@@ -410,7 +409,6 @@
             '';
         };
 
-        claude-code = pkgs.callPackage ./nix/nixpkgs/claude-code/package.nix { };
         cve-scanner = pkgs.callPackage ./nix/nixpkgs/cve-scanner { };
         derive-age-key = pkgs.callPackage ./nix/nixpkgs/derive-age-key { };
         secrets = pkgs.callPackage ./nix/nixpkgs/secrets { };
@@ -420,7 +418,6 @@
         packages = {
           inherit
             build-system-image
-            claude-code
             cve-scanner
             derive-age-key
             secrets
