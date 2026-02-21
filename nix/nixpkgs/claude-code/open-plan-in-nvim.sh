@@ -1,11 +1,21 @@
 # shellcheck shell=bash
 INPUT=$(cat)
 
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // empty')
-[[ -z "$FILE_PATH" ]] && exit 0
+TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty')
+[[ -z "$TRANSCRIPT_PATH" || ! -f "$TRANSCRIPT_PATH" ]] && exit 0
 
 config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
-[[ "$FILE_PATH" != "$config_dir"/plans/*.md ]] && exit 0
+plans_pattern="$config_dir/plans/"
 
-nvr -c "lua require('utils.claude-plan').open('$FILE_PATH', '$config_dir')" 2>/dev/null || true
+PLAN_FILE=$(tail -100 "$TRANSCRIPT_PATH" | jq -r '
+  select(.message.content) |
+  .message.content |
+  if type == "array" then .[] else . end |
+  select(.type == "tool_use" and (.name == "Write" or .name == "Edit")) |
+  .input.file_path // empty
+' 2>/dev/null | grep "$plans_pattern" | tail -1)
+
+[[ -z "$PLAN_FILE" ]] && exit 0
+
+nvr -c "lua require('utils.claude-plan').open('$PLAN_FILE', '$config_dir')" 2>/dev/null || true
 exit 0

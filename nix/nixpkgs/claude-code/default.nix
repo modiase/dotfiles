@@ -21,16 +21,7 @@ let
   settings = lib.recursiveUpdate baseSettings {
     hooks.PostToolUse = [
       {
-        matcher = "Write";
-        hooks = [
-          {
-            type = "command";
-            command = "${openPlanScript}/bin/open-plan-in-nvim";
-          }
-        ];
-      }
-      {
-        matcher = "Edit";
+        matcher = "ExitPlanMode";
         hooks = [
           {
             type = "command";
