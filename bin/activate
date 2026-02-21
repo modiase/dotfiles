@@ -27,7 +27,8 @@ _CURL=$(command -v curl) || _CURL="nix shell nixpkgs#curl -c curl"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/nix/nixpkgs/shellutils/logging-utils.sh"
 
-GIT_COMMON_DIR="$(git -C "$REPO_ROOT" rev-parse --git-common-dir)"
+GIT_COMMON_DIR="$(cd "$REPO_ROOT" && git rev-parse --git-common-dir)"
+[[ "$GIT_COMMON_DIR" != /* ]] && GIT_COMMON_DIR="$REPO_ROOT/$GIT_COMMON_DIR"
 GITCRYPT_KEY="$GIT_COMMON_DIR/git-crypt/keys/default"
 GITCRYPT_FINGERPRINT="98aa7b921fe81d9a38ae89f69c73fc72ea60c0ebb58170796507d476cbee33f5"
 
