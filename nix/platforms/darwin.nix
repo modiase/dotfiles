@@ -28,7 +28,7 @@ in
     hs.hotkey.bind({"cmd", "shift"}, "k", function() hs.application.launchOrFocus("Google Calendar") end)
     hs.hotkey.bind({"cmd", "shift"}, "l", function() hs.application.launchOrFocus("Todoist") end)
     hs.hotkey.bind({"cmd", "shift"}, "t", function() hs.application.launchOrFocus("Ghostty") end)
-    hs.hotkey.bind({"cmd", "shift"}, "u", function() hs.application.launchOrFocus("Apple Music") end)
+    hs.hotkey.bind({"cmd", "shift"}, "u", function() hs.application.launchOrFocus("Youtube Music") end)
   '';
 
   launchd.agents.ntfy-listen = {
