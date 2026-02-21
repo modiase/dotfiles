@@ -18,7 +18,6 @@ let
   devPackages = with pkgs; [
     (callPackage ./nixpkgs/ankigen { })
     (callPackage ./nixpkgs/semsearch { })
-    (callPackage ./nixpkgs/awrit { })
     (callPackage ./nixpkgs/coder { })
     (writeShellScriptBin "chafa" ''
       if [[ -n "$TMUX" ]]; then
