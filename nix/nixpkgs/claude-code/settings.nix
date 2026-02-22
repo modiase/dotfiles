@@ -8,6 +8,8 @@
     deny = [
       "Bash(gcloud secrets versions access:*)"
       "Bash(secrets get:*)"
+      "Bash(sed -i *)"
+      "Bash(sed --in-place *)"
     ];
     allow = [
       # Nix
@@ -30,6 +32,14 @@
       "Bash(git rev-parse:*)"
       "Bash(git ls-files:*)"
       "Bash(git ls-tree:*)"
+      "Bash(git stash list:*)"
+      "Bash(git tag:*)"
+      "Bash(git describe:*)"
+      "Bash(git shortlog:*)"
+      "Bash(git config:*)"
+      "Bash(git blame:*)"
+      "Bash(git reflog:*)"
+      "Bash(git worktree list:*)"
       "Bash(git -C :* status:*)"
       "Bash(git -C :* log:*)"
       "Bash(git -C :* diff:*)"
@@ -39,6 +49,41 @@
       "Bash(git -C :* rev-parse:*)"
       "Bash(git -C :* ls-files:*)"
       "Bash(git -C :* ls-tree:*)"
+
+      # Filesystem (read-only)
+      "Bash(ls:*)"
+      "Bash(cat:*)"
+      "Bash(head:*)"
+      "Bash(tail:*)"
+      "Bash(wc:*)"
+      "Bash(stat:*)"
+      "Bash(realpath:*)"
+      "Bash(dirname:*)"
+      "Bash(basename:*)"
+      "Bash(readlink:*)"
+      "Bash(fd:*)"
+      "Bash(rg:*)"
+      "Bash(find:*)"
+      "Bash(grep:*)"
+      "Bash(tree:*)"
+      "Bash(eza:*)"
+      "Bash(od:*)"
+      "Bash(sed:*)"
+      "Bash(echo:*)"
+      "Bash(printf:*)"
+
+      # Build/lint (read-only)
+      "Bash(go build:*)"
+      "Bash(go vet:*)"
+      "Bash(go test:*)"
+      "Bash(go list:*)"
+      "Bash(go mod tidy:*)"
+      "Bash(make:*)"
+      "Bash(pre-commit:*)"
+      "Bash(jq:*)"
+      "Bash(yq:*)"
+      "Bash(curl:*)"
+      "Bash(wget:*)"
 
       # GCloud logging (read-only)
       "Bash(gcloud logging read:*)"
