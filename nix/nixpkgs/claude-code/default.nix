@@ -44,6 +44,13 @@ let
         --set CLAUDE_CONFIG_DIR "${cfg.configDir}"
     '';
   };
+
+  agentsDir = "$HOME/.agents";
+
+  symlinkScript = configDir: ''
+    $DRY_RUN_CMD ln -sfn "${agentsDir}/AGENTS.md" "${configDir}/CLAUDE.md"
+    $DRY_RUN_CMD ln -sfn "${agentsDir}/skills" "${configDir}/skills"
+  '';
 in
 {
   options.dotfiles.claude-code = {
@@ -61,15 +68,16 @@ in
     home.file.".claude/settings.json" = lib.mkIf (cfg.configDir == null) {
       source = settingsJson;
     };
-    home.file.".claude/CLAUDE.md" = lib.mkIf (cfg.configDir == null) {
-      source = ./CLAUDE.md;
-    };
+
+    home.activation.claude-agent-links = lib.mkIf (cfg.configDir == null) (
+      lib.hm.dag.entryAfter [ "writeBoundary" ] (symlinkScript "$HOME/.claude")
+    );
 
     home.activation.claude-config = lib.mkIf (cfg.configDir != null) (
       lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         $DRY_RUN_CMD mkdir -p "${cfg.configDir}"
         $DRY_RUN_CMD ln -sf "${settingsJson}" "${cfg.configDir}/settings.json"
-        $DRY_RUN_CMD ln -sf "${./CLAUDE.md}" "${cfg.configDir}/CLAUDE.md"
+        ${symlinkScript cfg.configDir}
       ''
     );
   };
