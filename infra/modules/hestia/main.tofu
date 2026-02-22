@@ -16,3 +16,9 @@ resource "google_pubsub_topic_iam_member" "hestia_ntfy" {
   role    = "roles/pubsub.publisher"
   member  = "serviceAccount:${google_service_account.hestia_backup.email}"
 }
+
+resource "google_service_account_iam_member" "hestia_wif" {
+  service_account_id = google_service_account.hestia_backup.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "principal://iam.googleapis.com/${var.workload_identity_pool}/subject/hestia"
+}

@@ -33,10 +33,18 @@ module "hermes" {
   zone                  = var.zone
 }
 
+module "workload_identity" {
+  source       = "./modules/workload-identity"
+  project_id   = var.project_id
+  region       = var.backup_bucket_location
+  machine_keys = var.wif_machine_keys
+}
+
 module "hestia" {
-  source         = "./modules/hestia"
-  project_id     = var.project_id
-  backups_bucket = var.backup_bucket_name
+  source                 = "./modules/hestia"
+  project_id             = var.project_id
+  backups_bucket         = var.backup_bucket_name
+  workload_identity_pool = module.workload_identity.pool_name
 }
 
 resource "google_storage_bucket" "backups" {
