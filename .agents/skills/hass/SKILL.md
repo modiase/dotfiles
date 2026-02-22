@@ -60,6 +60,7 @@ build-image hestia -d /dev/diskX
 
 - **Schedule**: Daily at 03:00 UTC
 - **Destination**: GCS `modiase-backups/hestia/snapshots/`
+- **Auth**: Workload Identity Federation (WIF) via `gcp-identity-key` — see `wif` skill
 - **Encryption**: Age encryption with runtime-derived key
 
 ```bash
