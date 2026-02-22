@@ -18,14 +18,29 @@ let
     [ -n "$display" ] && printf '%s\n' "$display"
   '';
   ezaBase = "eza --icons=always --color=always";
+  ezaOrLs = cmd: fallback: ''
+    if command -q eza
+        if command -q moor
+            ${cmd} | moor
+        else
+            ${cmd}
+        end
+    else
+        ${fallback}
+    end
+  '';
   functions =
     pkgs.lib.genAttrs (map toFunctionName functionFiles) (
       name: builtins.readFile (dotfiles + /fish/functions + "/${name}.fish")
     )
     // {
-      ls = "${ezaBase} --git $argv | moor";
-      ll = "${ezaBase} -l --git $argv | moor";
-      lt = "${ezaBase} --tree $argv | moor";
+      ls = ezaOrLs "${ezaBase} --git $argv" "command ls --color=auto $argv";
+      ll = ezaOrLs "${ezaBase} -l --git $argv" "command ls -lh --color=auto $argv";
+      lt = ezaOrLs "${ezaBase} --tree $argv" "command ls -R --color=auto $argv";
+      df = "command -q duf; and duf $argv; or command df -h $argv";
+      du = "command -q dust; and dust $argv; or command du -sh $argv";
+      ps = "command -q procs; and procs $argv; or command ps $argv";
+      top = "command -q btop; and btop $argv; or command top $argv";
       cd = ''
         if test (count $argv) -gt 0
             builtin cd $argv
@@ -64,12 +79,6 @@ in
         src = pkgs.fishPlugins.bass.src;
       }
     ];
-    shellAliases = {
-      df = "duf";
-      du = "dust";
-      ps = "procs";
-      top = "btop";
-    };
     shellAbbrs = {
       csv2json = "python -c 'import csv, json, sys; print(json.dumps([dict(r) for r in csv.DictReader(sys.stdin)]))'";
     };
