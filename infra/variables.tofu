@@ -80,3 +80,12 @@ variable "backup_retention_days" {
   type    = number
   default = 90
 }
+
+variable "wif_machine_keys" {
+  type = map(object({
+    x = string
+    y = string
+  }))
+  description = "Map of machine ID to ES256 public key coordinates (base64url-encoded)"
+  default     = {}
+}

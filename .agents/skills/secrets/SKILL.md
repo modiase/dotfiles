@@ -12,12 +12,13 @@ Use the `secrets` CLI to access credentials securely.
 
 | Command | Description |
 |---------|-------------|
-| `secrets get <name>` | Retrieve secret (copies to clipboard) |
-| `secrets get <name> --print` | Print to stdout (for scripts) |
+| `secrets get <name>` | Retrieve secret value (copies to clipboard) |
+| `secrets get <name> --print` | Print value to stdout (for scripts) |
 | `secrets get <name> --network` | Force fetch from GCP Secret Manager |
+| `secrets get <name> --raw` | Return raw JSON with secrets-library metadata instead of the unwrapped value |
 | `secrets get <name> --read-through` | Check local first, fall back to network |
 | `secrets store <name> <value>` | Store a secret locally |
-| `secrets store <name> --network` | Store in GCP Secret Manager |
+| `secrets store <name> <value> --network` | Store in GCP Secret Manager |
 | `secrets list` | List local secrets |
 | `secrets list --all` | List from both local and network |
 
@@ -37,6 +38,7 @@ http -A bearer -a "$(secrets get hestia-hass-api-access --print)" \
 ## Important
 
 - Use `--print` for scripts (default copies to clipboard)
+- Do NOT use `--raw` when you want the secret value — `--raw` returns the secrets-library JSON envelope, not the unwrapped value
 - Use `--ignore-stdin` with HTTPie to avoid hangs
 - Never log or print secret values directly
 - Handle missing secrets gracefully
