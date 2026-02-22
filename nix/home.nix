@@ -103,6 +103,7 @@ in
     ./neovim.nix
     ./sh.nix
     ./tmux.nix
+    ./nixpkgs/agents-config
     ./nixpkgs/claude-code
     ./nixpkgs/yazi
   ];
@@ -169,6 +170,7 @@ in
     '';
   };
 
+  dotfiles.agents-config.enable = isDev;
   dotfiles.claude-code.enable = isDev;
 
   programs.tmux.enable = lib.mkDefault isDev;

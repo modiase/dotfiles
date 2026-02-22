@@ -136,10 +136,13 @@ tables, json files and images.
 (output/data directory) or you are explicitly otherwise instructed.
 
 ## Preferred Tools
-| Instead of | Use | Why |
-|------------|-----|-----|
-| `find` | `fd` | Faster, respects .gitignore (less noise) |
-| `grep` | `rg` | Faster, respects .gitignore (less noise) |
+| Instead of | Use    | Why                                |
+|------------|--------|------------------------------------|
+| `find`     | `fd`   | Faster, respects .gitignore        |
+| `grep`     | `rg`   | Faster, respects .gitignore        |
+| `man`      | `tldr` | Concise examples, faster to parse  |
+
+See the `cli-tools` skill for common usage translations.
 
 ## Core Principles
 - **Be Precise**: State facts, not assumptions
