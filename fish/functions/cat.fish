@@ -1,3 +1,8 @@
+if not command -q bat
+    command cat $argv
+    return
+end
+
 # Pass through to bat if: piping, no args, or multiple files
 if not isatty stdout; or test (count $argv) -ne 1
     bat $argv
