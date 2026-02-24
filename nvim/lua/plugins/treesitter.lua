@@ -1,7 +1,9 @@
 local parsers = {
 	"bash",
+	"css",
 	"fish",
 	"go",
+	"html",
 	"json",
 	"lua",
 	"markdown",
@@ -9,6 +11,7 @@ local parsers = {
 	"nix",
 	"python",
 	"query",
+	"scss",
 	"svelte",
 	"terraform",
 	"typescript",
