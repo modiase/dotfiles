@@ -13,6 +13,8 @@ return {
 	config = function()
 		require("telescope").setup({
 			defaults = {
+				path_display = { "filename_first" },
+				dynamic_preview_title = true,
 				file_ignore_patterns = {
 					"^%.git/",
 					"node_modules/",
