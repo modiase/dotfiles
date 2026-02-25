@@ -1,5 +1,5 @@
 {
-  description = "Moyewa Odiase - Home Directory Config";
+  description = "Configuration, code and infrastructure";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -264,13 +264,14 @@
           };
         in
         {
-          systemAttr = {
-            "${name}" = systemConfig;
-          };
-          homeAttr = {
-            "${user}-${name}" = homeConfig;
-          };
-          inherit name mkBuildImage;
+          inherit
+            name
+            type
+            mkBuildImage
+            systemConfig
+            homeConfig
+            ;
+          homeKey = "${user}-${name}";
         };
 
       mkHomeConfig =
@@ -304,36 +305,59 @@
           ++ extraModules;
         };
 
-      hekate = mkSystem (import ./systems/hekate { inherit sops-nix; });
-      herakles = mkSystem (import ./systems/herakles);
-      hephaistos = mkSystem (import ./systems/hephaistos { inherit lib fontOverlays; });
-      hermes = mkSystem (import ./systems/hermes { });
-      hestia = mkSystem (
-        import ./systems/hestia { inherit heraklesBuildServer tk700-controller-dashboard sops-nix; }
-      );
-      iris = mkSystem (import ./systems/iris { });
-      pallas = mkSystem (import ./systems/pallas { });
-      zeus = mkSystem (import ./systems/zeus { inherit lib; });
+      systemConfigurations = {
+        hekate = {
+          type = "nixos";
+          config = import ./systems/hekate { inherit sops-nix; };
+        };
+        herakles = {
+          type = "nixos";
+          config = import ./systems/herakles;
+        };
+        hephaistos = {
+          type = "darwin";
+          user = "moyeodiase";
+          config = import ./systems/hephaistos { inherit lib fontOverlays; };
+        };
+        hermes = {
+          type = "nixos";
+          config = import ./systems/hermes { };
+        };
+        hestia = {
+          type = "nixos";
+          config = import ./systems/hestia {
+            inherit heraklesBuildServer tk700-controller-dashboard sops-nix;
+          };
+        };
+        iris = {
+          type = "darwin";
+          config = import ./systems/iris { };
+        };
+        pallas = {
+          type = "darwin";
+          config = import ./systems/pallas { };
+        };
+        zeus = {
+          type = "nixos";
+          user = "moyeodiase";
+          config = import ./systems/zeus { inherit lib; };
+        };
+      };
+
+      evaluateSystemConfig = def: mkSystem def.config;
     in
     {
-      darwinConfigurations = iris.systemAttr // pallas.systemAttr // hephaistos.systemAttr;
+      darwinConfigurations = lib.mapAttrs (_: def: (evaluateSystemConfig def).systemConfig) (
+        lib.filterAttrs (_: def: def.type == "darwin") systemConfigurations
+      );
 
-      nixosConfigurations =
-        herakles.systemAttr
-        // hermes.systemAttr
-        // hekate.systemAttr
-        // hestia.systemAttr
-        // zeus.systemAttr;
+      nixosConfigurations = lib.mapAttrs (_: def: (evaluateSystemConfig def).systemConfig) (
+        lib.filterAttrs (_: def: def.type == "nixos") systemConfigurations
+      );
 
-      homeConfigurations =
-        iris.homeAttr
-        // pallas.homeAttr
-        // hephaistos.homeAttr
-        // herakles.homeAttr
-        // hermes.homeAttr
-        // hekate.homeAttr
-        // hestia.homeAttr
-        // zeus.homeAttr;
+      homeConfigurations = lib.mapAttrs' (
+        name: def: lib.nameValuePair "${def.user or username}-${name}" (evaluateSystemConfig def).homeConfig
+      ) systemConfigurations;
     }
     // flake-utils.lib.eachDefaultSystem (
       system:
@@ -356,10 +380,10 @@
           repoRoot = ./.;
         };
 
-        allSystems = [
-          hekate
-          hermes
-          hestia
+        allSystems = map (name: evaluateSystemConfig systemConfigurations.${name}) [
+          "hekate"
+          "hermes"
+          "hestia"
         ];
         buildableSystems = builtins.filter (s: s.mkBuildImage or null != null) allSystems;
         buildImageScripts = builtins.listToAttrs (
@@ -432,13 +456,13 @@
             type = "app";
             program = "${build-system-image}/bin/build-system-image";
           };
-          secrets = {
-            type = "app";
-            program = "${secrets}/bin/secrets";
-          };
           cve-scanner = {
             type = "app";
             program = "${cve-scanner}/bin/cve-scanner";
+          };
+          secrets = {
+            type = "app";
+            program = "${secrets}/bin/secrets";
           };
         };
       }
