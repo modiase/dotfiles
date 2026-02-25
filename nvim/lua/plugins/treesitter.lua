@@ -6,6 +6,7 @@ local parsers = {
 	"go",
 	"html",
 	"json",
+	"just",
 	"lua",
 	"markdown",
 	"markdown_inline",
