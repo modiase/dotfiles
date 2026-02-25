@@ -29,5 +29,6 @@
   "python.linting.enabled": true,
   "snippets.ultisnips.enable": false,
   "tsserver.log": "normal",
-  "tsserver.maxTsServerMemory": 8192
+  "tsserver.maxTsServerMemory": 8192,
+  "tsserver.pluginPaths": ["./node_modules"]
 }

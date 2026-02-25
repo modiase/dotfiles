@@ -1,4 +1,5 @@
 local parsers = {
+	"angular",
 	"bash",
 	"css",
 	"fish",
