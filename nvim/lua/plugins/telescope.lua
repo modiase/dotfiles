@@ -66,6 +66,13 @@ return {
 		})
 		require("telescope").load_extension("fzf")
 
+		vim.api.nvim_create_autocmd("User", {
+			pattern = "TelescopePreviewerLoaded",
+			callback = function()
+				vim.wo.number = true
+			end,
+		})
+
 		local fidget_handle = nil
 		local last_spinner_time = 0
 
