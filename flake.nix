@@ -47,11 +47,6 @@
     }@inputs:
     let
       username = "moye";
-      systems = [
-        "x86_64-linux"
-        "aarch64-linux"
-        "aarch64-darwin"
-      ];
       lib = nixpkgs.lib;
       authorizedKeys = import ./nix/authorized-keys.nix;
       authorizedKeyLists = lib.mapAttrs (
@@ -94,7 +89,7 @@
       };
 
       heraklesBuildServer =
-        { pkgs, ... }:
+        { ... }:
         {
           nix.distributedBuilds = true;
           nix.settings.builders-use-substitutes = true;
@@ -121,7 +116,7 @@
       ];
 
       sharedOverlays = [
-        (self: super: {
+        (_: super: {
           aleo = super.callPackage ./nix/nixpkgs/aleo { };
           lato = super.callPackage ./nix/nixpkgs/lato { };
           space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
@@ -254,7 +249,6 @@
             inherit
               homeDirectory
               isDev
-              name
               system
               user
               ;
@@ -274,7 +268,6 @@
 
       mkHomeConfig =
         {
-          name,
           system,
           extraModules ? [ ],
           homeDirectory ? null,
