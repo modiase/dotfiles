@@ -108,74 +108,80 @@ in
     ./nixpkgs/yazi
   ];
 
-  home.username = user;
+  home = {
+    username = user;
 
-  home.packages =
-    commonPackages
-    ++ lib.optionals isDev devPackages
-    ++ lib.optionals (isDev && pkgs.stdenv.isLinux) (
-      with pkgs;
-      [
-        pass
-        pass-git-helper
-      ]
-    );
+    packages =
+      commonPackages
+      ++ lib.optionals isDev devPackages
+      ++ lib.optionals (isDev && pkgs.stdenv.isLinux) (
+        with pkgs;
+        [
+          pass
+          pass-git-helper
+        ]
+      );
 
-  programs.direnv = {
-    enable = true;
-    nix-direnv.enable = true;
-  };
+    file = {
+      ".config/nvim" = {
+        source = lib.cleanSourceWith {
+          src = ../nvim;
+          filter =
+            path: type:
+            !(lib.hasSuffix "coc-settings.json" path)
+            && !(lib.hasSuffix "lua/plugins/coc.lua" path)
+            && !(lib.hasSuffix "lua/plugins/claudecode.lua" path);
+        };
+        recursive = true;
+      };
 
-  home.file.".config/nvim" = {
-    source = lib.cleanSourceWith {
-      src = ../nvim;
-      filter =
-        path: type:
-        !(lib.hasSuffix "coc-settings.json" path)
-        && !(lib.hasSuffix "lua/plugins/coc.lua" path)
-        && !(lib.hasSuffix "lua/plugins/claudecode.lua" path);
+      ".config/nvim/coc-settings.json" = lib.mkDefault {
+        text =
+          let
+            base = builtins.fromJSON (builtins.readFile ../nvim/coc-settings.json);
+            svelte = builtins.fromJSON (builtins.readFile ../nvim/coc-languageservers/svelte.json);
+            terraform = builtins.fromJSON (builtins.readFile ../nvim/coc-languageservers/terraform.json);
+          in
+          builtins.toJSON (lib.recursiveUpdate base { languageserver = svelte // terraform; });
+      };
+
+      ".config/nvim/lua/plugins/coc.lua" = lib.mkDefault {
+        text =
+          let
+            cocLua = builtins.readFile ../nvim/lua/plugins/coc.lua;
+            baseExts = builtins.fromJSON (builtins.readFile ../nvim/coc-extensions/base.json);
+            frontendExts = builtins.fromJSON (builtins.readFile ../nvim/coc-extensions/frontend.json);
+            extsList = builtins.concatStringsSep ", " (map (e: ''"${e}"'') (baseExts ++ frontendExts));
+          in
+          builtins.replaceStrings [ "-- @COC_EXTENSIONS@" ] [ extsList ] cocLua;
+      };
+
+      ".config/nvim/lua/plugins/claudecode.lua" = lib.mkDefault {
+        text = builtins.readFile ../nvim/lua/plugins/claudecode.lua;
+      };
+
+      ".config/pass-git-helper/git-pass-mapping.ini" = lib.mkIf (isDev && pkgs.stdenv.isLinux) {
+        text = ''
+          [github.com*]
+          target=git/github.com
+        '';
+      };
     };
-    recursive = true;
+
+    stateVersion = "24.05";
   };
 
-  home.file.".config/nvim/coc-settings.json" = lib.mkDefault {
-    text =
-      let
-        base = builtins.fromJSON (builtins.readFile ../nvim/coc-settings.json);
-        svelte = builtins.fromJSON (builtins.readFile ../nvim/coc-languageservers/svelte.json);
-        terraform = builtins.fromJSON (builtins.readFile ../nvim/coc-languageservers/terraform.json);
-      in
-      builtins.toJSON (lib.recursiveUpdate base { languageserver = svelte // terraform; });
-  };
+  programs = {
+    direnv = {
+      enable = true;
+      nix-direnv.enable = true;
+    };
 
-  home.file.".config/nvim/lua/plugins/coc.lua" = lib.mkDefault {
-    text =
-      let
-        cocLua = builtins.readFile ../nvim/lua/plugins/coc.lua;
-        baseExts = builtins.fromJSON (builtins.readFile ../nvim/coc-extensions/base.json);
-        frontendExts = builtins.fromJSON (builtins.readFile ../nvim/coc-extensions/frontend.json);
-        extsList = builtins.concatStringsSep ", " (map (e: ''"${e}"'') (baseExts ++ frontendExts));
-      in
-      builtins.replaceStrings [ "-- @COC_EXTENSIONS@" ] [ extsList ] cocLua;
-  };
-
-  home.file.".config/nvim/lua/plugins/claudecode.lua" = lib.mkDefault {
-    text = builtins.readFile ../nvim/lua/plugins/claudecode.lua;
-  };
-
-  home.file.".config/pass-git-helper/git-pass-mapping.ini" = lib.mkIf (isDev && pkgs.stdenv.isLinux) {
-    text = ''
-      [github.com*]
-      target=git/github.com
-    '';
+    tmux.enable = lib.mkDefault isDev;
+    neovim.enable = lib.mkDefault isDev;
+    fish.enable = lib.mkDefault isDev;
   };
 
   dotfiles.agents-config.enable = isDev;
   dotfiles.claude-code.enable = isDev;
-
-  programs.tmux.enable = lib.mkDefault isDev;
-  programs.neovim.enable = lib.mkDefault isDev;
-  programs.fish.enable = lib.mkDefault isDev;
-
-  home.stateVersion = "24.05";
 }

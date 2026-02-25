@@ -63,22 +63,26 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    home.packages = [ wrappedClaude ];
+    home = {
+      packages = [ wrappedClaude ];
 
-    home.file.".claude/settings.json" = lib.mkIf (cfg.configDir == null) {
-      source = settingsJson;
+      file.".claude/settings.json" = lib.mkIf (cfg.configDir == null) {
+        source = settingsJson;
+      };
+
+      activation = {
+        claude-agent-links = lib.mkIf (cfg.configDir == null) (
+          lib.hm.dag.entryAfter [ "writeBoundary" ] (symlinkScript "$HOME/.claude")
+        );
+
+        claude-config = lib.mkIf (cfg.configDir != null) (
+          lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+            $DRY_RUN_CMD mkdir -p "${cfg.configDir}"
+            $DRY_RUN_CMD ln -sf "${settingsJson}" "${cfg.configDir}/settings.json"
+            ${symlinkScript cfg.configDir}
+          ''
+        );
+      };
     };
-
-    home.activation.claude-agent-links = lib.mkIf (cfg.configDir == null) (
-      lib.hm.dag.entryAfter [ "writeBoundary" ] (symlinkScript "$HOME/.claude")
-    );
-
-    home.activation.claude-config = lib.mkIf (cfg.configDir != null) (
-      lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        $DRY_RUN_CMD mkdir -p "${cfg.configDir}"
-        $DRY_RUN_CMD ln -sf "${settingsJson}" "${cfg.configDir}/settings.json"
-        ${symlinkScript cfg.configDir}
-      ''
-    );
   };
 }

@@ -69,47 +69,51 @@
         };
 
       commonNixSettings = {
-        nix.optimise.automatic = true;
-        nix.settings = {
-          experimental-features = [
-            "nix-command"
-            "flakes"
-          ];
-          trusted-users = [
-            "root"
-            "moye"
-          ];
-          trusted-public-keys = [
-            "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
-            "herakles-1:63/4Yp9uC4U7rQuVuHDKak+JgNfYolBhKqIs34ghF2M="
-          ];
+        nix = {
+          optimise.automatic = true;
+          settings = {
+            experimental-features = [
+              "nix-command"
+              "flakes"
+            ];
+            trusted-users = [
+              "root"
+              "moye"
+            ];
+            trusted-public-keys = [
+              "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+              "herakles-1:63/4Yp9uC4U7rQuVuHDKak+JgNfYolBhKqIs34ghF2M="
+            ];
+          };
+          registry.nixpkgs.flake = inputs.nixpkgs;
+          registry.dotfiles.flake = self;
         };
-        nix.registry.nixpkgs.flake = inputs.nixpkgs;
-        nix.registry.dotfiles.flake = self;
       };
 
       heraklesBuildServer =
         { ... }:
         {
-          nix.distributedBuilds = true;
-          nix.settings.builders-use-substitutes = true;
-          nix.buildMachines = [
-            {
-              hostName = "herakles";
-              sshUser = "moye";
-              protocol = "ssh-ng";
-              systems = [
-                "x86_64-linux"
-                "aarch64-linux"
-              ];
-              maxJobs = 8;
-              speedFactor = 2;
-              supportedFeatures = [
-                "kvm"
-                "big-parallel"
-              ];
-            }
-          ];
+          nix = {
+            distributedBuilds = true;
+            settings.builders-use-substitutes = true;
+            buildMachines = [
+              {
+                hostName = "herakles";
+                sshUser = "moye";
+                protocol = "ssh-ng";
+                systems = [
+                  "x86_64-linux"
+                  "aarch64-linux"
+                ];
+                maxJobs = 8;
+                speedFactor = 2;
+                supportedFeatures = [
+                  "kvm"
+                  "big-parallel"
+                ];
+              }
+            ];
+          };
         };
       darwinCommonModules = [
         nix-homebrew.darwinModules.nix-homebrew
@@ -211,9 +215,11 @@
           hostnameModule = lib.optionalAttrs (hostname != null) (
             if isDarwin then
               {
-                networking.hostName = hostname;
-                networking.computerName = hostname;
-                networking.localHostName = hostname;
+                networking = {
+                  hostName = hostname;
+                  computerName = hostname;
+                  localHostName = hostname;
+                };
               }
             else
               {
