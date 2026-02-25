@@ -94,7 +94,6 @@
       };
 
       heraklesBuildServer =
-        hostName:
         { pkgs, ... }:
         {
           nix.distributedBuilds = true;
@@ -169,7 +168,6 @@
           // lib.optionalAttrs isDarwin {
             inherit
               darwinFrontendServices
-              heraklesBuildServer
               homebrew-core
               homebrew-cask
               ;
