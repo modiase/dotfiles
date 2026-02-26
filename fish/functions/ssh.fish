@@ -130,9 +130,19 @@ if test $use_et -eq 1
         set -lx ET_NO_TELEMETRY YES
         set -l et_opts
         test $debug -eq 1; and set -a et_opts -v 1
+
+        set -l ssh_config (command ssh -G $host 2>/dev/null)
+        set -l et_host (printf '%s\n' $ssh_config | string match -r '^hostname (.+)')[2]
+        set -l et_user (printf '%s\n' $ssh_config | string match -r '^user (.+)')[2]
+        set -l et_port (printf '%s\n' $ssh_config | string match -r '^port (.+)')[2]
+        test -z "$et_host"; and set et_host $host
+        test -n "$et_user"; and set -a et_opts -u $et_user
+        test -n "$et_port"; and test "$et_port" != 22; and set -a et_opts --ssh-option "Port=$et_port"
+        test $debug -eq 1; and echo "Resolved $host → $et_host (user: $et_user, port: $et_port)"
+
         if test $want_tmux -eq 1
-            test $debug -eq 1; and echo "Using: et $et_opts -c 'exec tmux new-session -A -s remote' $host"
-            et $et_opts -c 'exec tmux new-session -A -s remote' $host; or set et_status $status
+            test $debug -eq 1; and echo "Using: et $et_opts -c 'exec tmux new-session -A -s remote' $et_host"
+            et $et_opts -c 'exec tmux new-session -A -s remote' $et_host; or set et_status $status
         else if test $has_remote_cmd -eq 1
             set -l remote_cmd
             set -l found_host 0
@@ -143,11 +153,11 @@ if test $use_et -eq 1
                     set found_host 1
                 end
             end
-            test $debug -eq 1; and echo "Using: et $et_opts -c '$remote_cmd' $host"
-            et $et_opts -c "$remote_cmd" $host; or set et_status $status
+            test $debug -eq 1; and echo "Using: et $et_opts -c '$remote_cmd' $et_host"
+            et $et_opts -c "$remote_cmd" $et_host; or set et_status $status
         else
-            test $debug -eq 1; and echo "Using: et $et_opts $host"
-            et $et_opts $host; or set et_status $status
+            test $debug -eq 1; and echo "Using: et $et_opts $et_host"
+            et $et_opts $et_host; or set et_status $status
         end
         test $et_status -ne 0; and __ssh_run_ssh
     else
