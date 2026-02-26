@@ -7,7 +7,8 @@ if contains -- -h $argv; or contains -- --help $argv
     echo "Falls back to plain SSH when et is unavailable or incompatible flags are used."
     echo ""
     echo "WRAPPER FLAGS:"
-    echo "  -d, --debug    Show which command will be used"
+    echo "  -v             Verbose: debug logging + pass -v to ssh/et"
+    echo "  -d, --debug    Show which command will be used (not passed through)"
     echo "  --no-et        Force plain SSH (or set NO_ET=1)"
     echo "  --no-tmux      Skip tmux auto-attach (auto when inside tmux, or NO_TMUX=1)"
     echo ""
@@ -42,6 +43,9 @@ for arg in $argv
     switch $arg
         case -d --debug
             set debug 1
+        case -v -vv -vvv
+            set debug 1
+            set -a args $arg
         case --no-et
             set no_et 1
         case --no-tmux
@@ -124,9 +128,11 @@ if test $use_et -eq 1
     if string match -q -- '*etserver*' "$et_check"
         set -l et_status 0
         set -lx ET_NO_TELEMETRY YES
+        set -l et_opts
+        test $debug -eq 1; and set -a et_opts -v 1
         if test $want_tmux -eq 1
-            test $debug -eq 1; and echo "Using: et -c 'exec tmux new-session -A -s remote' $host"
-            et -c 'exec tmux new-session -A -s remote' $host; or set et_status $status
+            test $debug -eq 1; and echo "Using: et $et_opts -c 'exec tmux new-session -A -s remote' $host"
+            et $et_opts -c 'exec tmux new-session -A -s remote' $host; or set et_status $status
         else if test $has_remote_cmd -eq 1
             set -l remote_cmd
             set -l found_host 0
@@ -137,11 +143,11 @@ if test $use_et -eq 1
                     set found_host 1
                 end
             end
-            test $debug -eq 1; and echo "Using: et -c '$remote_cmd' $host"
-            et -c "$remote_cmd" $host; or set et_status $status
+            test $debug -eq 1; and echo "Using: et $et_opts -c '$remote_cmd' $host"
+            et $et_opts -c "$remote_cmd" $host; or set et_status $status
         else
-            test $debug -eq 1; and echo "Using: et $host"
-            et $host; or set et_status $status
+            test $debug -eq 1; and echo "Using: et $et_opts $host"
+            et $et_opts $host; or set et_status $status
         end
         test $et_status -ne 0; and __ssh_run_ssh
     else
