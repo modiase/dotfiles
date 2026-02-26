@@ -3,6 +3,7 @@
 let
   secrets = pkgs.callPackage ../nixpkgs/secrets { };
   ntfy-me = pkgs.callPackage ../nixpkgs/ntfy-me { inherit secrets; };
+  twenty-twenty-twenty = pkgs.callPackage ../nixpkgs/twenty-twenty-twenty { };
 in
 {
   nixpkgs.config.allowUnfree = true;
@@ -14,6 +15,7 @@ in
       iproute2mac
       gettext
       gnupg
+      twenty-twenty-twenty
       zstd
     ];
 
@@ -31,6 +33,17 @@ in
       hs.hotkey.bind({"cmd", "shift"}, "t", function() hs.application.launchOrFocus("Ghostty") end)
       hs.hotkey.bind({"cmd", "shift"}, "u", function() hs.application.launchOrFocus("Youtube Music") end)
     '';
+  };
+
+  launchd.agents.twenty-twenty-twenty = {
+    enable = true;
+    config = {
+      ProgramArguments = [ "${twenty-twenty-twenty}/bin/twenty-twenty-twenty" ];
+      RunAtLoad = true;
+      KeepAlive = true;
+      StandardOutPath = "/tmp/twenty-twenty-twenty.log";
+      StandardErrorPath = "/tmp/twenty-twenty-twenty.err";
+    };
   };
 
   launchd.agents.ntfy-listen = {
