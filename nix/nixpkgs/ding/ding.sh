@@ -5,20 +5,17 @@ usage() {
     cat <<EOF
 Usage: ding [OPTIONS]
 
-Notification tool that adapts to context (tmux, focus state, local/remote).
+Local terminal notification tool (macOS). Adapts to context (tmux, focus state).
 
 Options:
   -c, --command CMD       Run command, alert success/error based on exit code
   -f, --force-alert       Always play sound/alert (skip focus detection)
   -i, --title TEXT        Notification title
   -m, --message TEXT      Notification message
-  -R, --recipient HOST    Target recipient for remote (default: * for all)
-  -t, --type TYPE         Alert type: success, warning, error, request
+  -t, --type TYPE         Accepted for compatibility (unused locally)
   --focus-pane            Capture tmux pane; click notification to focus
-  --local                 Force local mode (macOS)
   --no-bell               Disable terminal bell
   --no-sound              Disable alert sound
-  --remote                Force remote mode (ntfy-me)
   --debug                 Log debug info to /tmp/ding-debug.log
   -h, --help              Show this help
 
@@ -28,22 +25,20 @@ Tmux placeholders (expanded in --title, --message):
   #{t_pane_index}    Current tmux pane index
 
 Behaviour:
-  Local mode:
-    - Always plays a sound and sends bell to terminal
-    - Shows notification only if Ghostty is not focused
-    - In tmux: bell triggers window flag via monitor-bell
-
-  Remote mode (over SSH):
-    - Sends notification via ntfy-me
+  - Always plays a sound and sends bell to terminal
+  - Shows notification only if Ghostty is not focused
+  - In tmux: bell triggers window flag via monitor-bell
 EOF
     exit 0
 }
 
-alert_type=""
+if ! command -v osascript &>/dev/null; then
+    echo "Warning: ding requires macOS (osascript not found)" >&2
+    exit 0
+fi
+
 command=""
 message=""
-mode=""
-recipient="*"
 title=""
 
 debug=0
@@ -74,14 +69,6 @@ while [[ $# -gt 0 ]]; do
             fi
             shift
             ;;
-        --remote)
-            mode="remote"
-            shift
-            ;;
-        --local)
-            mode="local"
-            shift
-            ;;
         --no-bell)
             no_bell=1
             shift
@@ -106,20 +93,10 @@ while [[ $# -gt 0 ]]; do
             message="${1#--message=}"
             shift
             ;;
-        -R | --recipient)
-            recipient="$2"
-            shift 2
-            ;;
-        --recipient=*)
-            recipient="${1#--recipient=}"
-            shift
-            ;;
         -t | --type)
-            alert_type="$2"
             shift 2
             ;;
         --type=*)
-            alert_type="${1#--type=}"
             shift
             ;;
         -c | --command)
@@ -171,28 +148,15 @@ expand_tmux_vars() {
 title=$(expand_tmux_vars "$title")
 message=$(expand_tmux_vars "$message")
 
-if [[ -z "$mode" ]]; then
-    if [[ -n "${SSH_TTY:-}${SSH_CLIENT:-}${SSH_CONNECTION:-}" ]]; then
-        mode="remote"
-    elif command -v osascript &>/dev/null; then
-        mode="local"
-    else
-        echo "Warning: no sink exists for notifications" >&2
-        exit 0
-    fi
-fi
-
 if [[ -n "$command" ]]; then
     set +e
     bash -c "$command"
     exit_code=$?
     set -e
     if [[ $exit_code -eq 0 ]]; then
-        alert_type="success"
         title="${title:-Command}"
         message="${message:-$command succeeded}"
     else
-        alert_type="error"
         title="${title:-Command}"
         message="${message:-$command failed (exit $exit_code)}"
     fi
@@ -254,24 +218,12 @@ send_alert() {
     "$notifier" "${args[@]}" &
 }
 
-if [[ "$mode" == "local" ]]; then
-    if ! command -v osascript &>/dev/null; then
-        echo "Error: --local requires macOS (osascript not found)" >&2
-        exit 1
-    fi
+log_debug "--- ding invoked ---"
 
-    log_debug "--- ding invoked ---"
-
-    if [[ $force -eq 0 ]] && ghostty_is_focused && tmux_window_is_active; then
-        log_debug "Caller focused, bell only"
-        send_bell
-    else
-        log_debug "Sound + alert"
-        send_alert "${title:-ding}" "$message"
-    fi
+if [[ $force -eq 0 ]] && ghostty_is_focused && tmux_window_is_active; then
+    log_debug "Caller focused, bell only"
+    send_bell
 else
-    ntfy_args=(--topic ding --recipient "$recipient")
-    [[ -n "$title" ]] && ntfy_args+=(--title "$title")
-    [[ -n "$alert_type" ]] && ntfy_args+=(--alert-type "$alert_type")
-    ntfy-me "${ntfy_args[@]}" "${message:-ding}"
+    log_debug "Sound + alert"
+    send_alert "${title:-ding}" "$message"
 fi

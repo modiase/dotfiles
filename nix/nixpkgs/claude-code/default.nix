@@ -7,16 +7,31 @@
 let
   cfg = config.dotfiles.claude-code;
 
+  ding = pkgs.callPackage ../ding { };
+  secrets = pkgs.callPackage ../secrets { };
+  ntfy-me = pkgs.callPackage ../ntfy-me { inherit secrets ding; };
+
+  hookScript = pkgs.writeShellApplication {
+    name = "claude-hook";
+    runtimeInputs = [
+      ding
+      ntfy-me
+    ];
+    text = builtins.readFile ./scripts/hook.sh;
+  };
+
   openPlanScript = pkgs.writeShellApplication {
-    name = "open-plan-in-nvim";
+    name = "nvim-plan";
     runtimeInputs = with pkgs; [
       jq
       neovim-remote
     ];
-    text = builtins.readFile ./open-plan-in-nvim.sh;
+    text = builtins.readFile ./scripts/nvim-plan.sh;
   };
 
-  baseSettings = import ./settings.nix;
+  hookBin = "${hookScript}/bin/claude-hook";
+
+  baseSettings = import ./settings.nix { inherit hookBin; };
 
   settings = lib.recursiveUpdate baseSettings {
     hooks.PostToolUse = [
@@ -25,7 +40,7 @@ let
         hooks = [
           {
             type = "command";
-            command = "${openPlanScript}/bin/open-plan-in-nvim";
+            command = "${openPlanScript}/bin/nvim-plan";
           }
         ];
       }

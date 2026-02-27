@@ -77,7 +77,7 @@ while read -r line; do
 
     if [[ -n "$message" ]]; then
         log "  -> Alert sent"
-        ding_args=(--local -f -i "$title" -m "$message")
+        ding_args=(-f -i "$title" -m "$message")
         if [[ "$tags" =~ type-([a-z]+) ]]; then
             ding_args+=(-t "${BASH_REMATCH[1]}")
         fi
