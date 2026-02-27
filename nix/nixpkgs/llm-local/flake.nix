@@ -131,9 +131,11 @@
           };
 
           nativeBuildInputs = with pkgs; [
+            # keep-sorted start
             cmake
-            pkg-config
             git
+            pkg-config
+            # keep-sorted end
           ];
 
           buildInputs =

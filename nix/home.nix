@@ -17,16 +17,10 @@ let
   ];
 
   devPackages = with pkgs; [
+    # keep-sorted start block=yes
     (callPackage ./nixpkgs/ankigen { })
-    (callPackage ./nixpkgs/semsearch { })
     (callPackage ./nixpkgs/coder { })
-    (writeShellScriptBin "chafa" ''
-      if [[ -n "$TMUX" ]]; then
-        exec ${chafa}/bin/chafa --format kitty --passthrough tmux "$@"
-      else
-        exec ${chafa}/bin/chafa "$@"
-      fi
-    '')
+    (callPackage ./nixpkgs/semsearch { })
     (python313.withPackages (
       ps: with ps; [
         boto3
@@ -37,10 +31,18 @@ let
         ruff
       ]
     ))
+    (writeShellScriptBin "chafa" ''
+      if [[ -n "$TMUX" ]]; then
+        exec ${chafa}/bin/chafa --format kitty --passthrough tmux "$@"
+      else
+        exec ${chafa}/bin/chafa "$@"
+      fi
+    '')
     bat
     cargo
     coreutils
     delta
+    ding
     docker
     doggo
     duf
@@ -76,7 +78,6 @@ let
     nodePackages.svelte-language-server
     nodePackages.typescript
     nodejs
-    ding
     ntfy-me
     ntfy-sh
     opentofu
@@ -93,21 +94,24 @@ let
     uv
     watch
     wireguard-tools
+    # keep-sorted end
   ];
 in
 {
   imports = [
+    # keep-sorted start
     ./bat.nix
     ./btop.nix
     ./fish.nix
-    ./git.nix
     ./ghostty.nix
+    ./git.nix
     ./neovim.nix
-    ./sh.nix
-    ./tmux.nix
     ./nixpkgs/agents-config
     ./nixpkgs/claude-code
     ./nixpkgs/yazi
+    ./sh.nix
+    ./tmux.nix
+    # keep-sorted end
   ];
 
   home = {

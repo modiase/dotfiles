@@ -33,12 +33,14 @@ let
   build-gce-nixos-image = writeShellApplication {
     name = "build-gce-nixos-image";
     runtimeInputs = [
+      # keep-sorted start
+      cacert
+      coreutils
       git
       google-cloud-sdk
-      coreutils
-      cacert
-      openssh
       nix
+      openssh
+      # keep-sorted end
     ];
     text = ''
       # shellcheck source=/dev/null
