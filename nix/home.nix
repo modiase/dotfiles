@@ -9,7 +9,8 @@
 
 let
   secrets = pkgs.callPackage ./nixpkgs/secrets { };
-  ntfy-me = pkgs.callPackage ./nixpkgs/ntfy-me { inherit secrets; };
+  ding = pkgs.callPackage ./nixpkgs/ding { };
+  ntfy-me = pkgs.callPackage ./nixpkgs/ntfy-me { inherit secrets ding; };
 
   commonPackages = with pkgs; [
     git-crypt
@@ -75,6 +76,7 @@ let
     nodePackages.svelte-language-server
     nodePackages.typescript
     nodejs
+    ding
     ntfy-me
     ntfy-sh
     opentofu

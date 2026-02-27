@@ -2,7 +2,8 @@
 
 let
   secrets = pkgs.callPackage ../nixpkgs/secrets { };
-  ntfy-me = pkgs.callPackage ../nixpkgs/ntfy-me { inherit secrets; };
+  ding = pkgs.callPackage ../nixpkgs/ding { };
+  ntfy-me = pkgs.callPackage ../nixpkgs/ntfy-me { inherit secrets ding; };
   twenty-twenty-twenty = pkgs.callPackage ../nixpkgs/twenty-twenty-twenty { };
 in
 {

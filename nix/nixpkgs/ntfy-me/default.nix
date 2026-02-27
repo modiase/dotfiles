@@ -6,6 +6,7 @@
   google-cloud-sdk,
   jq,
   secrets,
+  ding,
 }:
 
 let
@@ -16,15 +17,6 @@ let
       jq
     ];
     text = builtins.readFile ./ntfy-me.sh;
-  };
-
-  ding = writeShellApplication {
-    name = "ding";
-    runtimeInputs = [
-      coreutils
-      ntfy-me
-    ];
-    text = builtins.readFile ./ding.sh;
   };
 
   ntfy-listen = writeShellApplication {
@@ -43,7 +35,6 @@ symlinkJoin {
   name = "ntfy-me";
   paths = [
     ntfy-me
-    ding
     ntfy-listen
   ];
 }

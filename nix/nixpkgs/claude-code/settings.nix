@@ -1,3 +1,4 @@
+{ hookBin }:
 {
   theme = "ANSI Dark";
   alwaysThinkingEnabled = true;
@@ -183,7 +184,7 @@
         hooks = [
           {
             type = "command";
-            command = "command -v ding >/dev/null && ding --focus-pane -w 'Claude Code' -i '#{t_window_name}' -m 'Agent stopped' >/dev/null || true";
+            command = "${hookBin} stop";
           }
         ];
       }
@@ -194,7 +195,7 @@
         hooks = [
           {
             type = "command";
-            command = "command -v ding >/dev/null && ding --focus-pane -i 'Claude Code' -w '#{t_window_name}' -m 'Permission needed' -t request >/dev/null || true";
+            command = "${hookBin} permission";
           }
         ];
       }
