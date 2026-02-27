@@ -97,49 +97,52 @@ in
       set -gx FZF_DEFAULT_OPTS "--color=fg:#${colors.foreground},bg:-1,hl:#${colors.base16.base0C},fg+:#${colors.base16.base06},bg+:#${colors.selection},hl+:#b8e8f0,info:#${colors.base16.base0D},prompt:#${colors.base16.base0E},pointer:#${colors.base16.base0C},marker:#${colors.base16.base09},spinner:#${colors.base16.base0E},header:#${colors.base16.base0D}"
       set -q fish_prompt_prefix; or set -U fish_prompt_prefix (set -q hostname_override; and echo $hostname_override; or hostname)
     '';
-    interactiveShellInit = ''
-      fzf_configure_bindings --directory=\ct --git_log= --git_status=\cg --processes= --variables=\co
+    interactiveShellInit = lib.mkMerge [
+      ''
+        fzf_configure_bindings --directory=\ct --git_log= --git_status=\cg --processes= --variables=\co
 
-      function change_directory
-          if test -d .git
-              set -f _is_git_repo true
-          else
-              begin
-                set -l info (command git rev-parse --git-dir --is-bare-repository 2>/dev/null)
-                if set -q info[2]; and test $info[2] = false
-                    set -f _is_git_repo true
-                else
-                    set -f _is_git_repo false
+        function change_directory
+            if test -d .git
+                set -f _is_git_repo true
+            else
+                begin
+                  set -l info (command git rev-parse --git-dir --is-bare-repository 2>/dev/null)
+                  if set -q info[2]; and test $info[2] = false
+                      set -f _is_git_repo true
+                  else
+                      set -f _is_git_repo false
+                  end
                 end
-              end
-          end
-          if test $_is_git_repo = true
-            set -f root (git rev-parse --show-toplevel)
-          else
-            set -f root (pwd)
-          end
-          cd (cat (echo $root | psub) (fd . --type d $root | psub) | fzf; or echo '.')
-      end
+            end
+            if test $_is_git_repo = true
+              set -f root (git rev-parse --show-toplevel)
+            else
+              set -f root (pwd)
+            end
+            cd (cat (echo $root | psub) (fd . --type d $root | psub) | fzf; or echo '.')
+        end
 
-      fish_user_key_bindings
-      bind \cs change_directory
-      function fish_greeting
-        fish_prompt
-      end
+        fish_user_key_bindings
+        bind \cs change_directory
+        function fish_greeting
+          fish_prompt
+        end
 
-      functions -q gbr && complete -c 'gbr' -w 'git branch'
-      functions -q gco && complete -c 'gco' -w 'git checkout'
-      functions -q gfch && complete -c 'gfch' -w 'git fetch'
-      functions -q gadd && complete -c 'gadd' -w 'git add'
-      functions -q gmrg && complete -c 'gmrg' -w 'git merge'
-      functions -q grb && complete -c 'grb' -w 'git rebase'
-      functions -q grst && complete -c 'grst' -w 'git reset'
-      functions -q gsw && complete -c 'gsw' -w 'git switch'
-      functions -q gtag && complete -c 'gtag' -w 'git tag'
-
-      if test -f $HOME/.config/fish/config.local.fish
-          source $HOME/.config/fish/config.local.fish
-      end
-    '';
+        functions -q gbr && complete -c 'gbr' -w 'git branch'
+        functions -q gco && complete -c 'gco' -w 'git checkout'
+        functions -q gfch && complete -c 'gfch' -w 'git fetch'
+        functions -q gadd && complete -c 'gadd' -w 'git add'
+        functions -q gmrg && complete -c 'gmrg' -w 'git merge'
+        functions -q grb && complete -c 'grb' -w 'git rebase'
+        functions -q grst && complete -c 'grst' -w 'git reset'
+        functions -q gsw && complete -c 'gsw' -w 'git switch'
+        functions -q gtag && complete -c 'gtag' -w 'git tag'
+      ''
+      (lib.mkOrder 2000 ''
+        if test -f $HOME/.config/fish/config.local.fish
+            source $HOME/.config/fish/config.local.fish
+        end
+      '')
+    ];
   };
 }
