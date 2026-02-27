@@ -181,7 +181,7 @@ function M.setup_buffer()
 	vim.keymap.set("n", "a", M.accept_auto, vim.tbl_extend("force", opts, { desc = "Accept plan (auto)" }))
 	vim.keymap.set("n", "y", M.accept_auto, vim.tbl_extend("force", opts, { desc = "Accept plan (auto)" }))
 	vim.keymap.set("n", "m", M.accept_manual, vim.tbl_extend("force", opts, { desc = "Accept plan (manual)" }))
-	vim.keymap.set("n", "q", M.reject, vim.tbl_extend("force", opts, { desc = "Reject plan" }))
+	vim.keymap.set("n", "q", M.close, vim.tbl_extend("force", opts, { desc = "Close plan" }))
 	vim.keymap.set("n", "n", M.reject, vim.tbl_extend("force", opts, { desc = "Reject plan" }))
 
 	for _, key in ipairs({ "i", "I", "A", "o", "O", "s", "S", "c", "C", "r", "R" }) do

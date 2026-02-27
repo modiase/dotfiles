@@ -168,17 +168,6 @@
     ];
   };
   hooks = {
-    SessionStart = [
-      {
-        matcher = "compact";
-        hooks = [
-          {
-            type = "command";
-            command = "cat ~/.agents/AGENTS.md 2>/dev/null; cat CLAUDE.md 2>/dev/null; true";
-          }
-        ];
-      }
-    ];
     Stop = [
       {
         hooks = [
