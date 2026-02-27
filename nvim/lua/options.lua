@@ -61,6 +61,30 @@ vim.api.nvim_create_autocmd({ "BufRead", "BufNewFile" }, {
 	command = "set filetype=terraform",
 })
 
+local md_wrap = vim.api.nvim_create_augroup("MarkdownWrap", { clear = true })
+vim.api.nvim_create_autocmd("FileType", {
+	group = md_wrap,
+	pattern = "markdown",
+	callback = function(ev)
+		vim.opt_local.wrap = true
+		vim.opt_local.linebreak = true
+		vim.api.nvim_create_autocmd("InsertEnter", {
+			group = md_wrap,
+			buffer = ev.buf,
+			callback = function()
+				vim.opt_local.wrap = false
+			end,
+		})
+		vim.api.nvim_create_autocmd("InsertLeave", {
+			group = md_wrap,
+			buffer = ev.buf,
+			callback = function()
+				vim.opt_local.wrap = true
+			end,
+		})
+	end,
+})
+
 vim.api.nvim_create_autocmd({ "TermOpen", "BufEnter" }, {
 	pattern = "term://*",
 	callback = function()
