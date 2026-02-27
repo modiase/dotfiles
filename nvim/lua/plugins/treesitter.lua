@@ -1,4 +1,5 @@
 local parsers = {
+	-- keep-sorted start
 	"angular",
 	"bash",
 	"css",
@@ -14,12 +15,14 @@ local parsers = {
 	"python",
 	"query",
 	"scss",
+	"sql",
 	"svelte",
 	"terraform",
 	"typescript",
 	"vim",
 	"vimdoc",
 	"yaml",
+	-- keep-sorted end
 }
 
 return {
