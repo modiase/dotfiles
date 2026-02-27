@@ -77,7 +77,11 @@ while read -r line; do
 
     if [[ -n "$message" ]]; then
         log "  -> Alert sent"
-        ding_args=(-f -i "$title" -m "$message")
+        source_host=""
+        if [[ "$tags" =~ source-([a-zA-Z0-9_-]+) ]]; then
+            source_host="${BASH_REMATCH[1]}"
+        fi
+        ding_args=(-f -i "$title" -m "${message}${source_host:+ on $source_host}")
         if [[ "$tags" =~ type-([a-z]+) ]]; then
             ding_args+=(-t "${BASH_REMATCH[1]}")
         fi
