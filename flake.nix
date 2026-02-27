@@ -61,10 +61,12 @@
         { pkgs, ... }:
         {
           fonts.packages = with pkgs; [
+            # keep-sorted start
             aleo
             lato
             nerd-fonts.iosevka
             space-grotesk
+            # keep-sorted end
           ];
         };
 

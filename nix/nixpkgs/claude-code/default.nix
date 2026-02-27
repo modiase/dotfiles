@@ -23,8 +23,10 @@ let
   openPlanScript = pkgs.writeShellApplication {
     name = "nvim-plan";
     runtimeInputs = with pkgs; [
+      # keep-sorted start
       jq
       neovim-remote
+      # keep-sorted end
     ];
     text = builtins.readFile ./scripts/nvim-plan.sh;
   };

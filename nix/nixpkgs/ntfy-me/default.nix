@@ -22,11 +22,13 @@ let
   ntfy-listen = writeShellApplication {
     name = "ntfy-listen";
     runtimeInputs = [
+      # keep-sorted start
       coreutils
       curl
+      ding
       jq
       secrets
-      ding
+      # keep-sorted end
     ];
     text = builtins.readFile ./ntfy-listen.sh;
   };

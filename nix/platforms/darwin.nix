@@ -11,13 +11,15 @@ in
 
   home = {
     packages = with pkgs; [
+      # keep-sorted start
       colima
       coreutils-prefixed
-      iproute2mac
       gettext
       gnupg
+      iproute2mac
       twenty-twenty-twenty
       zstd
+      # keep-sorted end
     ];
 
     file.".local/bin/bash" = {

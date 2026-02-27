@@ -23,6 +23,7 @@ pre-commit:
     }
 
     if has '\.nix$'; then run pre-commit-nix; fi
+    run keep-sorted
     if has '\.lua$'; then run pre-commit-lua; fi
     if has '\.fish$'; then run pre-commit-fish; fi
     if has '\.go$'; then run pre-commit-go; fi
@@ -52,6 +53,14 @@ pre-commit-nix:
     # shellcheck disable=SC2086
     nix-shell -p nixfmt --run "nixfmt ${files[*]}"
     nix --extra-experimental-features 'nix-command flakes' flake show --no-write-lock-file &>/dev/null
+
+keep-sorted:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mapfile -t files < <(git diff --cached --name-only --diff-filter d | xargs -r grep -lE 'keep-sorted[[:space:]]start' --)
+    [[ ${#files[@]} -eq 0 ]] && exit 0
+    # shellcheck disable=SC2086
+    nix-shell -p keep-sorted --run "keep-sorted ${files[*]}"
 
 pre-commit-lua:
     #!/usr/bin/env bash
