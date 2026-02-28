@@ -10,22 +10,11 @@ from Quartz import (
     kCGAnyInputEventType,
     kCGEventSourceStateCombinedSessionState,
 )
-from functools import wraps
 
-NOTIFIER = "@@TERMINAL_NOTIFIER@@"
-INTERVAL = 20 * 60
 IDLE_THRESHOLD = 600
-TICK = 10
-
-
-def requires_refresh(func):
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        result = func(self, *args, **kwargs)
-        self.update_title()
-        return result
-
-    return wrapper
+INTERVAL = 20 * 60
+NOTIFIER = "@@TERMINAL_NOTIFIER@@"
+TICK = 1
 
 
 class NotificationHandler(NSObject):
@@ -52,11 +41,12 @@ class NotificationHandler(NSObject):
 class TwentyTwentyTwenty(rumps.App):
     def __init__(self):
         super().__init__("20-20-20")
-        self.elapsed = 0
         self.active = True
-        self.mute = False
-        self.is_sleeping = False
+        self.elapsed = 0
         self.is_locked = False
+        self.is_sleeping = False
+        self.mute = False
+        self.was_idle = False
 
         self.handler = NotificationHandler.alloc().initWithApp_(self)
         workspace_center = NSWorkspace.sharedWorkspace().notificationCenter()
@@ -84,52 +74,59 @@ class TwentyTwentyTwenty(rumps.App):
         self.menu["Active"].state = True
         self.menu["Mute"].state = False
 
+    @property
+    def paused(self):
+        return not self.active or self.is_sleeping or self.is_locked
+
     def update_title(self):
+        if self.paused:
+            self.title = "20-20-20"
+            return
         remaining = max(0, INTERVAL - self.elapsed)
         minutes, seconds = divmod(remaining, 60)
-        paused = not self.active or self.is_sleeping or self.is_locked
-        self.title = f"{'⏸' if paused else ''} {minutes}:{seconds:02d}"
+        self.title = f"{minutes}:{seconds:02d}"
 
     @rumps.timer(TICK)
-    @requires_refresh
     def tick(self, _):
-        if not self.active or self.is_sleeping or self.is_locked:
+        if self.paused:
             return
         idle = CGEventSourceSecondsSinceLastEventType(
             kCGEventSourceStateCombinedSessionState, kCGAnyInputEventType
         )
-        if idle > IDLE_THRESHOLD:
+        if idle > IDLE_THRESHOLD or self.was_idle:
+            self.was_idle = idle > IDLE_THRESHOLD
             self.elapsed = 0
-            return
-        self.elapsed += TICK
-        if self.elapsed >= INTERVAL:
+        elif self.elapsed >= INTERVAL:
             self.notify("Look at something 20 feet away for 20 seconds")
             self.elapsed = 0
+        else:
+            self.elapsed += TICK
+        self.update_title()
 
     def notify(self, message):
-        args = [NOTIFIER, "-title", "20-20-20", "-message", message]
+        cmd = [NOTIFIER, "-title", "20-20-20", "-message", message]
         if not self.mute:
-            args.extend(["-sound", "Tink"])
-        subprocess.run(args)
+            cmd.extend(["-sound", "Tink"])
+        subprocess.Popen(cmd)
 
-    @requires_refresh
     def toggle(self, sender):
         self.active = not self.active
         sender.state = self.active
         if self.active:
             self.elapsed = 0
+        self.update_title()
 
     def toggle_mute(self, sender):
         self.mute = not self.mute
         sender.state = self.mute
 
-    @requires_refresh
     def reset(self, _):
         self.elapsed = 0
+        self.update_title()
 
-    @requires_refresh
     def test(self, _):
         self.elapsed = INTERVAL - 3
+        self.update_title()
 
 
 if __name__ == "__main__":
