@@ -18,12 +18,21 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel)"
 
 export NIX_CONFIG="experimental-features = nix-command flakes"
 
-# shellcheck source=/dev/null
-source "$REPO_ROOT/nix/nixpkgs/shellutils/hook-utils.sh"
+EXIT_HOOKS=()
+add_exit_hook() { EXIT_HOOKS+=("$1"); }
+run_exit_hooks() {
+    EXIT_CODE=$?
+    local i
+    for ((i = ${#EXIT_HOOKS[@]} - 1; i >= 0; i--)); do
+        eval "${EXIT_HOOKS[i]}" || true
+    done
+}
+trap run_exit_hooks EXIT
 _DATE=date _MKDIR=mkdir _MKTEMP=mktemp _CAT=cat _TAIL=tail
 _FLOCK=$(command -v flock) || _FLOCK="nix shell nixpkgs#flock -c flock"
 _SHA256SUM=$(command -v sha256sum) || _SHA256SUM="nix shell nixpkgs#coreutils -c sha256sum"
 _CURL=$(command -v curl) || _CURL="nix shell nixpkgs#curl -c curl"
+_DING=$(command -v ding) || _DING=":"
 # shellcheck source=/dev/null
 source "$REPO_ROOT/nix/nixpkgs/shellutils/logging-utils.sh"
 
@@ -303,7 +312,17 @@ do_deploy() {
     esac
 }
 
+_ding_on_exit() {
+    # shellcheck disable=SC2153  # EXIT_CODE set by run_exit_hooks in hook-utils.sh
+    if [[ $EXIT_CODE -eq 0 ]]; then
+        $_DING -i "Activate" -m "Completed successfully"
+    else
+        $_DING -i "Activate" -m "Failed"
+    fi
+}
+
 do_activate() {
+    add_exit_hook _ding_on_exit
     if [ "$LOG_LEVEL" -ge 4 ]; then enable_log_tracing; fi
 
     if [ -f "$GITCRYPT_KEY" ]; then
