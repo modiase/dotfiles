@@ -12,6 +12,7 @@ local parsers = {
 	"markdown",
 	"markdown_inline",
 	"nix",
+	"proto",
 	"python",
 	"query",
 	"scss",
