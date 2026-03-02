@@ -20,6 +20,12 @@ let
     text = builtins.readFile ./scripts/hook.sh;
   };
 
+  devnullHookScript = pkgs.writeShellApplication {
+    name = "allow-devnull";
+    runtimeInputs = [ pkgs.jq ];
+    text = builtins.readFile ./scripts/allow-devnull.sh;
+  };
+
   openPlanScript = pkgs.writeShellApplication {
     name = "nvim-plan";
     runtimeInputs = with pkgs; [
@@ -32,8 +38,9 @@ let
   };
 
   hookBin = "${hookScript}/bin/claude-hook";
+  devnullHookBin = "${devnullHookScript}/bin/allow-devnull";
 
-  baseSettings = import ./settings.nix { inherit hookBin; };
+  baseSettings = import ./settings.nix { inherit hookBin devnullHookBin; };
 
   settings = lib.recursiveUpdate baseSettings {
     hooks.PostToolUse = [

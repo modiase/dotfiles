@@ -1,4 +1,4 @@
-{ hookBin }:
+{ hookBin, devnullHookBin }:
 {
   theme = "ANSI Dark";
   alwaysThinkingEnabled = true;
@@ -168,6 +168,17 @@
     ];
   };
   hooks = {
+    PreToolUse = [
+      {
+        matcher = "Bash";
+        hooks = [
+          {
+            type = "command";
+            command = devnullHookBin;
+          }
+        ];
+      }
+    ];
     Stop = [
       {
         hooks = [
