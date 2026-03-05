@@ -149,31 +149,32 @@ return {
 			picker_fn(opts)
 		end
 
-		vim.keymap.set("n", "<leader>fg", function()
+		local function get_grep_picker()
+			local picker = require("telescope").extensions.live_grep_args.live_grep_args
 			if is_citc() then
-				call_with_spinner(require("telescope").extensions.codesearch.find_query)
-			else
-				call_with_spinner(require("telescope").extensions.live_grep_args.live_grep_args)
+				picker = require("telescope").extensions.codesearch.find_query
 			end
+			return picker
+		end
+
+		vim.keymap.set("n", "<leader>fg", function()
+			call_with_spinner(get_grep_picker())
 		end, { desc = "Live grep" })
 
 		vim.api.nvim_set_keymap("n", "<leader>fb", "<cmd>Telescope buffers<cr>", { noremap = true })
 		vim.api.nvim_set_keymap("n", "<leader>ft", "<cmd>Telescope help_tags<cr>", { noremap = true })
-		vim.api.nvim_set_keymap(
-			"n",
-			"<leader>fw",
-			":lua require('telescope-live-grep-args.shortcuts').grep_word_under_cursor({ postfix = \"\"})<CR>",
-			{ noremap = true }
-		)
+		vim.keymap.set("n", "<leader>fw", function()
+			call_with_spinner(get_grep_picker(), { default_text = vim.fn.expand("<cword>") })
+		end, { desc = "Grep word under cursor" })
 
 		vim.keymap.set("n", "<leader>ff", function()
-			if is_citc() then
-				call_with_spinner(require("telescope").extensions.codesearch.find_files)
-			else
-				call_with_spinner(function(opts)
-					require("telescope.builtin").find_files(vim.tbl_extend("force", { hidden = true }, opts or {}))
-				end)
+			local picker = function(opts)
+				require("telescope.builtin").find_files(vim.tbl_extend("force", { hidden = true }, opts or {}))
 			end
+			if is_citc() then
+				picker = require("telescope").extensions.codesearch.find_files
+			end
+			call_with_spinner(picker)
 		end, { desc = "Find files" })
 
 		vim.api.nvim_set_keymap("n", "<leader>fm", "<cmd>Telescope marks<CR>", { noremap = true })
