@@ -62,7 +62,7 @@ func newHistoryRecord(q, prov string) *HistoryRecord {
 		Question:  q,
 		Provider:  prov,
 		Flags: HistoryFlags{
-			Fast:           fastMode,
+			Fast:           !deepThink,
 			Web:            webMode,
 			Exa:            useExa,
 			MaxTries:       maxTries,

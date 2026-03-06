@@ -29,8 +29,8 @@ var systemPromptContent string
 var (
 	// keep-sorted start
 	addInput       bool
+	deepThink      bool
 	exaAPIKey      string
-	fastMode       bool
 	focusThreshold float64
 	maxSearches    int
 	maxTokens      int
@@ -1217,7 +1217,7 @@ func iterateCard(ctx *PipelineContext, instructions string) (Card, error) {
 	fmt.Fprintf(&userPrompt, "Current card:\nFront: %s\nBack: %s\n\n", ctx.Card.Front, ctx.Card.Back)
 	fmt.Fprintf(&userPrompt, "Please modify this card according to these instructions: %s", instructions)
 
-	response, err := callLLMWithSystem(systemPrompt, userPrompt.String(), fastMode)
+	response, err := callLLMWithSystem(systemPrompt, userPrompt.String(), !deepThink)
 	if err != nil {
 		return Card{}, err
 	}
@@ -1493,7 +1493,7 @@ func generateCard(question, context string) (Card, error) {
 		userPrompt += fmt.Sprintf("\n\nContext from web research:\n%s", context)
 	}
 
-	response, err := callLLMWithSystem(systemPrompt, userPrompt, fastMode)
+	response, err := callLLMWithSystem(systemPrompt, userPrompt, !deepThink)
 	if err != nil {
 		return Card{}, err
 	}
@@ -1595,7 +1595,7 @@ You are an agentic card generator. You must respond with exactly one raw JSON ob
 `, searchesRemaining)
 	debug.Prompt = userPrompt.String()
 
-	response, err := callLLMWithSystem(systemPrompt, userPrompt.String(), fastMode)
+	response, err := callLLMWithSystem(systemPrompt, userPrompt.String(), !deepThink)
 	if err != nil {
 		debug.Error = err
 		return AgentResponse{}, debug, err
@@ -2262,12 +2262,13 @@ func main() {
 		Short: "Generate Anki flashcards using AI",
 		Long: `Generate Anki flashcards using AI models with web search.
 
-Providers: herakles (default), local, claude, chatgpt, gemini
+Providers: herakles, local, claude (c), chatgpt, gemini (g)
+Aliases: l=local, g=gemini, c=claude
 
 Examples:
   ankigen "What is Docker?"
   ankigen herakles "What is Docker?"
-  ankigen claude -f "Quick question"
+  ankigen c -d "Deep question"
   ankigen --no-web "Simple definition"`,
 		Args: cobra.ArbitraryArgs,
 		Run:  run,
@@ -2279,7 +2280,7 @@ Examples:
 	rootCmd.Flags().BoolVar(&noWeb, "no-web", false, "Disable web search pipeline")
 	rootCmd.Flags().BoolVar(&restoreMode, "restore", false, "Browse and restore from history")
 	rootCmd.Flags().BoolVar(&useExa, "exa", false, "Use Exa API for search (default: DuckDuckGo)")
-	rootCmd.Flags().BoolVarP(&fastMode, "fast", "f", false, "Use faster/cheaper model")
+	rootCmd.Flags().BoolVarP(&deepThink, "deep-think", "d", false, "Use slower, more capable model")
 	rootCmd.Flags().BoolVarP(&rawOutput, "raw", "r", false, "Output raw response")
 	rootCmd.Flags().Float64Var(&focusThreshold, "focus-threshold", 0.7, "Minimum similarity for focused results (0-1)")
 	rootCmd.Flags().IntVar(&maxSearches, "max-searches", 3, "Max additional searches agent can request (-1 = unlimited)")
@@ -2307,7 +2308,7 @@ func isLocalAvailable() bool {
 }
 
 func run(cmd *cobra.Command, args []string) {
-	providers := map[string]bool{"local": true, "herakles": true, "claude": true, "chatgpt": true, "gemini": true}
+	providers := map[string]bool{"local": true, "herakles": true, "claude": true, "chatgpt": true, "gemini": true, "l": true, "g": true, "c": true}
 
 	if len(args) > 0 && providers[args[0]] {
 		provider = args[0]
@@ -2319,6 +2320,15 @@ func run(cmd *cobra.Command, args []string) {
 	} else if isLocalAvailable() {
 		provider = "local"
 	} else {
+		provider = "gemini"
+	}
+
+	switch provider {
+	case "l":
+		provider = "local"
+	case "g":
+		provider = "gemini"
+	case "c":
 		provider = "claude"
 	}
 
