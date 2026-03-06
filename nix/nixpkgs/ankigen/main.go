@@ -640,7 +640,7 @@ func (ctx *PipelineContext) Logf(format string, args ...any) {
 	fmt.Fprintf(&ctx.Logs, format+"\n", args...)
 }
 
-func initialModel(question string) model {
+func initialModel(question string, webMode bool) model {
 	s := spinner.New()
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(nord8)
@@ -662,9 +662,14 @@ func initialModel(question string) model {
 	ctx := &PipelineContext{Question: question}
 	ctx.History = newHistoryRecord(question, provider)
 
+	var startStage Stage = searchTermsStage{}
+	if !webMode {
+		startStage = generateStage{}
+	}
+
 	return model{
 		spinner:    s,
-		stage:      searchTermsStage{},
+		stage:      startStage,
 		context:    ctx,
 		iterInput:  ta,
 		agentInput: agentTa,
@@ -2427,34 +2432,7 @@ func run(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	if !webMode {
-		ctx := &PipelineContext{Question: question, AdditionalContext: additionalInputs}
-		ctx.History = newHistoryRecord(question, provider)
-		if len(additionalInputs) > 0 {
-			ctx.History.AddEvent("add_input", map[string]any{"inputs": additionalInputs})
-		}
-
-		card, err := generateCard(question, buildContext("", additionalInputs))
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-		ctx.Card = card
-		ctx.CardHistory = append(ctx.CardHistory, card)
-		saveHistory(ctx)
-
-		fmt.Println()
-		fmt.Println(boxStyle.Width(80).Render(
-			labelStyle.Render("FRONT") + "\n\n" + card.Front,
-		))
-		fmt.Println()
-		fmt.Println(boxStyle.Width(80).Render(
-			labelStyle.Render("BACK") + "\n\n" + card.Back,
-		))
-		return
-	}
-
-	mdl := initialModel(question)
+	mdl := initialModel(question, webMode)
 	mdl.context.AdditionalContext = additionalInputs
 	if len(additionalInputs) > 0 {
 		mdl.context.History.AddEvent("add_input", map[string]any{"inputs": additionalInputs})
