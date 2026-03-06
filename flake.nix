@@ -396,6 +396,7 @@
         build-system-image = pkgs.writeShellApplication {
           name = "build-system-image";
           runtimeInputs = [ pkgs.gum ];
+          meta.description = "Interactive builder for NixOS system images";
           text =
             let
               cases = lib.concatStringsSep "\n" (
@@ -454,14 +455,17 @@
           build-system-image = {
             type = "app";
             program = "${build-system-image}/bin/build-system-image";
+            description = "Interactive builder for NixOS system images";
           };
           cve-scanner = {
             type = "app";
             program = "${cve-scanner}/bin/cve-scanner";
+            description = "CVE vulnerability scanner with NVD API integration";
           };
           secrets = {
             type = "app";
             program = "${secrets}/bin/secrets";
+            description = "Secrets management with multiple backends and encryption";
           };
         };
       }
