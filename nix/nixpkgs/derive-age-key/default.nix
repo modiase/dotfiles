@@ -3,7 +3,7 @@
   runCommand,
 }:
 
-runCommand "derive-age-key" { } ''
+runCommand "derive-age-key" { meta.description = "Derive age encryption keys from SSH keys"; } ''
   mkdir -p $out/bin
   cp ${./derive-age-key.py} $out/bin/derive-age-key
   chmod +x $out/bin/derive-age-key

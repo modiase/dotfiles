@@ -14,11 +14,13 @@ let
     name = "hook-utils";
     destination = "/lib/hook-utils.sh";
     text = builtins.readFile ./hook-utils.sh;
+    meta.description = "Exit hook utilities for bash scripts";
   };
 
   logging-utils = writeTextFile {
     name = "logging-utils";
     destination = "/lib/logging-utils.sh";
+    meta.description = "Colour logging functions for bash scripts";
     text = ''
       source ${hook-utils}/lib/hook-utils.sh
       _DATE="${coreutils}/bin/date"
@@ -32,6 +34,7 @@ let
 
   build-gce-nixos-image = writeShellApplication {
     name = "build-gce-nixos-image";
+    meta.description = "Build NixOS images for Google Compute Engine";
     runtimeInputs = [
       # keep-sorted start
       cacert
