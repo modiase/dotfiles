@@ -11,6 +11,7 @@
       "Bash(secrets get:*)"
       "Bash(sed -i *)"
       "Bash(sed --in-place *)"
+      "Read(~/.ssh/*)"
     ];
     allow = [
       # Nix
