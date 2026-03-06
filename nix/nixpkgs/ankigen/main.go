@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -22,21 +23,25 @@ import (
 	"semsearch/semsearch"
 )
 
+//go:embed SYSTEM_PROMPT.md
+var systemPromptContent string
+
 var (
+	// keep-sorted start
+	addInput       bool
 	exaAPIKey      string
 	fastMode       bool
 	focusThreshold float64
 	maxSearches    int
 	maxTokens      int
 	maxTries       int
-	noCache        bool
 	provider       string
 	question       string
 	rawOutput      bool
 	restoreMode    bool
-	addInput       bool
 	useExa         bool
 	webMode        bool
+	// keep-sorted end
 )
 
 const (
@@ -265,7 +270,11 @@ func runAgentTurn(ctx *PipelineContext) tea.Cmd {
 		ctx.DebugHistory = append(ctx.DebugHistory, debug)
 		if err != nil {
 			ctx.Logf("Agent turn %d failed: %v", ctx.AgentTurn, err)
-			ctx.FailedAttempts = append(ctx.FailedAttempts, fmt.Sprintf("Turn %d error: %v", ctx.AgentTurn, err))
+			rawSnippet := debug.RawResponse
+			if len(rawSnippet) > 200 {
+				rawSnippet = rawSnippet[:200]
+			}
+			ctx.FailedAttempts = append(ctx.FailedAttempts, fmt.Sprintf("Turn %d: failed to parse your response as JSON. You must respond with raw JSON only, no markdown or code fences. Your response was: %s", ctx.AgentTurn, rawSnippet))
 			return agentTurnMsg{turn: ctx.AgentTurn, action: "error", detail: err.Error(), ctx: ctx}
 		}
 
@@ -1186,10 +1195,7 @@ func runIterate(ctx *PipelineContext, instructions string) tea.Cmd {
 }
 
 func iterateCard(ctx *PipelineContext, instructions string) (Card, error) {
-	systemPrompt, err := fetchSystemPrompt()
-	if err != nil {
-		return Card{}, err
-	}
+	systemPrompt := fetchSystemPrompt()
 
 	var userPrompt strings.Builder
 	fmt.Fprintf(&userPrompt, "Original question: %s\n\n", ctx.Question)
@@ -1213,7 +1219,7 @@ func iterateCard(ctx *PipelineContext, instructions string) (Card, error) {
 
 	var card Card
 	card.RawResponse = response
-	response = strings.TrimSpace(response)
+	response = stripCodeFences(strings.TrimSpace(response))
 	if start, end := strings.Index(response, "{"), strings.LastIndex(response, "}"); start != -1 && end > start {
 		if err := json.Unmarshal([]byte(response[start:end+1]), &card); err == nil {
 			card.RawResponse = response
@@ -1250,7 +1256,7 @@ Example output: ["query 1", "query 2", "query 3"]`, question)
 	}
 
 	var terms []string
-	response = strings.TrimSpace(response)
+	response = stripCodeFences(strings.TrimSpace(response))
 	if start, end := strings.Index(response, "["), strings.LastIndex(response, "]"); start != -1 && end > start {
 		response = response[start : end+1]
 	}
@@ -1321,7 +1327,7 @@ Example: For "Why is the sky blue?" you might generate:
 		return nil, fmt.Errorf("no response from herakles")
 	}
 
-	response := strings.TrimSpace(result.Choices[0].Message.Content)
+	response := stripCodeFences(strings.TrimSpace(result.Choices[0].Message.Content))
 	if start, end := strings.Index(response, "["), strings.LastIndex(response, "]"); start != -1 && end > start {
 		response = response[start : end+1]
 	}
@@ -1475,10 +1481,7 @@ func buildContext(summary string, additional []string) string {
 }
 
 func generateCard(question, context string) (Card, error) {
-	systemPrompt, err := fetchSystemPrompt()
-	if err != nil {
-		return Card{}, err
-	}
+	systemPrompt := fetchSystemPrompt()
 
 	userPrompt := fmt.Sprintf("Question: %s", question)
 	if context != "" {
@@ -1492,7 +1495,7 @@ func generateCard(question, context string) (Card, error) {
 
 	var card Card
 	card.RawResponse = response
-	response = strings.TrimSpace(response)
+	response = stripCodeFences(strings.TrimSpace(response))
 	if start, end := strings.Index(response, "{"), strings.LastIndex(response, "}"); start != -1 && end > start {
 		if err := json.Unmarshal([]byte(response[start:end+1]), &card); err == nil {
 			card.RawResponse = response
@@ -1539,11 +1542,9 @@ func generateCard(question, context string) (Card, error) {
 func callAgenticLLM(ctx *PipelineContext, turn int) (AgentResponse, DebugTurn, error) {
 	debug := DebugTurn{Turn: turn}
 
-	systemPrompt, err := fetchAgenticSystemPrompt(ctx)
-	if err != nil {
-		debug.Error = err
-		return AgentResponse{}, debug, err
-	}
+	systemPrompt := fetchSystemPrompt() + `
+
+You are an agentic card generator. You must respond with exactly one raw JSON object — no markdown, no code fences, no backticks, no other text. The valid actions and their exact formats will be specified in the user prompt.`
 
 	var userPrompt strings.Builder
 	fmt.Fprintf(&userPrompt, "Question: %s\n\n", ctx.Question)
@@ -1564,34 +1565,12 @@ func callAgenticLLM(ctx *PipelineContext, turn int) (AgentResponse, DebugTurn, e
 		}
 		userPrompt.WriteString("\n")
 	}
-	userPrompt.WriteString("Decide your next action.")
-	debug.Prompt = userPrompt.String()
-
-	response, err := callLLMWithSystem(systemPrompt, userPrompt.String(), fastMode)
-	if err != nil {
-		debug.Error = err
-		return AgentResponse{}, debug, err
-	}
-
-	debug.RawResponse = response
-	var resp AgentResponse
-	response = strings.TrimSpace(response)
-	if start, end := strings.Index(response, "{"), strings.LastIndex(response, "}"); start != -1 && end > start {
-		if err := json.Unmarshal([]byte(response[start:end+1]), &resp); err == nil {
-			debug.Parsed = &resp
-			return resp, debug, nil
+	if len(ctx.FailedAttempts) > 0 {
+		userPrompt.WriteString("Previous errors (do NOT repeat these mistakes):\n")
+		for _, f := range ctx.FailedAttempts {
+			fmt.Fprintf(&userPrompt, "- %s\n", f)
 		}
-	}
-
-	parseErr := fmt.Errorf("failed to parse agent response: %s", response)
-	debug.Error = parseErr
-	return AgentResponse{}, debug, parseErr
-}
-
-func fetchAgenticSystemPrompt(ctx *PipelineContext) (string, error) {
-	basePrompt, err := fetchSystemPrompt()
-	if err != nil {
-		return "", err
+		userPrompt.WriteString("\n")
 	}
 
 	searchesRemaining := "unlimited"
@@ -1603,30 +1582,33 @@ func fetchAgenticSystemPrompt(ctx *PipelineContext) (string, error) {
 		searchesRemaining = fmt.Sprintf("%d", remaining)
 	}
 
-	agentInstructions := fmt.Sprintf(`
+	fmt.Fprintf(&userPrompt, `Respond with exactly one raw JSON object (no markdown, no code fences). Valid actions:
+{"action": "generate", "card": {"front": "...", "back": "..."}}
+{"action": "refuse", "reason": "..."}
+{"action": "search", "search_term": "..."} (%s searches remaining)
+{"action": "ask", "question": "..."}
+`, searchesRemaining)
+	debug.Prompt = userPrompt.String()
 
-You are an agentic card generator. You must respond with ONE of these JSON actions:
+	response, err := callLLMWithSystem(systemPrompt, userPrompt.String(), fastMode)
+	if err != nil {
+		debug.Error = err
+		return AgentResponse{}, debug, err
+	}
 
-1. Generate a card (when you have enough information):
-{"action": "generate", "card": {"front": "question text", "back": "answer text"}}
+	debug.RawResponse = response
+	var resp AgentResponse
+	response = stripCodeFences(strings.TrimSpace(response))
+	if start, end := strings.Index(response, "{"), strings.LastIndex(response, "}"); start != -1 && end > start {
+		if err := json.Unmarshal([]byte(response[start:end+1]), &resp); err == nil {
+			debug.Parsed = &resp
+			return resp, debug, nil
+		}
+	}
 
-2. Refuse (when the request is impossible, nonsensical, or wrong):
-{"action": "refuse", "reason": "explanation of why you cannot create a card"}
-
-3. Search for more information (%s searches remaining):
-{"action": "search", "search_term": "your search query"}
-
-4. Ask the user for clarification:
-{"action": "ask", "question": "your question to the user"}
-
-IMPORTANT:
-- You MUST respond with exactly one JSON object, no other text
-- If you have enough context to make a good card, use "generate"
-- If the question is unclear or ambiguous, use "ask"
-- If you need more specific information, use "search"
-- Only use "refuse" if the request fundamentally cannot be answered`, searchesRemaining)
-
-	return basePrompt + agentInstructions, nil
+	parseErr := fmt.Errorf("failed to parse agent response: %s", response)
+	debug.Error = parseErr
+	return AgentResponse{}, debug, parseErr
 }
 
 func performAdditionalSearch(term string) (string, error) {
@@ -1648,33 +1630,16 @@ func performAdditionalSearch(term string) (string, error) {
 	return result, nil
 }
 
-func fetchSystemPrompt() (string, error) {
-	url := "https://gist.githubusercontent.com/modiase/88cbb2e7947a4ae970a91d9e335ab59c/raw/anki.txt"
-	if noCache {
-		url = fmt.Sprintf("%s?t=%d", url, time.Now().Unix())
-	}
-
-	resp, err := http.Get(url)
-	if err != nil {
-		return "", err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	prompt := string(body) + `
+func fetchSystemPrompt() string {
+	return systemPromptContent + `
 
 IMPORTANT:
-1. Place all drafts and working inside <drafts></drafts> tags.
-2. Return your final response as valid JSON with this exact format:
+1. Omit drafts from your output, or if included, wrap them in <drafts></drafts> tags.
+2. Return your final response as RAW valid JSON with this exact format:
 {"front": "question text here", "back": "answer text here"}
+3. Do NOT wrap the JSON in markdown code fences, backticks, or HTML tags.
 
 Do not include any other text outside the drafts tags and JSON object.`
-
-	return prompt, nil
 }
 
 func callLLM(prompt string, useFast bool) (string, error) {
@@ -2215,6 +2180,23 @@ func isHeraklesLLMServerAvailable() bool {
 	return detectHeraklesLLMServer() == nil
 }
 
+func stripCodeFences(s string) string {
+	s = strings.TrimSpace(s)
+	if !strings.HasPrefix(s, "```") {
+		return s
+	}
+	lines := strings.Split(s, "\n")
+	start := 1
+	end := len(lines)
+	for i := len(lines) - 1; i > 0; i-- {
+		if strings.TrimSpace(lines[i]) == "```" {
+			end = i
+			break
+		}
+	}
+	return strings.TrimSpace(strings.Join(lines[start:end], "\n"))
+}
+
 func stripTags(s string, tags ...string) string {
 	for _, tag := range tags {
 		open, close := "<"+tag+">", "</"+tag+">"
@@ -2287,17 +2269,18 @@ Examples:
 	}
 
 	var noWeb bool
-	rootCmd.Flags().BoolVarP(&fastMode, "fast", "f", false, "Use faster/cheaper model")
+	// keep-sorted start
+	rootCmd.Flags().BoolVar(&addInput, "add-input", false, "Add additional context before generation")
 	rootCmd.Flags().BoolVar(&noWeb, "no-web", false, "Disable web search pipeline")
+	rootCmd.Flags().BoolVar(&restoreMode, "restore", false, "Browse and restore from history")
 	rootCmd.Flags().BoolVar(&useExa, "exa", false, "Use Exa API for search (default: DuckDuckGo)")
-	rootCmd.Flags().BoolVarP(&noCache, "no-cache", "b", false, "Bypass system prompt cache")
+	rootCmd.Flags().BoolVarP(&fastMode, "fast", "f", false, "Use faster/cheaper model")
 	rootCmd.Flags().BoolVarP(&rawOutput, "raw", "r", false, "Output raw response")
+	rootCmd.Flags().Float64Var(&focusThreshold, "focus-threshold", 0.7, "Minimum similarity for focused results (0-1)")
+	rootCmd.Flags().IntVar(&maxSearches, "max-searches", 3, "Max additional searches agent can request (-1 = unlimited)")
 	rootCmd.Flags().IntVarP(&maxTokens, "tokens", "t", 2000, "Max tokens")
 	rootCmd.Flags().IntVarP(&maxTries, "max-tries", "m", 3, "Max generation attempts on parse failure")
-	rootCmd.Flags().IntVar(&maxSearches, "max-searches", 3, "Max additional searches agent can request (-1 = unlimited)")
-	rootCmd.Flags().Float64Var(&focusThreshold, "focus-threshold", 0.7, "Minimum similarity for focused results (0-1)")
-	rootCmd.Flags().BoolVar(&restoreMode, "restore", false, "Browse and restore from history")
-	rootCmd.Flags().BoolVar(&addInput, "add-input", false, "Add additional context before generation")
+	// keep-sorted end
 
 	rootCmd.PreRun = func(cmd *cobra.Command, args []string) {
 		webMode = !noWeb
