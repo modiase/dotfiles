@@ -33,6 +33,8 @@ var (
 	provider       string
 	question       string
 	rawOutput      bool
+	restoreMode    bool
+	addInput       bool
 	useExa         bool
 	webMode        bool
 )
@@ -332,24 +334,26 @@ func (generateStage) Validate(ctx *PipelineContext) error {
 }
 
 type PipelineContext struct {
-	Question       string
-	SearchTerms    []string
-	SearchResult   string
-	Summary        string
-	Card           Card
-	Error          error
-	FailedAttempts []string
-	CardHistory    []Card
-	HistoryIndex   int
-	Logs           strings.Builder
-	SearchCount    int
-	Refused        bool
-	RefusalReason  string
-	AgentQuestion  string
-	UserResponses  []string
-	AwaitingInput  bool
-	DebugHistory   []DebugTurn
-	AgentTurn      int
+	Question          string
+	SearchTerms       []string
+	SearchResult      string
+	Summary           string
+	Card              Card
+	Error             error
+	FailedAttempts    []string
+	CardHistory       []Card
+	HistoryIndex      int
+	Logs              strings.Builder
+	SearchCount       int
+	Refused           bool
+	RefusalReason     string
+	AgentQuestion     string
+	UserResponses     []string
+	AwaitingInput     bool
+	DebugHistory      []DebugTurn
+	AgentTurn         int
+	AdditionalContext []string
+	History           *HistoryRecord
 }
 
 type model struct {
@@ -432,6 +436,107 @@ func (m inputModel) View() string {
 	)
 }
 
+type addInputModel struct {
+	textarea  textarea.Model
+	inputs    []string
+	reviewing bool
+	done      bool
+	cancelled bool
+}
+
+func initialAddInputModel() addInputModel {
+	ta := textarea.New()
+	ta.Placeholder = "Paste additional context..."
+	ta.Focus()
+	ta.SetWidth(80)
+	ta.SetHeight(10)
+	ta.ShowLineNumbers = false
+	ta.CharLimit = 10000
+	return addInputModel{textarea: ta}
+}
+
+func (m addInputModel) Init() tea.Cmd {
+	return textarea.Blink
+}
+
+func (m addInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.reviewing {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "a":
+				ta := textarea.New()
+				ta.Placeholder = "Paste additional context..."
+				ta.Focus()
+				ta.SetWidth(80)
+				ta.SetHeight(10)
+				ta.ShowLineNumbers = false
+				ta.CharLimit = 10000
+				m.textarea = ta
+				m.reviewing = false
+				return m, textarea.Blink
+			case "enter", "ctrl+d":
+				m.done = true
+				return m, tea.Quit
+			case "esc", "ctrl+c":
+				m.cancelled = true
+				return m, tea.Quit
+			}
+		}
+		return m, nil
+	}
+
+	switch msg := msg.(type) {
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+d":
+			text := strings.TrimSpace(m.textarea.Value())
+			if text != "" {
+				m.inputs = append(m.inputs, text)
+			}
+			if len(m.inputs) == 0 {
+				return m, nil
+			}
+			m.reviewing = true
+			return m, nil
+		case "esc", "ctrl+c":
+			m.cancelled = true
+			return m, tea.Quit
+		}
+	case tea.WindowSizeMsg:
+		m.textarea.SetWidth(min(msg.Width-4, 100))
+	}
+
+	var cmd tea.Cmd
+	m.textarea, cmd = m.textarea.Update(msg)
+	return m, cmd
+}
+
+func (m addInputModel) View() string {
+	if m.reviewing {
+		var b strings.Builder
+		fmt.Fprintf(&b, "\n%s\n\n", titleStyle.Render(fmt.Sprintf("Additional context (%d inputs):", len(m.inputs))))
+		for i, input := range m.inputs {
+			preview := strings.ReplaceAll(input, "\n", " ")
+			if len(preview) > 70 {
+				preview = preview[:67] + "..."
+			}
+			fmt.Fprintf(&b, "  %d. %s\n", i+1, preview)
+		}
+		b.WriteString("\n")
+		b.WriteString(dimStyle.Render("[a] Add another  [enter] Proceed  [esc] Cancel"))
+		b.WriteString("\n")
+		return b.String()
+	}
+
+	return fmt.Sprintf(
+		"\n%s\n\n%s\n\n%s\n",
+		titleStyle.Render("Paste additional context:"),
+		m.textarea.View(),
+		dimStyle.Render("Ctrl+D to add, Esc to cancel"),
+	)
+}
+
 type stageCompleteMsg struct {
 	stage Stage
 	ctx   *PipelineContext
@@ -442,8 +547,9 @@ type errorMsg struct {
 }
 
 type iterateCompleteMsg struct {
-	card Card
-	err  error
+	card         Card
+	err          error
+	instructions string
 }
 
 type agentTurnMsg struct {
@@ -487,7 +593,7 @@ func initDebugModel(ctx *PipelineContext, width, height int) *debugModel {
 func formatSearchTerms(terms []string) string {
 	var b strings.Builder
 	for i, term := range terms {
-		b.WriteString(fmt.Sprintf("%d. %s\n", i+1, term))
+		fmt.Fprintf(&b, "%d. %s\n", i+1, term)
 	}
 	return b.String()
 }
@@ -498,23 +604,23 @@ func formatDebugHistory(history []DebugTurn) string {
 	}
 	var b strings.Builder
 	for _, turn := range history {
-		b.WriteString(fmt.Sprintf("═══ Turn %d ═══\n", turn.Turn))
-		b.WriteString(fmt.Sprintf("PROMPT:\n%s\n\n", turn.Prompt))
-		b.WriteString(fmt.Sprintf("RAW RESPONSE:\n%s\n\n", turn.RawResponse))
+		fmt.Fprintf(&b, "═══ Turn %d ═══\n", turn.Turn)
+		fmt.Fprintf(&b, "PROMPT:\n%s\n\n", turn.Prompt)
+		fmt.Fprintf(&b, "RAW RESPONSE:\n%s\n\n", turn.RawResponse)
 		if turn.Parsed != nil {
-			b.WriteString(fmt.Sprintf("PARSED: action=%s", turn.Parsed.Action))
+			fmt.Fprintf(&b, "PARSED: action=%s", turn.Parsed.Action)
 			switch turn.Parsed.Action {
 			case "search":
-				b.WriteString(fmt.Sprintf(", term=%q", turn.Parsed.SearchTerm))
+				fmt.Fprintf(&b, ", term=%q", turn.Parsed.SearchTerm)
 			case "ask":
-				b.WriteString(fmt.Sprintf(", question=%q", turn.Parsed.Question))
+				fmt.Fprintf(&b, ", question=%q", turn.Parsed.Question)
 			case "refuse":
-				b.WriteString(fmt.Sprintf(", reason=%q", turn.Parsed.Reason))
+				fmt.Fprintf(&b, ", reason=%q", turn.Parsed.Reason)
 			}
 			b.WriteString("\n")
 		}
 		if turn.Error != nil {
-			b.WriteString(fmt.Sprintf("ERROR: %v\n", turn.Error))
+			fmt.Fprintf(&b, "ERROR: %v\n", turn.Error)
 		}
 		b.WriteString("\n")
 	}
@@ -522,7 +628,7 @@ func formatDebugHistory(history []DebugTurn) string {
 }
 
 func (ctx *PipelineContext) Logf(format string, args ...any) {
-	ctx.Logs.WriteString(fmt.Sprintf(format+"\n", args...))
+	fmt.Fprintf(&ctx.Logs, format+"\n", args...)
 }
 
 func initialModel(question string) model {
@@ -544,16 +650,53 @@ func initialModel(question string) model {
 	agentTa.ShowLineNumbers = false
 	agentTa.CharLimit = 500
 
+	ctx := &PipelineContext{Question: question}
+	ctx.History = newHistoryRecord(question, provider)
+
 	return model{
 		spinner:    s,
 		stage:      searchTermsStage{},
-		context:    &PipelineContext{Question: question},
+		context:    ctx,
+		iterInput:  ta,
+		agentInput: agentTa,
+	}
+}
+
+func restoredModel(ctx *PipelineContext) model {
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(nord8)
+
+	ta := textarea.New()
+	ta.Placeholder = "Enter iteration instructions..."
+	ta.SetWidth(70)
+	ta.SetHeight(3)
+	ta.ShowLineNumbers = false
+	ta.CharLimit = 500
+
+	agentTa := textarea.New()
+	agentTa.Placeholder = "Your response..."
+	agentTa.SetWidth(70)
+	agentTa.SetHeight(3)
+	agentTa.ShowLineNumbers = false
+	agentTa.CharLimit = 500
+
+	ctx.History = newHistoryRecord(ctx.Question, provider)
+
+	return model{
+		spinner:    s,
+		stage:      generateStage{},
+		done:       true,
+		context:    ctx,
 		iterInput:  ta,
 		agentInput: agentTa,
 	}
 }
 
 func (m model) Init() tea.Cmd {
+	if m.done {
+		return nil
+	}
 	return tea.Batch(
 		m.spinner.Tick,
 		runStage(m.stage, m.context),
@@ -573,6 +716,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.context.RefusalReason = "User cancelled agent question"
 				m.tabView = initDebugModel(m.context, m.width, m.height)
 				m.agentInput.Reset()
+				saveHistory(m.context)
 				return m, nil
 			case "ctrl+d":
 				response := strings.TrimSpace(m.agentInput.Value())
@@ -583,6 +727,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.context.AwaitingInput = false
 				m.context.UserResponses = append(m.context.UserResponses, response)
 				m.context.Logf("User responded: %s", response)
+				m.context.History.AddEvent("user_response", map[string]any{
+					"question": m.context.AgentQuestion,
+					"response": response,
+				})
 				m.done = false
 				m.substage = fmt.Sprintf("Turn %d: continuing...", m.context.AgentTurn+1)
 				m.agentInput.Reset()
@@ -739,6 +887,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		if m.done && m.tabView == nil {
+			m.tabView = initDebugModel(m.context, m.width, m.height)
+		}
 
 	case spinner.TickMsg:
 		var cmd tea.Cmd
@@ -747,6 +898,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case stageCompleteMsg:
 		m.context = msg.ctx
+		recordStageEvent(m.context, msg.stage)
 		if _, ok := msg.stage.(searchTermsStage); ok {
 			m.searchTotal = len(m.context.SearchTerms)
 		}
@@ -767,18 +919,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.context.HistoryIndex = len(m.context.CardHistory) - 1
 			}
 			m.tabView = initDebugModel(m.context, m.width, m.height)
+			saveHistory(m.context)
 			return m, nil
 		}
 		return m, runStage(m.stage, m.context)
 
 	case agentTurnMsg:
 		m.context = msg.ctx
+		recordAgentTurn(m.context, msg)
 		if msg.err != nil {
 			m.err = msg.err
 			m.done = true
 			m.tabView = initDebugModel(m.context, m.width, m.height)
 			m.tabView.activeTab = 5
 			m.tabView.viewport.SetContent(m.tabView.contents[5])
+			saveHistory(m.context)
 			return m, nil
 		}
 
@@ -789,12 +944,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.context.CardHistory = append(m.context.CardHistory, m.context.Card)
 			m.context.HistoryIndex = len(m.context.CardHistory) - 1
 			m.tabView = initDebugModel(m.context, m.width, m.height)
+			saveHistory(m.context)
 			return m, nil
 
 		case "refuse":
 			m.substage = fmt.Sprintf("Turn %d: refused", msg.turn)
 			m.done = true
 			m.tabView = initDebugModel(m.context, m.width, m.height)
+			saveHistory(m.context)
 			return m, nil
 
 		case "search":
@@ -819,13 +976,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.tabView = initDebugModel(m.context, m.width, m.height)
 			m.tabView.activeTab = 5
 			m.tabView.viewport.SetContent(m.tabView.contents[5])
+			saveHistory(m.context)
 			return m, nil
 		}
 		m.context.Card = msg.card
 		m.context.CardHistory = append(m.context.CardHistory, msg.card)
 		m.context.HistoryIndex = len(m.context.CardHistory) - 1
+		m.context.History.AddEvent("card_iterated", map[string]any{
+			"instructions": msg.instructions,
+			"card":         msg.card,
+		})
 		m.done = true
 		m.substage = ""
+		saveHistory(m.context)
 		return m, nil
 
 	case errorMsg:
@@ -835,6 +998,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tabView = initDebugModel(m.context, m.width, m.height)
 		m.tabView.activeTab = 5
 		m.tabView.viewport.SetContent(m.tabView.contents[5])
+		saveHistory(m.context)
 		return m, nil
 	}
 
@@ -1017,7 +1181,7 @@ func runStage(stage Stage, ctx *PipelineContext) tea.Cmd {
 func runIterate(ctx *PipelineContext, instructions string) tea.Cmd {
 	return func() tea.Msg {
 		card, err := iterateCard(ctx, instructions)
-		return iterateCompleteMsg{card: card, err: err}
+		return iterateCompleteMsg{card: card, err: err, instructions: instructions}
 	}
 }
 
@@ -1028,12 +1192,19 @@ func iterateCard(ctx *PipelineContext, instructions string) (Card, error) {
 	}
 
 	var userPrompt strings.Builder
-	userPrompt.WriteString(fmt.Sprintf("Original question: %s\n\n", ctx.Question))
+	fmt.Fprintf(&userPrompt, "Original question: %s\n\n", ctx.Question)
 	if ctx.Summary != "" {
-		userPrompt.WriteString(fmt.Sprintf("Research context:\n%s\n\n", ctx.Summary))
+		fmt.Fprintf(&userPrompt, "Research context:\n%s\n\n", ctx.Summary)
 	}
-	userPrompt.WriteString(fmt.Sprintf("Current card:\nFront: %s\nBack: %s\n\n", ctx.Card.Front, ctx.Card.Back))
-	userPrompt.WriteString(fmt.Sprintf("Please modify this card according to these instructions: %s", instructions))
+	if len(ctx.AdditionalContext) > 0 {
+		userPrompt.WriteString("Additional context from user:\n")
+		for _, c := range ctx.AdditionalContext {
+			fmt.Fprintf(&userPrompt, "---\n%s\n", c)
+		}
+		userPrompt.WriteString("\n")
+	}
+	fmt.Fprintf(&userPrompt, "Current card:\nFront: %s\nBack: %s\n\n", ctx.Card.Front, ctx.Card.Back)
+	fmt.Fprintf(&userPrompt, "Please modify this card according to these instructions: %s", instructions)
 
 	response, err := callLLMWithSystem(systemPrompt, userPrompt.String(), fastMode)
 	if err != nil {
@@ -1268,7 +1439,7 @@ func searchExa(query string) (string, error) {
 
 	var sb strings.Builder
 	for _, r := range result.Results {
-		sb.WriteString(fmt.Sprintf("## %s\n%s\n\n", r.Title, r.Text))
+		fmt.Fprintf(&sb, "## %s\n%s\n\n", r.Title, r.Text)
 	}
 
 	return sb.String(), nil
@@ -1285,6 +1456,22 @@ Search Results:
 Provide a concise summary (300-500 words) of the key information relevant to answering the question.`, question, results)
 
 	return callLLM(prompt, true)
+}
+
+func buildContext(summary string, additional []string) string {
+	if len(additional) == 0 {
+		return summary
+	}
+	var b strings.Builder
+	if summary != "" {
+		b.WriteString(summary)
+		b.WriteString("\n\n")
+	}
+	b.WriteString("Additional context from user:\n")
+	for _, c := range additional {
+		fmt.Fprintf(&b, "---\n%s\n", c)
+	}
+	return b.String()
 }
 
 func generateCard(question, context string) (Card, error) {
@@ -1359,14 +1546,21 @@ func callAgenticLLM(ctx *PipelineContext, turn int) (AgentResponse, DebugTurn, e
 	}
 
 	var userPrompt strings.Builder
-	userPrompt.WriteString(fmt.Sprintf("Question: %s\n\n", ctx.Question))
+	fmt.Fprintf(&userPrompt, "Question: %s\n\n", ctx.Question)
 	if ctx.Summary != "" {
-		userPrompt.WriteString(fmt.Sprintf("Research context:\n%s\n\n", ctx.Summary))
+		fmt.Fprintf(&userPrompt, "Research context:\n%s\n\n", ctx.Summary)
+	}
+	if len(ctx.AdditionalContext) > 0 {
+		userPrompt.WriteString("Additional context from user:\n")
+		for _, c := range ctx.AdditionalContext {
+			fmt.Fprintf(&userPrompt, "---\n%s\n", c)
+		}
+		userPrompt.WriteString("\n")
 	}
 	if len(ctx.UserResponses) > 0 {
 		userPrompt.WriteString("User responses to your questions:\n")
 		for _, r := range ctx.UserResponses {
-			userPrompt.WriteString(fmt.Sprintf("- %s\n", r))
+			fmt.Fprintf(&userPrompt, "- %s\n", r)
 		}
 		userPrompt.WriteString("\n")
 	}
@@ -2102,6 +2296,8 @@ Examples:
 	rootCmd.Flags().IntVarP(&maxTries, "max-tries", "m", 3, "Max generation attempts on parse failure")
 	rootCmd.Flags().IntVar(&maxSearches, "max-searches", 3, "Max additional searches agent can request (-1 = unlimited)")
 	rootCmd.Flags().Float64Var(&focusThreshold, "focus-threshold", 0.7, "Minimum similarity for focused results (0-1)")
+	rootCmd.Flags().BoolVar(&restoreMode, "restore", false, "Browse and restore from history")
+	rootCmd.Flags().BoolVar(&addInput, "add-input", false, "Add additional context before generation")
 
 	rootCmd.PreRun = func(cmd *cobra.Command, args []string) {
 		webMode = !noWeb
@@ -2138,6 +2334,40 @@ func run(cmd *cobra.Command, args []string) {
 		provider = "claude"
 	}
 
+	if restoreMode {
+		records, err := loadHistoryIndex()
+		if err != nil || len(records) == 0 {
+			fmt.Fprintf(os.Stderr, "No history found\n")
+			os.Exit(1)
+		}
+
+		p := tea.NewProgram(newHistoryModel(records), tea.WithAltScreen())
+		m, err := p.Run()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+
+		hm := m.(historyModel)
+		if hm.selected == nil {
+			return
+		}
+
+		full, err := loadHistoryRecord(hm.selected.ID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading record: %v\n", err)
+			os.Exit(1)
+		}
+
+		ctx := historyToContext(full)
+		p2 := tea.NewProgram(restoredModel(ctx), tea.WithAltScreen())
+		if _, err := p2.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if len(args) == 0 {
 		p := tea.NewProgram(initialInputModel())
 		m, err := p.Run()
@@ -2155,8 +2385,27 @@ func run(cmd *cobra.Command, args []string) {
 		question = strings.Join(args, " ")
 	}
 
+	var additionalInputs []string
+	if addInput {
+		p := tea.NewProgram(initialAddInputModel())
+		m, err := p.Run()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		aim := m.(addInputModel)
+		if aim.cancelled {
+			return
+		}
+		additionalInputs = aim.inputs
+	}
+
 	if rawOutput {
-		ctx := &PipelineContext{Question: question}
+		ctx := &PipelineContext{Question: question, AdditionalContext: additionalInputs}
+		ctx.History = newHistoryRecord(question, provider)
+		if len(additionalInputs) > 0 {
+			ctx.History.AddEvent("add_input", map[string]any{"inputs": additionalInputs})
+		}
 
 		var err error
 		if webMode {
@@ -2165,25 +2414,30 @@ func run(cmd *cobra.Command, args []string) {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
+			ctx.History.AddEvent("search_terms", map[string]any{"terms": ctx.SearchTerms})
 
 			ctx.SearchResult, err = performWebSearch(ctx.SearchTerms)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
+			ctx.History.AddEvent("web_search", map[string]any{"results": ctx.SearchResult})
 
 			ctx.Summary, err = summariseResults(ctx.Question, ctx.SearchResult)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 				os.Exit(1)
 			}
+			ctx.History.AddEvent("summary", map[string]any{"summary": ctx.Summary})
 		}
 
-		ctx.Card, err = generateCard(ctx.Question, ctx.Summary)
+		ctx.Card, err = generateCard(ctx.Question, buildContext(ctx.Summary, ctx.AdditionalContext))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+		ctx.CardHistory = append(ctx.CardHistory, ctx.Card)
+		saveHistory(ctx)
 
 		output, _ := json.MarshalIndent(ctx.Card, "", "  ")
 		fmt.Println(string(output))
@@ -2191,11 +2445,21 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	if !webMode {
-		card, err := generateCard(question, "")
+		ctx := &PipelineContext{Question: question, AdditionalContext: additionalInputs}
+		ctx.History = newHistoryRecord(question, provider)
+		if len(additionalInputs) > 0 {
+			ctx.History.AddEvent("add_input", map[string]any{"inputs": additionalInputs})
+		}
+
+		card, err := generateCard(question, buildContext("", additionalInputs))
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+		ctx.Card = card
+		ctx.CardHistory = append(ctx.CardHistory, card)
+		saveHistory(ctx)
+
 		fmt.Println()
 		fmt.Println(boxStyle.Width(80).Render(
 			labelStyle.Render("FRONT") + "\n\n" + card.Front,
@@ -2207,7 +2471,12 @@ func run(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	p := tea.NewProgram(initialModel(question), tea.WithAltScreen())
+	mdl := initialModel(question)
+	mdl.context.AdditionalContext = additionalInputs
+	if len(additionalInputs) > 0 {
+		mdl.context.History.AddEvent("add_input", map[string]any{"inputs": additionalInputs})
+	}
+	p := tea.NewProgram(mdl, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
