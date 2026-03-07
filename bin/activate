@@ -2,21 +2,27 @@
 # shellcheck shell=bash
 set -euo pipefail
 
+# keep-sorted start
 LOCK_TIMEOUT=30
 LOG_LEVEL="${DOTFILES_ACTIVATE_LOG_LEVEL-2}"
 MAX_CORES=$(($(getconf _NPROCESSORS_ONLN) - 1))
 SYSTEM_OVERRIDE="${hostname_override:-}"
+# keep-sorted end
+
+# keep-sorted start
+_CURL=$(command -v curl) || _CURL="nix shell nixpkgs#curl -c curl"
+_DATE=date _MKDIR=mkdir _MKTEMP=mktemp _CAT=cat _TAIL=tail
+_DING=$(command -v ding) || _DING=":"
+_FLOCK=$(command -v flock) || _FLOCK="nix shell nixpkgs#flock -c flock"
+_SHA256SUM=$(command -v sha256sum) || _SHA256SUM="nix shell nixpkgs#coreutils -c sha256sum"
+# keep-sorted end
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 if [[ "$SCRIPT_DIR" != "$HOME/dotfiles/bin" && "$SCRIPT_DIR" != "$HOME/dotfiles/worktrees/main/bin" ]]; then
     echo "ERROR: activate must be run from \$HOME/dotfiles, not $SCRIPT_DIR" >&2
     exit 1
 fi
-
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && git rev-parse --show-toplevel)"
-
-export NIX_CONFIG="experimental-features = nix-command flakes"
 
 EXIT_HOOKS=()
 add_exit_hook() { EXIT_HOOKS+=("$1"); }
@@ -28,15 +34,12 @@ run_exit_hooks() {
     done
 }
 trap run_exit_hooks EXIT
-_DATE=date _MKDIR=mkdir _MKTEMP=mktemp _CAT=cat _TAIL=tail
-_FLOCK=$(command -v flock) || _FLOCK="nix shell nixpkgs#flock -c flock"
-_SHA256SUM=$(command -v sha256sum) || _SHA256SUM="nix shell nixpkgs#coreutils -c sha256sum"
-_CURL=$(command -v curl) || _CURL="nix shell nixpkgs#curl -c curl"
-_DING=$(command -v ding) || _DING=":"
+
 # shellcheck source=/dev/null
 source "$REPO_ROOT/nix/nixpkgs/shellutils/logging-utils.sh"
 
 GIT_COMMON_DIR="$(cd "$REPO_ROOT" && git rev-parse --git-common-dir)"
+# git rev-parse may return a relative path
 [[ "$GIT_COMMON_DIR" != /* ]] && GIT_COMMON_DIR="$REPO_ROOT/$GIT_COMMON_DIR"
 GITCRYPT_KEY="$GIT_COMMON_DIR/git-crypt/keys/default"
 GITCRYPT_FINGERPRINT="98aa7b921fe81d9a38ae89f69c73fc72ea60c0ebb58170796507d476cbee33f5"
@@ -105,6 +108,11 @@ record_state() {
     mv "$temp" "$state_file"
 }
 
+get_flake_hash() {
+    local repo="$1"
+    nix flake metadata "git+file://$repo" --json 2>/dev/null | jq -r '.locked.narHash'
+}
+
 if [ "$(uname -s)" = "Darwin" ]; then
     LOCKFILE="/tmp/dotfiles-activate-${UID}.lock"
 else
@@ -168,44 +176,71 @@ do_show() {
         return
     }
 
-    git -C "$repo_root" fetch origin main 2>/dev/null || true
-
     local worktree="$repo_root/worktrees/main"
-    local c_cyan=$'\033[38;5;116m' c_green=$'\033[38;5;108m' c_blue=$'\033[38;5;110m'
+    local c_green=$'\033[38;5;108m' c_blue=$'\033[38;5;110m'
     local c_purple=$'\033[38;5;139m' c_magenta=$'\033[38;5;175m' c_yellow=$'\033[38;5;222m' c_reset=$'\033[0m'
 
-    local origin_main worktree_head system_hash home_hash val_color
-    origin_main=$(git -C "$repo_root" rev-parse origin/main 2>/dev/null || echo "(unknown)")
-    [ -d "$worktree" ] && worktree_head=$(git -C "$worktree" rev-parse HEAD 2>/dev/null || echo "(not created)") || worktree_head="(not created)"
+    local source_hash system_hash home_hash val_color
+
+    local hash_source
+    if [ -d "$worktree" ]; then
+        source_hash=$(get_flake_hash "$worktree")
+        hash_source="worktree"
+    else
+        source_hash=$(get_flake_hash "$repo_root")
+        hash_source="repo"
+    fi
+    : "${source_hash:=(unknown)}"
+
     system_hash=$(cat "$SYSTEM_STATE" 2>/dev/null || echo "(not set)")
     home_hash=$(cat "$HOME_STATE" 2>/dev/null || echo "(not set)")
 
-    printf "${c_cyan}%-20s${c_reset} ${c_green}%s${c_reset}\n" "origin/main:" "$origin_main"
+    printf "${c_blue}%-20s${c_reset} ${c_green}%s${c_reset} (%s)\n" "source narHash:" "$source_hash" "$hash_source"
 
-    [ "$worktree_head" = "$origin_main" ] && val_color=$c_green || val_color=$c_yellow
-    printf "${c_blue}%-20s${c_reset} ${val_color}%s${c_reset}\n" "worktree HEAD:" "$worktree_head"
-
-    [ "$system_hash" = "$origin_main" ] && val_color=$c_green || val_color=$c_yellow
+    [ "$system_hash" = "$source_hash" ] && val_color=$c_green || val_color=$c_yellow
     printf "${c_purple}%-20s${c_reset} ${val_color}%s${c_reset}\n" "system activated:" "$system_hash"
 
-    [ "$home_hash" = "$origin_main" ] && val_color=$c_green || val_color=$c_yellow
+    [ "$home_hash" = "$source_hash" ] && val_color=$c_green || val_color=$c_yellow
     printf "${c_magenta}%-20s${c_reset} ${val_color}%s${c_reset}\n" "home activated:" "$home_hash"
 }
 
-# shellcheck disable=SC2016  # Variables expand on remote, not locally
-DEPLOY_CMD='cd ~/dotfiles && git fetch origin main && (git diff --quiet && git diff --cached --quiet && git reset --hard origin/main) || true; main_gitdir="$(git rev-parse --git-common-dir)"; wt_gitdir="$main_gitdir/worktrees/main"; if [ -d worktrees/main ]; then [ ! -f "$wt_gitdir/git-crypt/keys/default" ] && mkdir -p "$wt_gitdir/git-crypt/keys" && ln "$main_gitdir/git-crypt/keys/default" "$wt_gitdir/git-crypt/keys/default" 2>/dev/null; git -C worktrees/main reset --hard origin/main; else git worktree add --no-checkout --detach worktrees/main origin/main && mkdir -p "$wt_gitdir/git-crypt/keys" && ln "$main_gitdir/git-crypt/keys/default" "$wt_gitdir/git-crypt/keys/default" && git -C worktrees/main checkout --force HEAD; fi && ./worktrees/main/bin/activate'
-
 deploy_local() {
     local origin_main
-    origin_main=$(git -C "$REPO_ROOT" rev-parse HEAD)
+    origin_main=$(get_flake_hash "$REPO_ROOT")
 
     is_activated "$SYSTEM_STATE" "$origin_main" && is_activated "$HOME_STATE" "$origin_main" && {
-        echo "Already activated ${origin_main:0:8}, nothing to do"
+        echo "Already activated (${origin_main:7:12}…), nothing to do"
         return 0
     }
 
     do_activate
 }
+
+sync_and_activate() {
+    cd ~/dotfiles || return 1
+    git fetch origin main
+    (git diff --quiet && git diff --cached --quiet) || git stash -u --quiet
+    git reset --hard origin/main
+
+    local main_gitdir wt_gitdir
+    main_gitdir="$(git rev-parse --git-common-dir)"
+    wt_gitdir="$main_gitdir/worktrees/main"
+
+    if [ -d worktrees/main ]; then
+        [ ! -f "$wt_gitdir/git-crypt/keys/default" ] &&
+            mkdir -p "$wt_gitdir/git-crypt/keys" &&
+            ln "$main_gitdir/git-crypt/keys/default" "$wt_gitdir/git-crypt/keys/default" 2>/dev/null
+        git -C worktrees/main reset --hard origin/main
+    else
+        git worktree add --no-checkout --detach worktrees/main origin/main &&
+            mkdir -p "$wt_gitdir/git-crypt/keys" &&
+            ln "$main_gitdir/git-crypt/keys/default" "$wt_gitdir/git-crypt/keys/default" &&
+            git -C worktrees/main checkout --force HEAD
+    fi
+
+    ./worktrees/main/bin/activate
+}
+DEPLOY_CMD="$(declare -f sync_and_activate); sync_and_activate"
 
 deploy_remote() {
     local host="$1"
@@ -368,7 +403,12 @@ do_activate() {
 
     local os target_hash
     os=$(uname -s)
-    target_hash=$(git -C "$REPO_ROOT" rev-parse HEAD)
+    target_hash=$(get_flake_hash "$REPO_ROOT")
+
+    is_activated "$SYSTEM_STATE" "$target_hash" && is_activated "$HOME_STATE" "$target_hash" && {
+        log_info "Already activated (${target_hash:7:12}…), nothing to do"
+        return 0
+    }
 
     local config_hostname flake_target
     config_hostname="${SYSTEM_OVERRIDE:-$(hostname -s)}"
@@ -392,6 +432,7 @@ do_activate() {
                     log_to_system "info" "Installing nix-darwin..."
                     rebuild_cmd="nix run nix-darwin/master#darwin-rebuild --"
                 }
+                NIX_CONFIG="experimental-features = nix-command flakes"
                 # shellcheck disable=SC2086 # rebuild_cmd intentionally word-split for multi-word command
                 run_logged "darwin-rebuild" sudo NIX_CONFIG="$NIX_CONFIG" $rebuild_cmd switch \
                     --flake "$flake_target" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" &&
