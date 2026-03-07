@@ -113,6 +113,13 @@ get_flake_hash() {
     nix flake metadata "git+file://$repo" --json 2>/dev/null | jq -r '.locked.narHash'
 }
 
+log_unchanged() {
+    local sys_label="nixos-rebuild"
+    [ "$(uname -s)" = "Darwin" ] && sys_label="darwin-rebuild"
+    printf "${COLOR_GREEN}✓${COLOR_RESET}  %s\n" "$sys_label (unchanged)" >&2
+    printf "${COLOR_GREEN}✓${COLOR_RESET}  %s\n" "home-manager (unchanged)" >&2
+}
+
 if [ "$(uname -s)" = "Darwin" ]; then
     LOCKFILE="/tmp/dotfiles-activate-${UID}.lock"
 else
@@ -209,7 +216,7 @@ deploy_local() {
     origin_main=$(get_flake_hash "$REPO_ROOT")
 
     is_activated "$SYSTEM_STATE" "$origin_main" && is_activated "$HOME_STATE" "$origin_main" && {
-        echo "Already activated (${origin_main:7:12}…), nothing to do"
+        log_unchanged
         return 0
     }
 
@@ -406,7 +413,7 @@ do_activate() {
     target_hash=$(get_flake_hash "$REPO_ROOT")
 
     is_activated "$SYSTEM_STATE" "$target_hash" && is_activated "$HOME_STATE" "$target_hash" && {
-        log_info "Already activated (${target_hash:7:12}…), nothing to do"
+        log_unchanged
         return 0
     }
 
