@@ -8,8 +8,8 @@
 
   palette = [
     "0=#282828"
-    "1=#d08080"
-    "2=#a8c99a"
+    "1=#d0b8a0"
+    "2=#a8c0b8"
     "3=#d8d0b8"
     "4=#8fa8c9"
     "5=#c9a8c9"
@@ -17,7 +17,7 @@
     "7=#e0e0e0"
     "8=#3a3a3a"
     "9=#f4b6c2"
-    "10=#b8d9aa"
+    "10=#b8d0c8"
     "11=#e0d8c0"
     "12=#a0b8d9"
     "13=#d9b8d9"
@@ -34,13 +34,13 @@
     base05 = "e0e0e0";
     base06 = "f0f0f0";
     base07 = "ffffff";
-    base08 = "d08080";
-    base09 = "a8c99a";
+    base08 = "d0b8a0";
+    base09 = "a8c0b8";
     base0A = "f4b6c2";
     base0B = "d8d0b8";
     base0C = "a8d8ea";
     base0D = "8fa8c9";
     base0E = "c9a8c9";
-    base0F = "d08080";
+    base0F = "d0b8a0";
   };
 }
