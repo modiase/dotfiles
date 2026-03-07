@@ -72,7 +72,7 @@ let
     ngrok
     nix-prefetch-git
     nix-tree
-    nixfmt-rfc-style
+    nixfmt
     nmap
     nodePackages.pnpm
     nodePackages.svelte-language-server
