@@ -53,6 +53,15 @@ end, opts)
 
 vim.keymap.set({ "n", "v" }, "<leader>Q", ":qa!<CR>", opts)
 
+vim.keymap.set("n", "<leader>hi", function()
+	local ok, _ = pcall(vim.cmd, "Inspect")
+	if not ok then
+		local pos = vim.api.nvim_win_get_cursor(0)
+		local line, col = pos[1], pos[2] + 1
+		print(vim.fn.synIDattr(vim.fn.synID(line, col, 1), "name"))
+	end
+end, { desc = "Inspect highlight group" })
+
 vim.keymap.set("n", "<leader>wg", function()
 	local root = vim.fn.system("git rev-parse --show-toplevel 2>/dev/null"):gsub("\n", "")
 	if vim.v.shell_error == 0 and root ~= "" then
