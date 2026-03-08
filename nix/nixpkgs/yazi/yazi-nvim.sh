@@ -1,17 +1,12 @@
-#!/usr/bin/env bash
-
+# shellcheck shell=bash
 cmd="$1"
 shift
 
-# Vimscript to find first non-terminal window, or create left-split if none exist
 SELECT_EDIT_WIN=':let _f=0 | for w in range(1,winnr("$")) | if getbufvar(winbufnr(w),"&buftype")!=#"terminal" | exe w."wincmd w" | let _f=1 | break | endif | endfor | if !_f | aboveleft vnew | endif<CR>'
 
 get_nvim_socket() {
-    [ -z "$TMUX" ] && return 1
-    TARGET_PANE=$(tmux list-panes -F '#{pane_id} #{pane_current_command}' | grep -i nvim | head -n 1 | cut -d' ' -f1)
-    [ -z "$TARGET_PANE" ] && return 1
-    NVIM_LISTEN_ADDRESS=$(tmux show-environment "NVIM_$TARGET_PANE" 2>/dev/null | cut -d= -f2)
-    [ -z "$NVIM_LISTEN_ADDRESS" ] || [ ! -e "$NVIM_LISTEN_ADDRESS" ] && return 1
+    eval "$(@TMUX_NVIM_SELECT@ 2>/dev/null)" || return 1
+    NVIM_LISTEN_ADDRESS="$NVIM_SOCKET"
     export NVIM_LISTEN_ADDRESS TARGET_PANE
 }
 

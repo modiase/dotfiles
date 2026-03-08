@@ -10,6 +10,7 @@ let
   ding = pkgs.callPackage ../ding { };
   secrets = pkgs.callPackage ../secrets { };
   ntfy-me = pkgs.callPackage ../ntfy-me { inherit secrets ding; };
+  tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 
   hookScript = pkgs.writeShellApplication {
     name = "claude-hook";
@@ -58,14 +59,27 @@ let
 
   settingsJson = pkgs.writeText "claude-settings.json" (builtins.toJSON settings);
 
-  wrappedClaude = pkgs.symlinkJoin {
+  getClaudeIdeEnv = pkgs.writeShellApplication {
+    name = "get-claude-ide-env";
+    runtimeInputs = [
+      tmuxNvimSelect
+      pkgs.jq
+      pkgs.neovim-remote
+    ];
+    text = builtins.readFile ./scripts/get-claude-ide-env.sh;
+  };
+
+  wrappedClaude = pkgs.writeShellApplication {
     name = "claude";
-    paths = [ pkgs.claude-code ];
-    nativeBuildInputs = [ pkgs.makeBinaryWrapper ];
-    postBuild = lib.optionalString (cfg.configDir != null) ''
-      rm $out/bin/claude
-      makeBinaryWrapper ${pkgs.claude-code}/bin/claude $out/bin/claude \
-        --set CLAUDE_CONFIG_DIR "${cfg.configDir}"
+    runtimeInputs = [ getClaudeIdeEnv ];
+    text = ''
+      ${lib.optionalString (cfg.configDir != null) ''export CLAUDE_CONFIG_DIR="${cfg.configDir}"''}
+      ide_env=$(get-claude-ide-env 2>/dev/null) || true
+      if [ -n "$ide_env" ]; then
+          eval "$ide_env"
+          export CLAUDE_CODE_SSE_PORT ENABLE_IDE_INTEGRATION
+      fi
+      exec ${pkgs.claude-code}/bin/claude "$@"
     '';
   };
 

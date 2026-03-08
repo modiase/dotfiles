@@ -2,7 +2,12 @@
 
 let
   colors = import ../../colors.nix;
-  yaziNvim = pkgs.writeShellScript "yazi-nvim" (builtins.readFile ./yazi-nvim.sh);
+  tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
+  yaziNvim = pkgs.writeShellScript "yazi-nvim" (
+    builtins.replaceStrings [ "@TMUX_NVIM_SELECT@" ] [ "${tmuxNvimSelect}/bin/tmux-nvim-select" ] (
+      builtins.readFile ./yazi-nvim.sh
+    )
+  );
   pastelGrayTheme = pkgs.writeText "pastel-gray.tmTheme" (builtins.readFile ./pastel-gray.tmTheme);
 in
 {
