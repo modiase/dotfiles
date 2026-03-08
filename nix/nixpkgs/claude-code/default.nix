@@ -29,12 +29,15 @@ let
 
   openPlanScript = pkgs.writeShellApplication {
     name = "nvim-plan";
-    runtimeInputs = with pkgs; [
-      # keep-sorted start
-      jq
-      neovim-remote
-      # keep-sorted end
-    ];
+    runtimeInputs =
+      with pkgs;
+      [
+        # keep-sorted start
+        neovim-remote
+        tmux
+        # keep-sorted end
+      ]
+      ++ [ tmuxNvimSelect ];
     text = builtins.readFile ./scripts/nvim-plan.sh;
   };
 
@@ -44,7 +47,7 @@ let
   baseSettings = import ./settings.nix { inherit hookBin devnullHookBin; };
 
   settings = lib.recursiveUpdate baseSettings {
-    hooks.PostToolUse = [
+    hooks.PreToolUse = [
       {
         matcher = "ExitPlanMode";
         hooks = [
