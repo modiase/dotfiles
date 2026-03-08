@@ -52,7 +52,6 @@ let
     fd
     fzf
     gcc
-    gemini-cli
     gh
     gnused
     go
@@ -108,6 +107,7 @@ in
     ./neovim.nix
     ./nixpkgs/agents-config
     ./nixpkgs/claude-code
+    ./nixpkgs/gemini-cli
     ./nixpkgs/yazi
     ./sh.nix
     ./tmux.nix
@@ -188,6 +188,7 @@ in
     fish.enable = lib.mkDefault isDev;
   };
 
-  dotfiles.agents-config.enable = isDev;
-  dotfiles.claude-code.enable = isDev;
+  dotfiles.agents-config.enable = lib.mkDefault isDev;
+  dotfiles.claude-code.enable = lib.mkDefault isDev;
+  dotfiles.gemini-cli.enable = lib.mkDefault isDev;
 }
