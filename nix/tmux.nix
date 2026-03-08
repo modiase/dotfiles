@@ -62,7 +62,7 @@ in
       set -g pane-active-border-style "fg=#${colors.base16.base0B}"
       set -g message-style "bg=#${colors.base16.base02},fg=#${colors.foreground}"
 
-      set -g @resurrect-processes '"~nvim" "~yazi"'
+      set -g @resurrect-processes '"~nvim" "~yazi" ~"gemini" ~"claude"'
     '';
   };
 
