@@ -1,6 +1,7 @@
 local M = {}
 
 local current_plans_dir = nil
+local claude_pane_id = nil
 
 local function get_plans_dir(config_dir)
 	config_dir = config_dir or os.getenv("CLAUDE_CONFIG_DIR") or (os.getenv("HOME") .. "/.claude")
@@ -25,20 +26,29 @@ function M.find_existing_plan_tab()
 	return nil, nil
 end
 
-function M.find_claude_terminal_win()
-	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" then
-			local name = vim.api.nvim_buf_get_name(buf)
-			if name:match("claude") then
-				for _, win in ipairs(vim.api.nvim_list_wins()) do
-					if vim.api.nvim_win_get_buf(win) == buf then
-						return win, vim.b[buf].terminal_job_id
-					end
-				end
-			end
-		end
+local function tmux_send(text)
+	if not claude_pane_id then
+		vim.notify("Claude pane ID not set", vim.log.levels.WARN)
+		return false
 	end
-	return nil, nil
+	vim.fn.system({ "tmux", "send-keys", "-t", claude_pane_id, "-l", text })
+	return vim.v.shell_error == 0
+end
+
+local function tmux_send_key(key)
+	if not claude_pane_id then
+		return false
+	end
+	vim.fn.system({ "tmux", "send-keys", "-t", claude_pane_id, key })
+	return vim.v.shell_error == 0
+end
+
+local function tmux_pane_contains(pattern)
+	if not claude_pane_id then
+		return false
+	end
+	local output = vim.fn.system({ "tmux", "capture-pane", "-t", claude_pane_id, "-p" })
+	return output:find(pattern, 1, true) ~= nil
 end
 
 function M.open(file_path, config_dir)
@@ -74,43 +84,9 @@ function M.close()
 	end
 end
 
-function M.send_keys(keys)
-	local _, chan = M.find_claude_terminal_win()
-	if chan then
-		vim.api.nvim_chan_send(chan, keys)
-		return true
-	end
-	vim.notify("Claude terminal not found", vim.log.levels.WARN)
-	return false
-end
-
-local function find_claude_terminal_buf()
-	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-		if vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == "terminal" then
-			local name = vim.api.nvim_buf_get_name(buf)
-			if name:match("claude") then
-				return buf
-			end
-		end
-	end
-	return nil
-end
-
-local function terminal_contains(buf, pattern)
-	local line_count = vim.api.nvim_buf_line_count(buf)
-	local start_line = math.max(0, line_count - 10)
-	local lines = vim.api.nvim_buf_get_lines(buf, start_line, -1, false)
-	for _, line in ipairs(lines) do
-		if line:find(pattern, 1, true) then
-			return true
-		end
-	end
-	return false
-end
-
 local POLL_INTERVAL_MS = 100
 local POLL_TIMEOUT_MS = 10000
-local DIALOG_PATTERN = "Would you like to proceed?"
+local DIALOG_PATTERN = "manually approve edits"
 
 local function poll_and_send(key, callback)
 	local elapsed = 0
@@ -121,12 +97,11 @@ local function poll_and_send(key, callback)
 		POLL_INTERVAL_MS,
 		vim.schedule_wrap(function()
 			elapsed = elapsed + POLL_INTERVAL_MS
-			local buf = find_claude_terminal_buf()
 
-			if buf and terminal_contains(buf, DIALOG_PATTERN) then
+			if tmux_pane_contains(DIALOG_PATTERN) then
 				timer:stop()
 				timer:close()
-				M.send_keys(key)
+				tmux_send(key)
 				if callback then
 					callback()
 				end
@@ -142,14 +117,19 @@ local function poll_and_send(key, callback)
 	)
 end
 
-function M.accept_auto()
+function M.accept_clear()
 	M.close()
 	poll_and_send("1")
 end
 
-function M.accept_manual()
+function M.accept_auto()
 	M.close()
 	poll_and_send("2")
+end
+
+function M.accept_manual()
+	M.close()
+	poll_and_send("3")
 end
 
 function M.reject()
@@ -158,29 +138,31 @@ function M.reject()
 			return
 		end
 		M.close()
-		poll_and_send("3", function()
+		poll_and_send("4", function()
 			vim.defer_fn(function()
-				local win = M.find_claude_terminal_win()
-				if win then
-					vim.api.nvim_set_current_win(win)
-					vim.cmd("startinsert")
-					vim.api.nvim_feedkeys(input, "t", false)
-				end
+				tmux_send(input)
+				tmux_send_key("Enter")
 			end, 100)
 		end)
 	end)
 end
 
-function M.setup_buffer()
+function M.setup_buffer(config_dir, pane_id)
+	if config_dir then
+		current_plans_dir = get_plans_dir(config_dir)
+	end
+	if pane_id then
+		claude_pane_id = pane_id
+	end
 	local buf = vim.api.nvim_get_current_buf()
 
 	vim.bo[buf].modifiable = false
 	vim.bo[buf].readonly = true
 
 	local opts = { buffer = buf, nowait = true }
-	vim.keymap.set("n", "a", M.accept_auto, vim.tbl_extend("force", opts, { desc = "Accept plan (auto)" }))
-	vim.keymap.set("n", "y", M.accept_auto, vim.tbl_extend("force", opts, { desc = "Accept plan (auto)" }))
-	vim.keymap.set("n", "m", M.accept_manual, vim.tbl_extend("force", opts, { desc = "Accept plan (manual)" }))
+	vim.keymap.set("n", "a", M.accept_clear, vim.tbl_extend("force", opts, { desc = "Accept + clear context" }))
+	vim.keymap.set("n", "y", M.accept_auto, vim.tbl_extend("force", opts, { desc = "Accept (auto-approve)" }))
+	vim.keymap.set("n", "m", M.accept_manual, vim.tbl_extend("force", opts, { desc = "Accept (manual approve)" }))
 	vim.keymap.set("n", "q", M.close, vim.tbl_extend("force", opts, { desc = "Close plan" }))
 	vim.keymap.set("n", "n", M.reject, vim.tbl_extend("force", opts, { desc = "Reject plan" }))
 
