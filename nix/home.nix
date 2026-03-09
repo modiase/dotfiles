@@ -19,7 +19,6 @@ let
   devPackages = with pkgs; [
     # keep-sorted start block=yes
     (callPackage ./nixpkgs/ankigen { })
-    (callPackage ./nixpkgs/coder { })
     (callPackage ./nixpkgs/semsearch { })
     (python313.withPackages (
       ps: with ps; [
@@ -107,6 +106,7 @@ in
     ./neovim.nix
     ./nixpkgs/agents-config
     ./nixpkgs/claude-code
+    ./nixpkgs/coder
     ./nixpkgs/gemini-cli
     ./nixpkgs/yazi
     ./sh.nix
@@ -136,7 +136,8 @@ in
             path: type:
             !(lib.hasSuffix "coc-settings.json" path)
             && !(lib.hasSuffix "lua/plugins/coc.lua" path)
-            && !(lib.hasSuffix "lua/plugins/claudecode.lua" path);
+            && !(lib.hasSuffix "lua/plugins/claudecode.lua" path)
+            && !(lib.hasSuffix "lua/plugins/opencode.lua" path);
         };
         recursive = true;
       };
@@ -166,6 +167,10 @@ in
         text = builtins.readFile ../nvim/lua/plugins/claudecode.lua;
       };
 
+      ".config/nvim/lua/plugins/opencode.lua" = lib.mkDefault {
+        text = builtins.readFile ../nvim/lua/plugins/opencode.lua;
+      };
+
       ".config/pass-git-helper/git-pass-mapping.ini" = lib.mkIf (isDev && pkgs.stdenv.isLinux) {
         text = ''
           [github.com*]
@@ -191,4 +196,5 @@ in
   dotfiles.agents-config.enable = lib.mkDefault isDev;
   dotfiles.claude-code.enable = lib.mkDefault isDev;
   dotfiles.gemini-cli.enable = lib.mkDefault isDev;
+  dotfiles.opencode.enable = lib.mkDefault isDev;
 }
