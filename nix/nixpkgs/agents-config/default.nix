@@ -14,8 +14,6 @@ in
   config = lib.mkIf cfg.enable {
     home.file.".agents/AGENTS.md".source = ./AGENTS.md;
     home.file.".agents/skills/adding-skills/SKILL.md".source = ./skills/adding-skills/SKILL.md;
-    home.file.".agents/skills/claude-settings/SKILL.md".source = ./skills/claude-settings/SKILL.md;
     home.file.".agents/skills/cli-tools/SKILL.md".source = ./skills/cli-tools/SKILL.md;
-    home.file.".agents/skills/gemini-settings/SKILL.md".source = ./skills/gemini-settings/SKILL.md;
   };
 }

@@ -50,7 +50,6 @@ in
 
       activation.gemini-agent-links = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         $DRY_RUN_CMD ln -sfn "${agentsDir}/AGENTS.md" "$HOME/.gemini/AGENTS.md"
-        $DRY_RUN_CMD ln -sfn "${agentsDir}/skills" "$HOME/.gemini/skills"
       '';
     };
   };
