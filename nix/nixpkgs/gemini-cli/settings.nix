@@ -1,5 +1,6 @@
 { hookBin }:
 {
+  general.vimMode = true;
   context.fileName = [
     "AGENTS.md"
     "GEMINI.md"
