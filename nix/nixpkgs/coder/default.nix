@@ -1,35 +1,52 @@
-{ pkgs, ... }:
-
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
-  opencodeConfig = pkgs.writeTextFile {
-    name = "opencode.json";
-    text = builtins.readFile ./config/opencode.json;
-  };
+  cfg = config.dotfiles.opencode;
+
+  opencodeConfig = pkgs.writeText "opencode.json" (builtins.readFile ./config/opencode.json);
 
   # SDK requires an API key even though herakles doesn't validate it
-  authConfig = pkgs.writeTextFile {
-    name = "auth.json";
-    text = builtins.toJSON {
+  authJson = pkgs.writeText "opencode-auth.json" (
+    builtins.toJSON {
       herakles = {
         type = "api";
         key = "not-needed";
       };
+    }
+  );
+
+  tuiConfig = pkgs.writeText "opencode-tui.json" (builtins.readFile ./config/tui.json);
+
+  agentsDir = "$HOME/.agents";
+in
+{
+  options.dotfiles.opencode = {
+    enable = lib.mkEnableOption "opencode with extensions";
+  };
+
+  config = lib.mkIf cfg.enable {
+    home = {
+      packages = [ pkgs.opencode ];
+
+      file.".config/opencode/opencode.json".source = opencodeConfig;
+      file.".config/opencode/tui.json".source = tuiConfig;
+
+      activation = {
+        opencode-auth = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          $DRY_RUN_CMD mkdir -p "$HOME/.local/share/opencode"
+          $DRY_RUN_CMD cp -f "${authJson}" "$HOME/.local/share/opencode/auth.json"
+          $DRY_RUN_CMD chmod u+w "$HOME/.local/share/opencode/auth.json"
+        '';
+
+        opencode-agent-links = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          $DRY_RUN_CMD ln -sfn "${agentsDir}/AGENTS.md" "$HOME/.config/opencode/AGENTS.md"
+          $DRY_RUN_CMD ln -sfn "${agentsDir}/skills" "$HOME/.config/opencode/skills"
+        '';
+      };
     };
   };
-in
-pkgs.writeShellScriptBin "opencode" ''
-  mkdir -p ~/.config/opencode
-  mkdir -p ~/.local/share/opencode
-
-  [ ! -f ~/.config/opencode/opencode.json ] || \
-    ! cmp -s ${opencodeConfig} ~/.config/opencode/opencode.json && \
-    cp -f ${opencodeConfig} ~/.config/opencode/opencode.json && \
-    chmod +w ~/.config/opencode/opencode.json
-
-  [ ! -f ~/.local/share/opencode/auth.json ] || \
-    ! cmp -s ${authConfig} ~/.local/share/opencode/auth.json && \
-    cp -f ${authConfig} ~/.local/share/opencode/auth.json && \
-    chmod +w ~/.local/share/opencode/auth.json
-
-  exec ${pkgs.opencode}/bin/opencode "$@"
-''
+}

@@ -7,7 +7,7 @@ if set -q _flag_help
     echo "Create development layout with yazi, neovim, and terminal"
     echo ""
     echo "Options:"
-    echo "  -a, --agent=NAME  Add agent column (gemini or claude)"
+    echo "  -a, --agent=NAME  Add agent column (gemini, claude, opencode)"
     echo "  --no-rename       Don't rename tmux window"
     echo ""
     echo "Layout: yazi (left) | nvim (top-right) / terminal (bottom-right)"
@@ -30,8 +30,10 @@ if set -q _flag_agent
             set agent_cmd gemini --gfg --resume
         case claude
             set agent_cmd claude
+        case opencode
+            set agent_cmd opencode
         case '*'
-            echo "Error: unknown agent '$_flag_agent' (use: gemini, gemini-gfg, claude)" >&2
+            echo "Error: unknown agent '$_flag_agent' (use: gemini, gemini-gfg, claude, opencode)" >&2
             return 1
     end
 end
