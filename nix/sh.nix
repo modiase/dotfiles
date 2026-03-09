@@ -64,6 +64,12 @@ let
     export TMUX_TMPDIR=/run/user/$(id -u)/tmux-$(id -u)
   '';
 
+  setTerm = ''
+    if [ "$TERM" = "xterm-ghostty" ] && ! infocmp xterm-ghostty >/dev/null 2>&1; then
+      export TERM='xterm-256color'
+    fi
+  '';
+
 in
 {
   programs = {
@@ -71,6 +77,7 @@ in
       enable = true;
       initExtra =
         nixInit
+        + setTerm
         + setDisplay
         + setTmuxTmpdir
         + ''
@@ -90,6 +97,7 @@ in
       '';
       initContent =
         nixInit
+        + setTerm
         + setDisplay
         + setTmuxTmpdir
         + ''

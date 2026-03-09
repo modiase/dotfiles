@@ -47,7 +47,10 @@ in
     extraConfig = commonTmuxConfig + ''
       bind r source-file ~/.config/tmux/tmux.conf
 
-      set -g default-terminal "tmux-256color"
+      if-shell "infocmp xterm-ghostty >/dev/null 2>&1" \
+        "set -g default-terminal 'xterm-ghostty'" \
+        "set -g default-terminal 'xterm-256color'"
+
       set -ga terminal-overrides ",xterm-ghostty:Tc,xterm-256color:Tc,tmux-256color:Tc"
       set -as terminal-features ',xterm-256color:clipboard,xterm-ghostty:clipboard,tmux-256color:clipboard'
 
