@@ -62,15 +62,17 @@ function M.open(file_path, config_dir)
 		return
 	end
 
-	local existing_tab = M.find_existing_plan_tab()
+	local existing_tab, existing_buf = M.find_existing_plan_tab()
 	if existing_tab then
 		vim.api.nvim_set_current_tabpage(existing_tab)
-		vim.cmd("edit " .. vim.fn.fnameescape(file_path))
+		if not existing_buf or vim.api.nvim_buf_get_name(existing_buf) ~= file_path then
+			vim.cmd("edit " .. vim.fn.fnameescape(file_path))
+			M.setup_buffer()
+		end
 	else
 		vim.cmd("tabnew " .. vim.fn.fnameescape(file_path))
+		M.setup_buffer()
 	end
-
-	M.setup_buffer()
 end
 
 function M.close()
@@ -139,10 +141,11 @@ function M.reject()
 		end
 		M.close()
 		poll_and_send("4", function()
+			tmux_send_key("Enter")
 			vim.defer_fn(function()
 				tmux_send(input)
 				tmux_send_key("Enter")
-			end, 100)
+			end, 200)
 		end)
 	end)
 end
