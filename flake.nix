@@ -451,6 +451,11 @@
             secrets
             ;
           inherit (shellutils) hook-utils logging-utils build-gce-nixos-image;
+          claude-code =
+            (import nixpkgs {
+              inherit system;
+              config.allowUnfree = true;
+            }).claude-code;
         };
 
         shellutils = shellutils;
