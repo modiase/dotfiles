@@ -80,7 +80,6 @@ let
           eval "$ide_env"
           gemini-nvim-ide-bridge -socket "$NVIM_LISTEN_ADDRESS" -port "$GEMINI_CLI_IDE_SERVER_PORT" -ide-pids "$IDE_PIDS" -workspace "$(pwd)" 2>&1 | logger -t "gemini-bridge''${TARGET_WINDOW:+-$TARGET_WINDOW}''${TARGET_PANE:+-$TARGET_PANE}" &
       fi
-      tmux set-environment GEMINI_PANE "$(tmux display-message -p '#{pane_id}')" 2>/dev/null || true
       exec ${cfg.executable} "$@"
     '';
   };
@@ -108,6 +107,7 @@ in
       ];
 
       file.".gemini/policies/managed.toml".source = policyFile;
+      file.".mcp.json".source = mcpJson;
 
       activation.gemini-settings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         $DRY_RUN_CMD mkdir -p "$HOME/.gemini"

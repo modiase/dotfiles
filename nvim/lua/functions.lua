@@ -147,5 +147,12 @@ end
 
 vim.keymap.set("n", "gm", syn_stack, { silent = true })
 
--- Suppress NVIM_MCP notifications
 vim.api.nvim_create_user_command("NVIM_MCP_DiagnosticsChanged", function() end, {})
+vim.api.nvim_create_autocmd("User", {
+	pattern = "NVIM_MCP_DiagnosticsChanged",
+	callback = function() end,
+})
+vim.api.nvim_create_autocmd("User", {
+	pattern = "NVIM_MCP_Connect",
+	callback = function() end,
+})

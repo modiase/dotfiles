@@ -1,8 +1,13 @@
 { hookBin }:
 {
-  general.vimMode = true;
+  general = {
+    vimMode = true;
+    sessionRetention = {
+      enabled = true;
+      maxAge = "120d";
+    };
+  };
   ide.enabled = true;
-  chatHistoryRetentionDays = 120;
   context.fileName = [
     "AGENTS.md"
     "GEMINI.md"
