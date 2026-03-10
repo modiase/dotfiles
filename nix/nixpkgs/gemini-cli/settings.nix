@@ -1,12 +1,24 @@
 { hookBin }:
 {
   general.vimMode = true;
+  ide.enabled = true;
   chatHistoryRetentionDays = 120;
   context.fileName = [
     "AGENTS.md"
     "GEMINI.md"
   ];
   hooks = {
+    SessionStart = [
+      {
+        matcher = "startup";
+        hooks = [
+          {
+            type = "command";
+            command = "${hookBin} init";
+          }
+        ];
+      }
+    ];
     AfterAgent = [
       {
         hooks = [

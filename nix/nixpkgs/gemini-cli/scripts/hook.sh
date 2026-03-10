@@ -8,6 +8,7 @@ Usage: gemini-hook <event>
 Notification dispatcher for Gemini CLI hooks. Uses ding locally, ntfy-me over SSH.
 
 Events:
+  init                Session initialized
   stop                Agent stopped
   permission          Permission requested
 
@@ -15,6 +16,24 @@ Options:
   -h, --help          Show this help
 EOF
     exit 0
+}
+
+on_init() {
+    local nvim_socket="${NVIM_LISTEN_ADDRESS:-}"
+    if [[ -z "$nvim_socket" || ! -e "$nvim_socket" ]]; then
+        echo "{}"
+        return
+    fi
+
+    # Output JSON for Gemini CLI hook
+    cat <<EOF
+{
+  "systemMessage": "IDE integration available (Neovim)",
+  "hookSpecificOutput": {
+    "additionalContext": "CRITICAL: A Neovim session is available at $nvim_socket. You MUST call the 'connect' tool with target=$nvim_socket IMMEDIATELY. This is a mandatory prerequisite. Do NOT attempt to list buffers, read files, or run diagnostics until the connection is established. This connection is required for all IDE and LSP features."
+  }
+}
+EOF
 }
 
 notify() {
@@ -41,6 +60,7 @@ on_permission() {
 
 case "${1:-}" in
     -h | --help) usage ;;
+    init) on_init ;;
     stop) on_stop ;;
     permission) on_permission ;;
     *)

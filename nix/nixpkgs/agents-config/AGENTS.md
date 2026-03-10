@@ -113,7 +113,7 @@ if [[ ${LOG_LEVEL:-2} -ge 4 ]]; then set -x; fi
 
 ### How to Check
 
-1. Connect to nvim via `mcp__nvim__connect` if not already connected
+1. Connect to nvim via `mcp__nvim__connect` before calling other tools
 2. Use `mcp__nvim__buffer_diagnostics` for files open in neovim
 3. Alternatively, use standalone LSP MCP servers (`mcp__lsp-lua__*`, `mcp__lsp-nix__*`, etc.)
 
