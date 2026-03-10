@@ -98,6 +98,13 @@ module "hestia_backup_monitor" {
   ntfy_message  = "Expected backup from hestia missing"
 }
 
+module "amex_otp" {
+  source                 = "./modules/amex-otp"
+  project_id             = var.project_id
+  region                 = var.region
+  workload_identity_pool = module.workload_identity.pool_name
+}
+
 module "cve_monitor" {
   source        = "./modules/cve-monitor"
   project_id    = var.project_id
