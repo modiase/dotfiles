@@ -62,6 +62,10 @@ vim.keymap.set("n", "<leader>hi", function()
 	end
 end, { desc = "Inspect highlight group" })
 
+vim.keymap.set("n", "<leader>Gp", function()
+	require("utils.gemini-plan").open_latest()
+end, { desc = "Open Gemini plan" })
+
 vim.keymap.set("n", "<leader>wg", function()
 	local root = vim.fn.system("git rev-parse --show-toplevel 2>/dev/null"):gsub("\n", "")
 	if vim.v.shell_error == 0 and root ~= "" then

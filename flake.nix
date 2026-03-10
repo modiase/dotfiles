@@ -124,7 +124,11 @@
       sharedOverlays = [
         (_: super: {
           aleo = super.callPackage ./nix/nixpkgs/aleo { };
+          gemini-nvim-ide-bridge =
+            super.callPackage ./nix/nixpkgs/gemini-cli/scripts/gemini-nvim-ide-bridge
+              { };
           lato = super.callPackage ./nix/nixpkgs/lato { };
+          nvim-mcp = super.callPackage ./nix/nixpkgs/nvim-mcp { };
           space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
         })
       ];
