@@ -1,6 +1,7 @@
 { hookBin }:
 {
   general.vimMode = true;
+  chatHistoryRetentionDays = 120;
   context.fileName = [
     "AGENTS.md"
     "GEMINI.md"
