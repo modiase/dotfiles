@@ -11,6 +11,7 @@ let
   secrets = pkgs.callPackage ../secrets { };
   ntfy-me = pkgs.callPackage ../ntfy-me { inherit secrets ding; };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
+  nvimMcpWrapper = pkgs.callPackage ../nvim-mcp-wrapper { };
 
   hookScript = pkgs.writeShellApplication {
     name = "claude-hook";
@@ -27,18 +28,26 @@ let
     text = builtins.readFile ./scripts/allow-devnull.sh;
   };
 
+  planScriptInputs =
+    with pkgs;
+    [
+      # keep-sorted start
+      neovim-remote
+      tmux
+      # keep-sorted end
+    ]
+    ++ [ tmuxNvimSelect ];
+
   openPlanScript = pkgs.writeShellApplication {
     name = "nvim-plan";
-    runtimeInputs =
-      with pkgs;
-      [
-        # keep-sorted start
-        neovim-remote
-        tmux
-        # keep-sorted end
-      ]
-      ++ [ tmuxNvimSelect ];
+    runtimeInputs = planScriptInputs;
     text = builtins.readFile ./scripts/nvim-plan.sh;
+  };
+
+  closePlanScript = pkgs.writeShellApplication {
+    name = "close-plan";
+    runtimeInputs = planScriptInputs;
+    text = builtins.readFile ./scripts/close-plan.sh;
   };
 
   hookBin = "${hookScript}/bin/claude-hook";
@@ -46,18 +55,31 @@ let
 
   baseSettings = import ./settings.nix { inherit hookBin devnullHookBin; };
 
-  settings = lib.recursiveUpdate baseSettings {
-    hooks.PreToolUse = [
-      {
-        matcher = "ExitPlanMode";
-        hooks = [
-          {
-            type = "command";
-            command = "${openPlanScript}/bin/nvim-plan";
-          }
-        ];
-      }
-    ];
+  settings = baseSettings // {
+    hooks = baseSettings.hooks // {
+      PreToolUse = baseSettings.hooks.PreToolUse ++ [
+        {
+          matcher = "ExitPlanMode";
+          hooks = [
+            {
+              type = "command";
+              command = "${openPlanScript}/bin/nvim-plan";
+            }
+          ];
+        }
+      ];
+      PostToolUse = [
+        {
+          matcher = "ExitPlanMode";
+          hooks = [
+            {
+              type = "command";
+              command = "${closePlanScript}/bin/close-plan";
+            }
+          ];
+        }
+      ];
+    };
   };
 
   settingsJson = pkgs.writeText "claude-settings.json" (builtins.toJSON settings);
@@ -76,14 +98,9 @@ let
     name = "claude";
     runtimeInputs = [
       getClaudeIdeEnv
-      tmuxNvimSelect
     ];
     text = ''
       ${lib.optionalString (cfg.configDir != null) ''export CLAUDE_CONFIG_DIR="${cfg.configDir}"''}
-      eval "$(tmux-nvim-select 2>/dev/null)" || true
-      if [[ -n "''${NVIM_SOCKET:-}" ]]; then
-          export NVIM_LISTEN_ADDRESS="$NVIM_SOCKET"
-      fi
       ide_env=$(get-claude-ide-env 2>/dev/null) || true
       if [ -n "$ide_env" ]; then
           eval "$ide_env"
@@ -112,7 +129,10 @@ in
 
   config = lib.mkIf cfg.enable {
     home = {
-      packages = [ wrappedClaude ];
+      packages = [
+        wrappedClaude
+        nvimMcpWrapper
+      ];
 
       file.".claude/settings.json" = lib.mkIf (cfg.configDir == null) {
         source = settingsJson;

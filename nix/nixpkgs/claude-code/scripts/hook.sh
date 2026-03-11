@@ -19,15 +19,9 @@ EOF
 }
 
 on_init() {
-    local nvim_socket="${NVIM_LISTEN_ADDRESS:-}"
-    if [[ -z "$nvim_socket" || ! -e "$nvim_socket" ]]; then
-        echo "{}"
-        return
-    fi
-
     cat <<EOF
 {
-  "additionalContext": "A Neovim session is available at $nvim_socket. You MUST call mcp__nvim__connect with target=$nvim_socket IMMEDIATELY before using any nvim MCP tools."
+  "additionalContext": "Neovim integration is available. You MUST call mcp__nvim__connect with target=auto IMMEDIATELY before using any nvim MCP tools."
 }
 EOF
 }
