@@ -8,6 +8,7 @@ Usage: claude-hook <event>
 Notification dispatcher for Claude Code hooks. Uses ding locally, ntfy-me over SSH.
 
 Events:
+  init                Session initialized
   stop                Agent stopped
   permission          Permission requested
 
@@ -15,6 +16,20 @@ Options:
   -h, --help          Show this help
 EOF
     exit 0
+}
+
+on_init() {
+    local nvim_socket="${NVIM_LISTEN_ADDRESS:-}"
+    if [[ -z "$nvim_socket" || ! -e "$nvim_socket" ]]; then
+        echo "{}"
+        return
+    fi
+
+    cat <<EOF
+{
+  "additionalContext": "A Neovim session is available at $nvim_socket. You MUST call mcp__nvim__connect with target=$nvim_socket IMMEDIATELY before using any nvim MCP tools."
+}
+EOF
 }
 
 notify() {
@@ -41,6 +56,7 @@ on_permission() {
 
 case "${1:-}" in
     -h | --help) usage ;;
+    init) on_init ;;
     stop) on_stop ;;
     permission) on_permission ;;
     *)

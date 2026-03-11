@@ -31,10 +31,7 @@ let
       nvim = {
         type = "stdio";
         command = "nvim-mcp";
-        args = [
-          "--connect"
-          "auto"
-        ];
+        args = [ ];
         env = { };
       };
     };
@@ -63,6 +60,9 @@ let
       pkgs.inetutils
     ];
     text = ''
+      if [[ -n "''${NVIM_LISTEN_ADDRESS:-}" ]]; then
+          exec nvim-mcp --connect "$NVIM_LISTEN_ADDRESS" "$@" 2> >(logger -t "nvim-mcp''${TARGET_WINDOW:+-$TARGET_WINDOW}''${TARGET_PANE:+-$TARGET_PANE}")
+      fi
       exec nvim-mcp "$@" 2> >(logger -t "nvim-mcp''${TARGET_WINDOW:+-$TARGET_WINDOW}''${TARGET_PANE:+-$TARGET_PANE}")
     '';
   };
@@ -107,7 +107,6 @@ in
       ];
 
       file.".gemini/policies/managed.toml".source = policyFile;
-      file.".mcp.json".source = mcpJson;
 
       activation.gemini-settings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         $DRY_RUN_CMD mkdir -p "$HOME/.gemini"

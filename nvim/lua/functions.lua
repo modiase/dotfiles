@@ -5,7 +5,7 @@ function FullPathCp()
 	-- Get the full path of the current file
 	local abs_path = vim.fn.expand("%:p")
 	print(abs_path)
-	vim.fn.setreg("+", abs_path, c)
+	vim.fn.setreg("+", abs_path, "c")
 end
 
 vim.api.nvim_set_keymap("n", "cp", ":lua FullPathCp()<CR>", { noremap = true })
@@ -24,7 +24,7 @@ function GitAwareCp()
 			-- Found .git, compute relative path
 			local relative_path = vim.fn.fnamemodify(file_path, ":.")
 			print(relative_path)
-			vim.fn.setreg("+", relative_path, c)
+			vim.fn.setreg("+", relative_path, "c")
 			return
 		else
 			-- Move up one directory level
@@ -146,13 +146,3 @@ local function syn_stack()
 end
 
 vim.keymap.set("n", "gm", syn_stack, { silent = true })
-
-vim.api.nvim_create_user_command("NVIM_MCP_DiagnosticsChanged", function() end, {})
-vim.api.nvim_create_autocmd("User", {
-	pattern = "NVIM_MCP_DiagnosticsChanged",
-	callback = function() end,
-})
-vim.api.nvim_create_autocmd("User", {
-	pattern = "NVIM_MCP_Connect",
-	callback = function() end,
-})

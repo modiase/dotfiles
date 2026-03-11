@@ -74,9 +74,16 @@ let
 
   wrappedClaude = pkgs.writeShellApplication {
     name = "claude";
-    runtimeInputs = [ getClaudeIdeEnv ];
+    runtimeInputs = [
+      getClaudeIdeEnv
+      tmuxNvimSelect
+    ];
     text = ''
       ${lib.optionalString (cfg.configDir != null) ''export CLAUDE_CONFIG_DIR="${cfg.configDir}"''}
+      eval "$(tmux-nvim-select 2>/dev/null)" || true
+      if [[ -n "''${NVIM_SOCKET:-}" ]]; then
+          export NVIM_LISTEN_ADDRESS="$NVIM_SOCKET"
+      fi
       ide_env=$(get-claude-ide-env 2>/dev/null) || true
       if [ -n "$ide_env" ]; then
           eval "$ide_env"
