@@ -1,1 +1,1 @@
-git push --force-with-lease $argv
+git push --force-with-lease --force-if-includes $argv
