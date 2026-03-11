@@ -36,26 +36,24 @@ interface Message {
 const secretManager = new SecretManagerServiceClient();
 let cachedCredentials: Credentials | null = null;
 
-async function getSecret(name: string): Promise<string> {
-  const [version] = await secretManager.accessSecretVersion({
-    name: `projects/${PROJECT_ID}/secrets/${name}/versions/latest`,
-  });
-  const raw = version.payload?.data?.toString() ?? "";
-  // Secrets are stored JSON-wrapped as {"value": "..."}
-  const parsed = JSON.parse(raw) as { value: string };
-  return parsed.value;
-}
-
 async function getCredentials(): Promise<Credentials> {
   if (cachedCredentials) return cachedCredentials;
 
-  const [clientId, clientSecret, refreshToken] = await Promise.all([
-    getSecret("hermes-gmail-client-id"),
-    getSecret("hermes-gmail-client-secret"),
-    getSecret("hermes-gmail-refresh-token"),
-  ]);
+  const [version] = await secretManager.accessSecretVersion({
+    name: `projects/${PROJECT_ID}/secrets/amex-otp-gmail-credentials/versions/latest`,
+  });
+  const raw = version.payload?.data?.toString() ?? "";
+  const parsed = JSON.parse(raw) as {
+    client_id: string;
+    client_secret: string;
+    refresh_token: string;
+  };
 
-  cachedCredentials = { clientId, clientSecret, refreshToken };
+  cachedCredentials = {
+    clientId: parsed.client_id,
+    clientSecret: parsed.client_secret,
+    refreshToken: parsed.refresh_token,
+  };
   return cachedCredentials;
 }
 

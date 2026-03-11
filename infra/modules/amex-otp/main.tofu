@@ -13,32 +13,18 @@ resource "google_service_account" "amex_otp" {
   project      = var.project_id
 }
 
-resource "google_secret_manager_secret_iam_member" "gmail_client_id" {
+resource "google_secret_manager_secret_iam_member" "gmail_credentials" {
   project   = var.project_id
-  secret_id = "hermes-gmail-client-id"
+  secret_id = "amex-otp-gmail-credentials"
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.amex_otp.email}"
 }
 
-resource "google_secret_manager_secret_iam_member" "gmail_client_secret" {
+resource "google_secret_manager_secret_iam_member" "amex_credentials_invoker" {
   project   = var.project_id
-  secret_id = "hermes-gmail-client-secret"
+  secret_id = "amex-credentials"
   role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.amex_otp.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "gmail_refresh_token" {
-  project   = var.project_id
-  secret_id = "hermes-gmail-refresh-token"
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.amex_otp.email}"
-}
-
-resource "google_secret_manager_secret_iam_member" "gmail_address" {
-  project   = var.project_id
-  secret_id = "hermes-gmail-address"
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.amex_otp.email}"
+  member    = "serviceAccount:${google_service_account.invoker.email}"
 }
 
 resource "google_storage_bucket" "functions" {
@@ -84,7 +70,7 @@ resource "google_cloudfunctions2_function" "amex_otp" {
     service_account_email = google_service_account.amex_otp.email
     environment_variables = {
       GCP_PROJECT = var.project_id
-      GMAIL_QUERY = "from:welcome.americanexpress.com subject:\"One-Time Verification Code\" newer_than:5m"
+      GMAIL_QUERY = "subject:\"American Express One-Time Verification Code\" newer_than:5m"
     }
   }
 }
