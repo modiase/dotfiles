@@ -13,6 +13,7 @@ After EVERY round of changes, review your work against these guidelines before f
 - During code quality review (after each round of changes), **remove all obvious comments**
 - **ONLY keep comments that explain**: workarounds, non-obvious behaviour, security implications
 - **PRESERVE identifying labels** when names can't be inferred from context
+- **Docstrings are NOT comments** — never remove docstrings during comment cleanup. When making functional changes to a function, REVIEW its docstring: update it to reflect the new behaviour and refine the wording for clarity and conciseness
 
 ### Examples
 
@@ -113,9 +114,11 @@ if [[ ${LOG_LEVEL:-2} -ge 4 ]]; then set -x; fi
 
 ### How to Check
 
-1. Connect to nvim via `mcp__nvim__connect` before calling other tools
-2. Use `mcp__nvim__buffer_diagnostics` for files open in neovim
-3. Alternatively, use standalone LSP MCP servers (`mcp__lsp-lua__*`, `mcp__lsp-nix__*`, etc.)
+1. Connect to nvim via `mcp__nvim__connect` with `target=auto` (the proxy discovers the socket automatically)
+2. For each changed file, use `mcp__nvim__navigate` to open it in Neovim (this ensures LSP attaches)
+3. Wait for LSP with `mcp__nvim__wait_for_lsp_ready` (use the appropriate client name for the filetype)
+4. Use `mcp__nvim__buffer_diagnostics` on the opened buffer
+5. Alternatively, use standalone LSP MCP servers (`mcp__lsp-lua__*`, `mcp__lsp-nix__*`, etc.)
 
 ### When to Skip
 

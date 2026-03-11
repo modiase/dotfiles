@@ -53,19 +53,7 @@ let
     text = builtins.readFile ./scripts/get-gemini-ide-env.sh;
   };
 
-  wrappedNvimMcp = pkgs.writeShellApplication {
-    name = "nvim-mcp";
-    runtimeInputs = [
-      pkgs.nvim-mcp
-      pkgs.inetutils
-    ];
-    text = ''
-      if [[ -n "''${NVIM_LISTEN_ADDRESS:-}" ]]; then
-          exec nvim-mcp --connect "$NVIM_LISTEN_ADDRESS" "$@" 2> >(logger -t "nvim-mcp''${TARGET_WINDOW:+-$TARGET_WINDOW}''${TARGET_PANE:+-$TARGET_PANE}")
-      fi
-      exec nvim-mcp "$@" 2> >(logger -t "nvim-mcp''${TARGET_WINDOW:+-$TARGET_WINDOW}''${TARGET_PANE:+-$TARGET_PANE}")
-    '';
-  };
+  nvimMcpWrapper = pkgs.callPackage ../nvim-mcp-wrapper { };
 
   wrappedGemini = pkgs.writeShellApplication {
     name = "gemini";
@@ -103,7 +91,7 @@ in
     home = {
       packages = [
         wrappedGemini
-        wrappedNvimMcp
+        nvimMcpWrapper
       ];
 
       file.".gemini/policies/managed.toml".source = policyFile;

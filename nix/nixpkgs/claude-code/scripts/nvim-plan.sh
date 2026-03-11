@@ -14,6 +14,9 @@ eval "$(tmux-nvim-select 2>/dev/null)" || exit 0
 if [[ -z "${NVIM_SOCKET:-}" ]]; then exit 0; fi
 
 nvr --servername "$NVIM_SOCKET" \
+    -c "lua require('utils.claude-plan').close()" 2>/dev/null || true
+
+nvr --servername "$NVIM_SOCKET" \
     --remote-tab-silent "$PLAN_FILE" \
     -c "lua require('utils.claude-plan').setup_buffer('$config_dir', '$TMUX_PANE')" 2>/dev/null || true
 

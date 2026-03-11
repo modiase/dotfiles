@@ -8,7 +8,7 @@ return {
 				return
 			end
 			for _, ch_info in pairs(vim.api.nvim_list_chans()) do
-				if ch_info.id > 0 and not (ch_info.client and ch_info.client.name == "coc.nvim") then
+				if ch_info.id > 0 and not (ch_info.client and ch_info.client.name == "coc") then
 					local ok, err = pcall(vim.rpcnotify.notify, ch_info.id, method, ...)
 					if not ok then
 						vim.notify(("rpcnotify: skipping channel %d: %s"):format(ch_info.id, err), vim.log.levels.DEBUG)

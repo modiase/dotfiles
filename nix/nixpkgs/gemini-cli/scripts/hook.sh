@@ -19,18 +19,11 @@ EOF
 }
 
 on_init() {
-    local nvim_socket="${NVIM_LISTEN_ADDRESS:-}"
-    if [[ -z "$nvim_socket" || ! -e "$nvim_socket" ]]; then
-        echo "{}"
-        return
-    fi
-
-    # Output JSON for Gemini CLI hook
     cat <<EOF
 {
   "systemMessage": "IDE integration available (Neovim)",
   "hookSpecificOutput": {
-    "additionalContext": "CRITICAL: A Neovim session is available at $nvim_socket. You MUST call the 'connect' tool with target=$nvim_socket IMMEDIATELY. This is a mandatory prerequisite. Do NOT attempt to list buffers, read files, or run diagnostics until the connection is established. This connection is required for all IDE and LSP features."
+    "additionalContext": "CRITICAL: Neovim integration is available. You MUST call the 'connect' tool with target=auto IMMEDIATELY. This is a mandatory prerequisite. Do NOT attempt to list buffers, read files, or run diagnostics until the connection is established. This connection is required for all IDE and LSP features."
   }
 }
 EOF
