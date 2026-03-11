@@ -9,7 +9,6 @@
   };
   ide.enabled = true;
   context.fileName = [
-    "AGENTS.md"
     "GEMINI.md"
   ];
   hooks = {

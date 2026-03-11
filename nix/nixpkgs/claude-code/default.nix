@@ -6,6 +6,7 @@
 }:
 let
   cfg = config.dotfiles.claude-code;
+  generateAgentsMd = config.dotfiles.agents-config.generateAgentsMd;
 
   ding = pkgs.callPackage ../ding { };
   secrets = pkgs.callPackage ../secrets { };
@@ -98,6 +99,7 @@ let
     name = "claude";
     runtimeInputs = [
       getClaudeIdeEnv
+      generateAgentsMd
     ];
     text = ''
       ${lib.optionalString (cfg.configDir != null) ''export CLAUDE_CONFIG_DIR="${cfg.configDir}"''}
@@ -106,14 +108,14 @@ let
           eval "$ide_env"
           export CLAUDE_CODE_SSE_PORT ENABLE_IDE_INTEGRATION
       fi
-      exec ${pkgs.claude-code}/bin/claude "$@"
+      agents_md=$(generate-agents-md --agent claude)
+      exec ${pkgs.claude-code}/bin/claude --append-system-prompt "$agents_md" "$@"
     '';
   };
 
   agentsDir = "$HOME/.agents";
 
   symlinkScript = configDir: ''
-    $DRY_RUN_CMD ln -sfn "${agentsDir}/AGENTS.md" "${configDir}/CLAUDE.md"
     $DRY_RUN_CMD ln -sfn "${agentsDir}/skills" "${configDir}/skills"
   '';
 in

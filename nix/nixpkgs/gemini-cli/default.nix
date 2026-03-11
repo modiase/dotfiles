@@ -6,6 +6,7 @@
 }:
 let
   cfg = config.dotfiles.gemini-cli;
+  generateAgentsMd = config.dotfiles.agents-config.generateAgentsMd;
 
   ding = pkgs.callPackage ../ding { };
   secrets = pkgs.callPackage ../secrets { };
@@ -17,6 +18,8 @@ let
     runtimeInputs = [
       ding
       ntfy-me
+      generateAgentsMd
+      pkgs.jq
     ];
     text = builtins.readFile ./scripts/hook.sh;
   };
@@ -41,8 +44,6 @@ let
   policyRules = import ./policies.nix;
   tomlFormat = pkgs.formats.toml { };
   policyFile = tomlFormat.generate "managed.toml" { rule = policyRules; };
-
-  agentsDir = "$HOME/.agents";
 
   getGeminiIdeEnv = pkgs.writeShellApplication {
     name = "get-gemini-ide-env";
@@ -105,10 +106,6 @@ in
       activation.gemini-mcp-config = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         $DRY_RUN_CMD cp -f "${mcpJson}" "$HOME/.mcp.json"
         $DRY_RUN_CMD chmod u+w "$HOME/.mcp.json"
-      '';
-
-      activation.gemini-agent-links = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        $DRY_RUN_CMD ln -sfn "${agentsDir}/AGENTS.md" "$HOME/.gemini/AGENTS.md"
       '';
     };
   };
