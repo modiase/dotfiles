@@ -98,34 +98,6 @@ if [[ ${LOG_LEVEL:-2} -ge 4 ]]; then set -x; fi
 ## Language
 - Use **British English** spelling (summarise, colour, organisation)
 
-## Pre-commit
-- After each round of changes, check if the project has a `.pre-commit-config.yaml`
-- If present, run `pre-commit run` on staged files before considering work complete
-- Fix any issues reported by hooks, then re-run until clean
-
-## LSP Diagnostics (MANDATORY if nvim MCP available)
-
-**If the nvim MCP server is available and operational**, you MUST check LSP diagnostics on changed files after each round of changes. This is not optional.
-
-### Requirements
-
-- **Errors (severity 1)**: MUST be fixed before considering work complete
-- **Warnings/Hints (severity 2+)**: Ignore - often false positives or stylistic
-
-### How to Check
-
-1. Connect to nvim via `mcp__nvim__connect` with `target=auto` (the proxy discovers the socket automatically)
-2. For each changed file, use `mcp__nvim__navigate` to open it in Neovim (this ensures LSP attaches)
-3. Wait for LSP with `mcp__nvim__wait_for_lsp_ready` (use the appropriate client name for the filetype)
-4. Use `mcp__nvim__buffer_diagnostics` on the opened buffer
-5. Alternatively, use standalone LSP MCP servers (`mcp__lsp-lua__*`, `mcp__lsp-nix__*`, etc.)
-
-### When to Skip
-
-- If `mcp__nvim__get_targets` returns no targets and LSP MCP servers fail to start
-- If the user explicitly instructs you to skip
-- For file types without LSP support
-
 ## Git Commits
 - **NEVER commit to main** unless explicitly instructed
 - Exception: when working on a separate Claude-authored branch, commits are permitted
@@ -137,19 +109,6 @@ adhoc outputs. - Examples to be mindful of are the outputs of nix-build -E,
 tables, json files and images.
 - This should be the default unless another obvious target is presenet
 (output/data directory) or you are explicitly otherwise instructed.
-
-## Preferred Tools
-| Instead of | Use    | Why                                |
-|------------|--------|------------------------------------|
-| `find`     | `fd`   | Faster, respects .gitignore        |
-| `grep`     | `rg`   | Faster, respects .gitignore        |
-| `man`      | `tldr` | Concise examples, faster to parse  |
-
-See the `cli-tools` skill for common usage translations.
-
-## Missing Tools
-
-This system uses Nix. If a tool is not available in the current environment, use `nix run nixpkgs#<package>` to run it ad-hoc. In exceptional circumstances where a package isn't in nixpkgs or needs customisation, build it from source using `nix-build -E` or a temporary flake.
 
 ## Core Principles
 - **Be Precise**: State facts, not assumptions
