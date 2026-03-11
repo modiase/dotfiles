@@ -180,6 +180,17 @@
         ];
       }
     ];
+    SessionStart = [
+      {
+        matcher = "startup";
+        hooks = [
+          {
+            type = "command";
+            command = "${hookBin} init";
+          }
+        ];
+      }
+    ];
     Stop = [
       {
         hooks = [

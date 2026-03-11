@@ -2,6 +2,22 @@ return {
 	"neoclide/coc.nvim",
 	branch = "release",
 	event = "VeryLazy",
+	init = function()
+		vim.rpcnotify.add_interceptor(function(channel, method, ...)
+			if channel ~= 0 or type(method) ~= "string" or not method:match("^NVIM_MCP") then
+				return
+			end
+			for _, ch_info in pairs(vim.api.nvim_list_chans()) do
+				if ch_info.id > 0 and not (ch_info.client and ch_info.client.name == "coc.nvim") then
+					local ok, err = pcall(vim.rpcnotify.notify, ch_info.id, method, ...)
+					if not ok then
+						vim.notify(("rpcnotify: skipping channel %d: %s"):format(ch_info.id, err), vim.log.levels.DEBUG)
+					end
+				end
+			end
+			return false
+		end)
+	end,
 	config = function()
 		vim.opt.hidden = true
 		vim.opt.backup = false

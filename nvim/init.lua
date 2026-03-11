@@ -1,5 +1,29 @@
 vim.g.mapleader = " "
 
+do
+	local _original = vim.rpcnotify
+	local _interceptors = {}
+	---@class RpcNotify
+	---@field notify fun(channel: integer, method: string, ...: any): any
+	---@field add_interceptor fun(fn: fun(channel: integer, method: string, ...): boolean?)
+	---@operator call(any): any
+	vim.rpcnotify = setmetatable({
+		notify = _original,
+		add_interceptor = function(fn)
+			table.insert(_interceptors, fn)
+		end,
+	}, {
+		__call = function(_, channel, method, ...)
+			for _, interceptor in ipairs(_interceptors) do
+				if interceptor(channel, method, ...) == false then
+					return
+				end
+			end
+			return _original(channel, method, ...)
+		end,
+	})
+end
+
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then
 	vim.fn.system({
