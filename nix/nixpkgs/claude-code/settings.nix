@@ -142,6 +142,7 @@
       # MCP tools (read-only)
       "mcp__exa__*"
       "mcp__nixos__*"
+      "mcp__nvim__*"
 
       # Documentation domains
       "WebFetch(domain:crates.io)"
