@@ -208,5 +208,28 @@ let
     ++ gcloudRules
     ++ systemRules
   );
+
+  notesRules = allow 500 [
+    {
+      toolName = "read_file";
+      argsPattern = "notes/";
+    }
+    {
+      toolName = "write_file";
+      argsPattern = "notes/";
+    }
+    {
+      toolName = "list_directory";
+      argsPattern = "notes/";
+    }
+    {
+      toolName = "replace";
+      argsPattern = "notes/";
+    }
+    {
+      toolName = "glob";
+      argsPattern = "notes/";
+    }
+  ];
 in
-denyRules ++ allowRules
+denyRules ++ allowRules ++ notesRules
