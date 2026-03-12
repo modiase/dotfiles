@@ -5,7 +5,7 @@ usage() {
     cat <<EOF
 Usage: ding [OPTIONS]
 
-Local terminal notification tool (macOS). Adapts to context (tmux, focus state).
+Terminal notification tool. Adapts to context (macOS/Linux, SSH, tmux, focus state).
 
 Options:
   -c, --command CMD       Run command, alert success/error based on exit code
@@ -25,17 +25,12 @@ Tmux placeholders (expanded in --title, --message):
   #{t_pane_index}    Current tmux pane index
 
 Behaviour:
-  - Always plays a sound and sends bell to terminal
-  - Shows notification only if Ghostty is not focused
+  - SSH/Linux: sends OSC 9 notification + bell
+  - macOS local: terminal-notifier with click-to-focus (suppressed when focused)
   - In tmux: bell triggers window flag via monitor-bell
 EOF
     exit 0
 }
-
-if ! command -v osascript &>/dev/null; then
-    echo "Warning: ding requires macOS (osascript not found)" >&2
-    exit 0
-fi
 
 command=""
 message=""
@@ -215,6 +210,20 @@ send_bell() {
     fi
 }
 
+send_osc9() {
+    local msg="$1"
+    if [[ -n "${TMUX_PANE:-}" ]]; then
+        local tty_path
+        tty_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_tty}' 2>/dev/null) || true
+        if [[ -n "$tty_path" ]]; then
+            # shellcheck disable=SC1003
+            printf '\ePtmux;\e\e]9;%s\a\e\\' "$msg" >"$tty_path" 2>/dev/null || true
+        fi
+    else
+        printf '\e]9;%s\a' "$msg"
+    fi
+}
+
 send_alert() {
     local alert_title="$1" msg="$2"
     send_bell
@@ -245,7 +254,19 @@ send_alert() {
     "$notifier" "${args[@]}" &
 }
 
-if [[ $force -eq 0 ]] && ghostty_is_focused && ghostty_tab_is_active && tmux_window_is_active; then
+is_ssh=0
+if [[ -n "${SSH_TTY:-}${SSH_CLIENT:-}${SSH_CONNECTION:-}" ]]; then is_ssh=1; fi
+
+has_osascript=0
+if command -v osascript &>/dev/null; then has_osascript=1; fi
+
+if [[ $is_ssh -eq 1 ]] || [[ $has_osascript -eq 0 ]]; then
+    osc_msg="${title:-ding}"
+    if [[ -n "$message" ]]; then osc_msg="$osc_msg: $message"; fi
+    clog info "osc9 — title='${title:-ding}' message='$message'"
+    send_bell
+    send_osc9 "$osc_msg"
+elif [[ $force -eq 0 ]] && ghostty_is_focused && ghostty_tab_is_active && tmux_window_is_active; then
     clog info "suppressed — focused, tab active, window active"
     send_bell
 else

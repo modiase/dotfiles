@@ -5,7 +5,7 @@ usage() {
     cat <<EOF
 Usage: claude-hook <event>
 
-Notification dispatcher for Claude Code hooks. Uses ding locally, ntfy-me over SSH.
+Notification dispatcher for Claude Code hooks.
 
 Events:
   init                Session initialized
@@ -34,18 +34,10 @@ clog() {
 
 notify() {
     local title="$1" message="$2" alert_type="${3:-}"
-
-    if [[ -n "${SSH_TTY:-}${SSH_CLIENT:-}${SSH_CONNECTION:-}" ]]; then
-        clog info "remote dispatch via ntfy-me: $title"
-        args=(--topic ding --title "$title")
-        [[ -n "$alert_type" ]] && args+=(--alert-type "$alert_type")
-        ntfy-me "${args[@]}" "$message" >/dev/null
-    else
-        clog info "local dispatch via ding: $title"
-        args=(--focus-pane -i "$title" -m "$message")
-        [[ -n "$alert_type" ]] && args+=(-t "$alert_type")
-        ding "${args[@]}" >/dev/null
-    fi
+    local args=(--focus-pane -i "$title" -m "$message")
+    if [[ -n "$alert_type" ]]; then args+=(-t "$alert_type"); fi
+    clog info "dispatch: $title"
+    ding "${args[@]}" >/dev/null
 }
 
 on_stop() {

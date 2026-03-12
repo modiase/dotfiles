@@ -9,15 +9,12 @@ let
   generateAgentsMd = config.dotfiles.agents-config.generateAgentsMd;
 
   ding = pkgs.callPackage ../ding { };
-  secrets = pkgs.callPackage ../secrets { };
-  ntfy-me = pkgs.callPackage ../ntfy-me { inherit secrets ding; };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 
   hookScript = pkgs.writeShellApplication {
     name = "gemini-hook";
     runtimeInputs = [
       ding
-      ntfy-me
       generateAgentsMd
       pkgs.jq
     ];
