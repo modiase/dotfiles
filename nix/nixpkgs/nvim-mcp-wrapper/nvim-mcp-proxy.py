@@ -12,6 +12,26 @@ import sys
 import threading
 
 
+def build_component():
+    window = os.environ.get("TARGET_WINDOW", "")
+    if window:
+        return f"nvim-mcp(@{window})"
+    return "nvim-mcp"
+
+
+COMPONENT = build_component()
+
+
+def clog(logger_proc, level, msg):
+    if not logger_proc:
+        return
+    try:
+        logger_proc.stdin.write(f"[devlogs] {level.upper()} {COMPONENT}: {msg}\n")
+        logger_proc.stdin.flush()
+    except (BrokenPipeError, OSError):
+        pass
+
+
 def discover_socket():
     """Run tmux-nvim-select and return the NVIM_SOCKET path, or None."""
     try:
@@ -37,6 +57,21 @@ def error_response(req_id, code, message):
     )
 
 
+def relay_stderr(src, logger_proc):
+    """Relay child stderr lines through structured logging."""
+    try:
+        for line in src:
+            line = line.rstrip("\n")
+            if logger_proc:
+                try:
+                    logger_proc.stdin.write(f"[devlogs] DEBUG {COMPONENT}: {line}\n")
+                    logger_proc.stdin.flush()
+                except (BrokenPipeError, OSError):
+                    pass
+    except (BrokenPipeError, OSError):
+        pass
+
+
 def relay(src, dst):
     """Copy lines from src to dst until EOF."""
     try:
@@ -47,17 +82,6 @@ def relay(src, dst):
         pass
 
 
-def build_log_tag():
-    tag = "nvim-mcp"
-    window = os.environ.get("TARGET_WINDOW", "")
-    pane = os.environ.get("TARGET_PANE", "")
-    if window:
-        tag += f"-{window}"
-    if pane:
-        tag += f"-{pane}"
-    return tag
-
-
 def main():
     socket = discover_socket()
     cmd = ["nvim-mcp"] + sys.argv[1:]
@@ -66,12 +90,17 @@ def main():
 
     try:
         logger_proc = subprocess.Popen(
-            ["logger", "-t", build_log_tag()],
+            ["logger", "-t", "devlogs"],
             stdin=subprocess.PIPE,
             text=True,
         )
     except FileNotFoundError:
         logger_proc = None
+
+    if socket:
+        clog(logger_proc, "info", f"socket discovered socket={socket}")
+    else:
+        clog(logger_proc, "info", "no socket discovered")
 
     proc = subprocess.Popen(
         cmd,
@@ -83,8 +112,9 @@ def main():
     )
 
     threading.Thread(target=relay, args=(proc.stdout, sys.stdout), daemon=True).start()
-    stderr_dst = logger_proc.stdin if logger_proc else open(os.devnull, "w")
-    threading.Thread(target=relay, args=(proc.stderr, stderr_dst), daemon=True).start()
+    threading.Thread(
+        target=relay_stderr, args=(proc.stderr, logger_proc), daemon=True
+    ).start()
 
     try:
         for line in sys.stdin:
@@ -105,10 +135,16 @@ def main():
                 if not target or target == "auto":
                     resolved = discover_socket()
                     if resolved:
+                        clog(
+                            logger_proc,
+                            "info",
+                            f"auto-connect resolved socket={resolved}",
+                        )
                         msg["params"]["arguments"]["target"] = resolved
                         proc.stdin.write(json.dumps(msg) + "\n")
                         proc.stdin.flush()
                     else:
+                        clog(logger_proc, "error", "auto-connect failed, no nvim")
                         sys.stdout.write(
                             error_response(
                                 msg.get("id"),

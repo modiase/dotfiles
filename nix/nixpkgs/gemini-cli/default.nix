@@ -61,10 +61,19 @@ let
       pkgs.inetutils
     ];
     text = ''
+      _DL_WIN=""
+      if [ -n "''${TMUX_PANE:-}" ]; then
+          _DL_WIN=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
+      fi
+      _DL_TAG="gemini"
+      if [ -n "$_DL_WIN" ]; then _DL_TAG="gemini(@$_DL_WIN)"; fi
       ide_env=$(get-gemini-ide-env 2>/dev/null) || true
       if [ -n "$ide_env" ]; then
           eval "$ide_env"
-          gemini-nvim-ide-bridge -socket "$NVIM_LISTEN_ADDRESS" -port "$GEMINI_CLI_IDE_SERVER_PORT" -ide-pids "$IDE_PIDS" -workspace "$(pwd)" 2>&1 | logger -t "gemini-bridge''${TARGET_WINDOW:+-$TARGET_WINDOW}''${TARGET_PANE:+-$TARGET_PANE}" &
+          logger -t devlogs "[devlogs] INFO $_DL_TAG: IDE integration found port=$GEMINI_CLI_IDE_SERVER_PORT"
+          gemini-nvim-ide-bridge -socket "$NVIM_LISTEN_ADDRESS" -port "$GEMINI_CLI_IDE_SERVER_PORT" -ide-pids "$IDE_PIDS" -workspace "$(pwd)" 2>&1 | logger -t devlogs &
+      else
+          logger -t devlogs "[devlogs] INFO $_DL_TAG: no IDE integration"
       fi
       exec ${cfg.executable} "$@"
     '';

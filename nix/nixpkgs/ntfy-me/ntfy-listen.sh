@@ -17,7 +17,7 @@ last_ding=0
 clog() {
     local level="$1"
     shift
-    logger -t devlogs -p "user.$level" "ntfy-listen: $*"
+    logger -t devlogs -p "user.$level" "[devlogs] ${level^^} ntfy-listen: $*"
 }
 
 state_dir="$HOME/.local/state/ntfy-listen"

@@ -1,7 +1,22 @@
 # shellcheck shell=bash
+
+_DEVLOGS_WIN=""
+if [[ -n "${TMUX_PANE:-}" ]]; then
+    _DEVLOGS_WIN=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
+fi
+
+clog() {
+    local level="$1"
+    shift
+    local win=""
+    if [[ -n "$_DEVLOGS_WIN" ]]; then win="(@$_DEVLOGS_WIN)"; fi
+    logger -t devlogs -p "user.$level" "[devlogs] ${level^^} get-gemini-ide-env${win}: $*"
+}
+
 eval "$(tmux-nvim-select 2>/dev/null)" || exit 1
 
 if [[ -z "$NVIM_SOCKET" || ! -e "$NVIM_SOCKET" ]]; then
+    clog info "no nvim"
     exit 1
 fi
 
@@ -30,7 +45,9 @@ for _ in {1..5}; do
         break
     fi
 done
+clog debug "pid_chain=$all_pids"
 
+clog info "resolved port=$port socket=$NVIM_SOCKET pane=$TARGET_PANE window=$target_window"
 echo "export NVIM_LISTEN_ADDRESS='$NVIM_SOCKET'"
 echo "export GEMINI_CLI_IDE_SERVER_PORT='$port'"
 echo "export TARGET_PANE='$TARGET_PANE'"

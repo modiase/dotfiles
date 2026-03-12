@@ -1,15 +1,31 @@
 # shellcheck shell=bash
 if [[ -z "$TMUX" ]]; then exit 1; fi
 
-# Scope to the window containing the calling pane so the correct neovim is
-# selected when multiple tmux windows each run a neovim + Claude Code pair.
+_DEVLOGS_WIN=""
+if [[ -n "${TMUX_PANE:-}" ]]; then
+    _DEVLOGS_WIN=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
+fi
+
+clog() {
+    local level="$1"
+    shift
+    local win=""
+    if [[ -n "$_DEVLOGS_WIN" ]]; then win="(@$_DEVLOGS_WIN)"; fi
+    logger -t devlogs -p "user.$level" "[devlogs] ${level^^} tmux-nvim-select${win}: $*"
+}
+
 caller_window=$(tmux display-message -t "${TMUX_PANE:-}" -p '#{window_id}' 2>/dev/null) || true
 if [[ -z "$caller_window" ]]; then
-    logger -t tmux-nvim-select "failed to resolve window for TMUX_PANE=${TMUX_PANE:-unset}"
+    clog error "can't resolve window pane=${TMUX_PANE:-unset}"
     exit 1
 fi
+clog debug "caller window=$caller_window pane=${TMUX_PANE:-}"
+
 panes=$(tmux list-panes -t "$caller_window" -F '#{pane_id} #{pane_current_command} #{pane_current_path}' | grep -i nvim) || true
-if [[ -z "$panes" ]]; then exit 1; fi
+if [[ -z "$panes" ]]; then
+    clog info "no nvim panes found window=$caller_window"
+    exit 1
+fi
 
 count=$(echo "$panes" | wc -l | tr -d ' ')
 if [[ "$count" -eq 1 ]]; then
@@ -23,7 +39,11 @@ fi
 
 target_pane=$(echo "$selected" | cut -d' ' -f1)
 socket=$(tmux show-environment "NVIM_$target_pane" 2>/dev/null | cut -d= -f2) || true
-if [[ -z "$socket" || ! -e "$socket" ]]; then exit 1; fi
+if [[ -z "$socket" || ! -e "$socket" ]]; then
+    clog info "invalid socket pane=$target_pane"
+    exit 1
+fi
 
+clog info "resolved pane=$target_pane socket=$socket"
 echo "TARGET_PANE=$target_pane"
 echo "NVIM_SOCKET=$socket"
