@@ -9,6 +9,22 @@ else
     set socket_opt -S /tmp/tmux-local
 end
 
+set -l ghostty_tab_id ""
+if test -n "$GHOSTTY_RESOURCES_DIR"
+    set ghostty_tab_id (osascript -e '
+        tell application "Ghostty"
+            try
+                return id of selected tab of front window
+            end try
+        end tell
+    ' 2>/dev/null)
+end
+
+set -l tab_env
+if test -n "$ghostty_tab_id"
+    set tab_env \; set-environment GHOSTTY_TAB_ID $ghostty_tab_id
+end
+
 set -l has_custom_socket 0
 set -l other_args
 set -l skip_next 0
@@ -32,16 +48,16 @@ if test (count $other_args) -eq 0
     set -l session_count (count $sessions)
 
     if test $session_count -eq 0
-        command tmux $socket_opt new-session -s $default_session
+        command tmux $socket_opt new-session -s $default_session $tab_env
     else if test $session_count -eq 1
-        command tmux $socket_opt attach -t $sessions[1]
+        command tmux $socket_opt attach -t $sessions[1] $tab_env
     else
         set -l choice (printf "%s\n" "Create new ($default_session)" $sessions | gum choose --header "Select session:")
         test -z "$choice"; and return 1
         if string match -q "Create new*" "$choice"
-            command tmux $socket_opt new-session -s $default_session
+            command tmux $socket_opt new-session -s $default_session $tab_env
         else
-            command tmux $socket_opt attach -t $choice
+            command tmux $socket_opt attach -t $choice $tab_env
         end
     end
 else

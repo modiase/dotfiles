@@ -14,7 +14,11 @@ fi
 my_hostname=$(hostname -s)
 current_host="source-$my_hostname"
 last_ding=0
-log() { echo "[$(date '+%H:%M:%S')] $*"; }
+clog() {
+    local level="$1"
+    shift
+    logger -t devlogs -p "user.$level" "ntfy-listen: $*"
+}
 
 state_dir="$HOME/.local/state/ntfy-listen"
 state_file="$state_dir/last-id"
@@ -42,7 +46,7 @@ pid_targeted=$!
 ) &
 pid_watchdog=$!
 
-log "Starting ntfy-listen (host=$my_hostname, since=$last_id)"
+clog info "starting (host=$my_hostname, since=$last_id)"
 
 while read -r line; do
     [[ "$line" != data:* ]] && continue
@@ -57,26 +61,26 @@ while read -r line; do
     now=$(date +%s)
     age=$((now - msg_time))
 
-    log "Received: id=$msg_id topic=$topic title=\"$title\" age=${age}s tags=[$tags]"
+    clog debug "received: id=$msg_id topic=$topic title=\"$title\" age=${age}s tags=[$tags]"
 
     [[ -n "$msg_id" ]] && echo "$msg_id" >"$state_file"
 
     if [[ "$tags" == *"$current_host"* ]]; then
-        log "  -> Skipped (from self)"
+        clog info "skipped (from self)"
         continue
     fi
     if [[ $age -gt 300 ]]; then
-        log "  -> Skipped (too old: ${age}s)"
+        clog info "skipped (too old: ${age}s)"
         continue
     fi
     if [[ $((now - last_ding)) -lt 2 ]]; then
-        log "  -> Skipped (debounce)"
+        clog info "skipped (debounce)"
         continue
     fi
     last_ding=$now
 
     if [[ -n "$message" ]]; then
-        log "  -> Alert sent"
+        clog info "delivered: title=\"$title\""
         source_host=""
         if [[ "$tags" =~ source-([a-zA-Z0-9_-]+) ]]; then
             source_host="${BASH_REMATCH[1]}"
