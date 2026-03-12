@@ -11,6 +11,9 @@
   context.fileName = [
     "GEMINI.md"
   ];
+  context.includeDirectories = [
+    "~/notes"
+  ];
   hooks = {
     SessionStart = [
       {
