@@ -30,5 +30,6 @@ in
   config = lib.mkIf cfg.enable {
     home.file.".agents/skills/adding-skills/SKILL.md".source = ./skills/adding-skills/SKILL.md;
     home.file.".agents/skills/cli-tools/SKILL.md".source = ./skills/cli-tools/SKILL.md;
+    home.file.".agents/skills/commit-message/SKILL.md".source = ./skills/commit-message/SKILL.md;
   };
 }
