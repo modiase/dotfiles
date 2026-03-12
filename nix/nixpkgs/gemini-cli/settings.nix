@@ -26,6 +26,16 @@
         ];
       }
     ];
+    BeforeAgent = [
+      {
+        hooks = [
+          {
+            type = "command";
+            command = "${hookBin} before-agent";
+          }
+        ];
+      }
+    ];
     AfterAgent = [
       {
         hooks = [
