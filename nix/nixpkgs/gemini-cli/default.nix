@@ -42,6 +42,17 @@ let
   tomlFormat = pkgs.formats.toml { };
   policyFile = tomlFormat.generate "managed.toml" { rule = policyRules; };
 
+  geminiEditor = pkgs.writeShellApplication {
+    name = "gemini-editor";
+    runtimeInputs = [
+      tmuxNvimSelect
+      pkgs.gum
+      pkgs.neovim-remote
+      pkgs.tmux
+    ];
+    text = builtins.readFile ./scripts/gemini-editor.sh;
+  };
+
   getGeminiIdeEnv = pkgs.writeShellApplication {
     name = "get-gemini-ide-env";
     runtimeInputs = [
@@ -56,11 +67,13 @@ let
   wrappedGemini = pkgs.writeShellApplication {
     name = "gemini";
     runtimeInputs = [
+      geminiEditor
       getGeminiIdeEnv
       pkgs.gemini-nvim-ide-bridge
       pkgs.inetutils
     ];
     text = ''
+      export EDITOR=gemini-editor
       _DL_WIN=""
       if [ -n "''${TMUX_PANE:-}" ]; then
           _DL_WIN=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
