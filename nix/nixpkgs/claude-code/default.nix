@@ -9,17 +9,12 @@ let
   generateAgentsMd = config.dotfiles.agents-config.generateAgentsMd;
 
   ding = pkgs.callPackage ../ding { };
-  secrets = pkgs.callPackage ../secrets { };
-  ntfy-me = pkgs.callPackage ../ntfy-me { inherit secrets ding; };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
   nvimMcpWrapper = pkgs.callPackage ../nvim-mcp-wrapper { };
 
   hookScript = pkgs.writeShellApplication {
     name = "claude-hook";
-    runtimeInputs = [
-      ding
-      ntfy-me
-    ];
+    runtimeInputs = [ ding ];
     text = builtins.readFile ./scripts/hook.sh;
   };
 
