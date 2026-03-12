@@ -16,7 +16,7 @@ Options:
   --focus-pane            Capture tmux pane; click notification to focus
   --no-bell               Disable terminal bell
   --no-sound              Disable alert sound
-  --debug                 Log debug info to /tmp/ding-debug.log
+  --debug                 Enable bash trace logging
   -h, --help              Show this help
 
 Tmux placeholders (expanded in --title, --message):
@@ -41,7 +41,6 @@ command=""
 message=""
 title=""
 
-debug=0
 focus_pane=""
 force=0
 no_bell=0
@@ -51,7 +50,6 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -h | --help) usage ;;
         --debug)
-            debug=1
             exec 3>>/tmp/ding-debug.log
             BASH_XTRACEFD=3
             set -x
@@ -119,8 +117,10 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-log_debug() {
-    [[ $debug -eq 1 ]] && echo "[$(date '+%H:%M:%S')] $*" >>/tmp/ding-debug.log || true
+clog() {
+    local level="$1"
+    shift
+    logger -t devlogs -p "user.$level" "ding: $*"
 }
 
 expand_tmux_vars() {
@@ -166,6 +166,7 @@ fi
 ghostty_is_focused() {
     local frontmost
     frontmost=$(osascript -e 'tell application "System Events" to name of (first process whose frontmost is true)')
+    clog debug "frontmost app: $frontmost"
     [[ "${frontmost,,}" == "ghostty" ]]
 }
 
@@ -174,7 +175,33 @@ tmux_window_is_active() {
     local pane_window active_window
     pane_window=$(tmux display-message -t "$TMUX_PANE" -p '#{window_id}' 2>/dev/null) || return 1
     active_window=$(tmux display-message -p '#{window_id}' 2>/dev/null) || return 1
+    clog debug "tmux window: pane=$pane_window active=$active_window"
     [[ "$pane_window" == "$active_window" ]]
+}
+
+ghostty_tab_is_active() {
+    [[ -z "${TMUX_PANE:-}" ]] && return 0
+    local raw
+    raw=$(tmux show-environment GHOSTTY_TAB_ID 2>/dev/null) || true
+    if [[ "$raw" != *=* ]]; then
+        clog debug "no GHOSTTY_TAB_ID in tmux env"
+        return 0
+    fi
+    local stored_tab_id="${raw#*=}"
+    local current_tab_id
+    current_tab_id=$(osascript -e '
+        tell application "Ghostty"
+            try
+                return id of selected tab of front window
+            end try
+        end tell
+    ' 2>/dev/null) || true
+    if [[ -z "$current_tab_id" ]]; then
+        clog debug "applescript unavailable, assuming tab active"
+        return 0
+    fi
+    clog debug "tab: stored=$stored_tab_id current=$current_tab_id"
+    [[ "$stored_tab_id" == "$current_tab_id" ]]
 }
 
 send_bell() {
@@ -218,12 +245,10 @@ send_alert() {
     "$notifier" "${args[@]}" &
 }
 
-log_debug "--- ding invoked ---"
-
-if [[ $force -eq 0 ]] && ghostty_is_focused && tmux_window_is_active; then
-    log_debug "Caller focused, bell only"
+if [[ $force -eq 0 ]] && ghostty_is_focused && ghostty_tab_is_active && tmux_window_is_active; then
+    clog info "suppressed — focused, tab active, window active"
     send_bell
 else
-    log_debug "Sound + alert"
+    clog info "alert — title='${title:-ding}' message='$message'"
     send_alert "${title:-ding}" "$message"
 fi

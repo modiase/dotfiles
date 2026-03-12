@@ -30,14 +30,22 @@ on_init() {
     }'
 }
 
+clog() {
+    local level="$1"
+    shift
+    logger -t devlogs -p "user.$level" "gemini-hook: $*"
+}
+
 notify() {
     local title="$1" message="$2" alert_type="${3:-}"
 
     if [[ -n "${SSH_TTY:-}${SSH_CLIENT:-}${SSH_CONNECTION:-}" ]]; then
+        clog info "remote dispatch via ntfy-me: $title"
         args=(--topic ding --title "$title")
         [[ -n "$alert_type" ]] && args+=(--alert-type "$alert_type")
         ntfy-me "${args[@]}" "$message" >/dev/null
     else
+        clog info "local dispatch via ding: $title"
         args=(--focus-pane -i "$title" -m "$message")
         [[ -n "$alert_type" ]] && args+=(-t "$alert_type")
         ding "${args[@]}" >/dev/null
