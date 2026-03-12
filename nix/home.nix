@@ -19,6 +19,7 @@ let
   devPackages = with pkgs; [
     # keep-sorted start block=yes
     (callPackage ./nixpkgs/ankigen { })
+    (callPackage ./nixpkgs/devlogs { })
     (callPackage ./nixpkgs/semsearch { })
     (python313.withPackages (
       ps: with ps; [

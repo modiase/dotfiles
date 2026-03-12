@@ -6,10 +6,8 @@
 }:
 let
   cfg = config.dotfiles.claude-code;
-  generateAgentsMd = config.dotfiles.agents-config.generateAgentsMd;
 
   ding = pkgs.callPackage ../ding { };
-  tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
   nvimMcpWrapper = pkgs.callPackage ../nvim-mcp-wrapper { };
 
   hookScript = pkgs.writeShellApplication {
@@ -23,6 +21,8 @@ let
     runtimeInputs = [ pkgs.jq ];
     text = builtins.readFile ./scripts/allow-devnull.sh;
   };
+
+  tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 
   planScriptInputs =
     with pkgs;
@@ -80,32 +80,10 @@ let
 
   settingsJson = pkgs.writeText "claude-settings.json" (builtins.toJSON settings);
 
-  getClaudeIdeEnv = pkgs.writeShellApplication {
-    name = "get-claude-ide-env";
-    runtimeInputs = [
-      tmuxNvimSelect
-      pkgs.jq
-      pkgs.neovim-remote
-    ];
-    text = builtins.readFile ./scripts/get-claude-ide-env.sh;
-  };
-
-  wrappedClaude = pkgs.writeShellApplication {
-    name = "claude";
-    runtimeInputs = [
-      getClaudeIdeEnv
-      generateAgentsMd
-    ];
-    text = ''
-      ${lib.optionalString (cfg.configDir != null) ''export CLAUDE_CONFIG_DIR="${cfg.configDir}"''}
-      ide_env=$(get-claude-ide-env 2>/dev/null) || true
-      if [ -n "$ide_env" ]; then
-          eval "$ide_env"
-          export CLAUDE_CODE_SSE_PORT ENABLE_IDE_INTEGRATION
-      fi
-      agents_md=$(generate-agents-md --agent claude)
-      exec ${pkgs.claude-code}/bin/claude --append-system-prompt "$agents_md" "$@"
-    '';
+  wrappedClaude = import ./wrapper.nix {
+    inherit pkgs;
+    claudeCodePkg = pkgs.claude-code;
+    configDir = cfg.configDir;
   };
 
   agentsDir = "$HOME/.agents";

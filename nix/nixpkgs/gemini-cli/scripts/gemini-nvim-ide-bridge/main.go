@@ -14,6 +14,21 @@ import (
 	"github.com/neovim/go-client/nvim"
 )
 
+var component string
+
+func init() {
+	win := os.Getenv("TARGET_WINDOW")
+	if win != "" {
+		component = fmt.Sprintf("gemini-bridge(@%s)", win)
+	} else {
+		component = "gemini-bridge"
+	}
+}
+
+func clog(level, msg string) {
+	log.Printf("[devlogs] %s %s: %s", strings.ToUpper(level), component, msg)
+}
+
 type JSONRPCRequest struct {
 	JSONRPC string          `json:"jsonrpc"`
 	Method  string          `json:"method"`
@@ -171,6 +186,7 @@ func (b *Bridge) handleMCP(w http.ResponseWriter, r *http.Request) {
 			Arguments json.RawMessage `json:"arguments"`
 		}
 		if err = json.Unmarshal(req.Params, &params); err == nil {
+			clog("info", fmt.Sprintf("tool call=%s", params.Name))
 			switch params.Name {
 			case "get_active_editor_context":
 				result, err = b.getActiveEditorContext()
@@ -188,6 +204,10 @@ func (b *Bridge) handleMCP(w http.ResponseWriter, r *http.Request) {
 		}
 	default:
 		err = fmt.Errorf("method not found: %s", req.Method)
+	}
+
+	if err != nil {
+		clog("error", fmt.Sprintf("method=%s err=%v", req.Method, err))
 	}
 
 	resp := JSONRPCResponse{
@@ -328,7 +348,8 @@ func main() {
 	}
 
 	if *socketPath == "" {
-		log.Fatal("Neovim socket path required")
+		clog("error", "neovim socket path required")
+		os.Exit(1)
 	}
 
 	if *workspace == "" {
@@ -348,8 +369,10 @@ func main() {
 		authToken:  authToken,
 	}
 
+	clog("info", fmt.Sprintf("connecting socket=%s port=%d", *socketPath, *port))
 	if err := bridge.connectNvim(); err != nil {
-		log.Fatalf("Failed to connect to Neovim: %v", err)
+		clog("error", fmt.Sprintf("connect failed err=%v", err))
+		os.Exit(1)
 	}
 
 	var discoveryFiles []string
@@ -390,7 +413,7 @@ func main() {
 		Handler: mux,
 	}
 
-	fmt.Printf("Bridge listening on http://localhost:%d\n", *port)
+	clog("info", fmt.Sprintf("listening port=%d", *port))
 
 	go func() {
 		for {
@@ -401,5 +424,8 @@ func main() {
 		}
 	}()
 
-	log.Fatal(server.ListenAndServe())
+	if err := server.ListenAndServe(); err != nil {
+		clog("error", fmt.Sprintf("server err=%v", err))
+		os.Exit(1)
+	}
 }
