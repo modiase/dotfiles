@@ -9,6 +9,7 @@ Notification dispatcher for Gemini CLI hooks.
 
 Events:
   init                Session initialized
+  before-agent        Before each agent turn
   stop                Agent stopped
   permission          Permission requested
 
@@ -51,6 +52,15 @@ notify() {
     ding "${args[@]}" >/dev/null
 }
 
+on_before_agent() {
+    if [[ "$PWD" != */google/src/cloud/* ]]; then return 0; fi
+    jq -n '{
+      "hookSpecificOutput": {
+        "additionalContext": "REMINDER: You are in google3. For codebase search and exploration, use codesearch MCP tools — not find, fd, rg, or grep (they cannot index google3). These tools are fine only for specific known file paths."
+      }
+    }'
+}
+
 on_stop() {
     notify '#{t_window_name}' 'Agent stopped'
 }
@@ -62,6 +72,7 @@ on_permission() {
 case "${1:-}" in
     -h | --help) usage ;;
     init) on_init ;;
+    before-agent) on_before_agent ;;
     stop) on_stop ;;
     permission) on_permission ;;
     *)

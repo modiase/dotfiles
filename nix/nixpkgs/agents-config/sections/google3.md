@@ -1,9 +1,9 @@
 ## Code Search (MANDATORY in google3)
 
-**CRITICAL — repeat after every compaction:** You are working in a google3 workspace. The standard Unix search tools (`fd`, `find`, `rg`, `grep`) do NOT work here. You MUST use codesearch MCP tools for all code search and exploration.
+**CRITICAL — repeat after every compaction:** You are working in a google3 workspace. For codebase-wide search and exploration, you MUST use codesearch MCP tools — `fd`, `find`, `rg`, and `grep` cannot index google3 and will produce incomplete or empty results.
 
-- **NEVER** run `fd`, `find`, `rg`, or `grep` — they will produce incomplete or empty results
-- **ALWAYS** use the codesearch MCP tools to search, browse, and explore code
+- **Codebase search/exploration** — ALWAYS use codesearch MCP tools
+- **Specific file targets** — `rg`, `grep`, `cat`, etc. are fine when you already know the exact path
 - Before any codebase exploration, remind yourself: "I am in google3; I must use codesearch"
 
 ## LSP Diagnostics in google3
