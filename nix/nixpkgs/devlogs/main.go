@@ -32,19 +32,24 @@ func resolveWindowFilter(w string) string {
 func main() {
 	history := flag.String("history", "", "Show history (e.g. 1h, 30m, 2d)")
 	window := flag.String("w", "", "Window filter (-1 for all, N for specific)")
+	plain := flag.Bool("plain", false, "Force plain text output (no TUI)")
 	flag.Parse()
 
 	winFilter := resolveWindowFilter(*window)
+	plainMode := *plain || !isatty.IsTerminal(os.Stdout.Fd())
 
 	ch := make(chan LogEntry, 256)
-	go streamLogs(*history, ch)
+	live := !plainMode || *history == ""
+	go streamLogs(*history, live, ch)
 
-	if !isatty.IsTerminal(os.Stdout.Fd()) {
+	if plainMode {
 		for entry := range ch {
 			if winFilter != "" && entry.Window != "" && entry.Window != winFilter {
 				continue
 			}
-			fmt.Println(entry.Raw)
+			if _, err := fmt.Println(entry.Raw); err != nil {
+				return
+			}
 		}
 		return
 	}
