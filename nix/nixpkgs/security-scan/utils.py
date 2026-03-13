@@ -1,4 +1,4 @@
-"""Shared utilities for CVE scanner."""
+"""Shared utilities for security scanner."""
 
 import sys
 from datetime import datetime, timedelta, timezone

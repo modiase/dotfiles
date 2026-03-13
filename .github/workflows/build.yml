@@ -33,7 +33,7 @@ jobs:
         env:
           NIXPKGS_ALLOW_UNFREE: 1
         run: |
-          nix build .#cve-scanner --no-link
+          nix build .#security-scan --no-link
           nix build .#secrets --no-link
           nix build .#build-system-image --no-link
 
