@@ -24,6 +24,7 @@ pre-commit:
 
     if has '\.nix$'; then run pre-commit-nix; fi
     run keep-sorted
+    run pre-commit-gitleaks
     if has '\.lua$'; then run pre-commit-lua; fi
     if has '\.fish$'; then run pre-commit-fish; fi
     if has '\.go$'; then run pre-commit-go; fi
@@ -140,6 +141,11 @@ pre-commit-terraform:
     #!/usr/bin/env bash
     set -euo pipefail
     nix-shell -p opentofu --run 'cd infra && tofu fmt'
+
+pre-commit-gitleaks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    nix-shell -p gitleaks --run "gitleaks protect --staged"
 
 pre-commit-whitespace:
     #!/usr/bin/env bash
