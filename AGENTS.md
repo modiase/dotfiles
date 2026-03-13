@@ -25,8 +25,8 @@ MANDATORY: you must never call bin/activate without being explicitly asked to.
 
 Before claiming "activation hasn't run" or similar, **always check the logs first**:
 
-- **macOS**: `~/Library/Logs/dotfiles-activate.log`
-- **Linux**: `journalctl -u dotfiles-activate` or system journal
+- **Linux**: `journalctl -t dotfiles-activate`
+- **macOS**: `/usr/bin/log show --predicate 'eventMessage CONTAINS "dotfiles-activate"' --info --last 1h`
 
 Compare log timestamps against your last message to determine if activation ran recently. The logs show each activation step and any errors encountered.
 

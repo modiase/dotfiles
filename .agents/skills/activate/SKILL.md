@@ -49,8 +49,8 @@ Global flags **must come BEFORE** subcommand:
 ## Debugging
 
 Check logs before claiming "nothing happened":
-- **macOS**: `~/Library/Logs/dotfiles-activate.log`
-- **Linux**: `journalctl -u dotfiles-activate`
+- **Linux**: `journalctl -t dotfiles-activate`
+- **macOS**: `/usr/bin/log show --predicate 'eventMessage CONTAINS "dotfiles-activate"' --info --last 1h`
 
 ## Important
 
