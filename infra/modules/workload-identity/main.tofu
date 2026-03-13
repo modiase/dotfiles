@@ -65,5 +65,5 @@ resource "google_iam_workload_identity_pool_provider" "oidc" {
     "google.subject" = "assertion.sub"
   }
 
-  attribute_condition = "assertion.kid == assertion.sub"
+  attribute_condition = "assertion.sub in ['hestia', 'amex-otp']"
 }
