@@ -76,7 +76,7 @@ func buildHistoryCmd(duration string) *exec.Cmd {
 
 type logLineMsg LogEntry
 
-func streamLogs(history string, ch chan<- LogEntry) {
+func streamLogs(history string, live bool, ch chan<- LogEntry) {
 	defer close(ch)
 	if history != "" {
 		cmd := buildHistoryCmd(history)
@@ -90,6 +90,10 @@ func streamLogs(history string, ch chan<- LogEntry) {
 				ch <- parseLogEntry(line)
 			}
 		}
+	}
+
+	if !live {
+		return
 	}
 
 	cmd := buildStreamCmd()
