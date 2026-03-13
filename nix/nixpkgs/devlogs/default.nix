@@ -6,7 +6,7 @@ pkgs.buildGoModule {
   pname = "devlogs";
   version = "1.0.0";
   src = ./.;
-  vendorHash = "sha256-ecodI5ImNp1bkpNcUDKnKK/uUzJwOQ+u2lTz6eq7kM4=";
+  vendorHash = "sha256-Q2+XCqLYd6ZVvgJJ7mxdofkEG6WyTZUz+2XEXxgrn4w=";
   ldflags = [
     "-s"
     "-w"

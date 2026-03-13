@@ -31,10 +31,11 @@ type model struct {
 	width        int
 	height       int
 	logCh        chan LogEntry
+	levelFilter  string
 	windowFilter string
 }
 
-func newModel(ch chan LogEntry, windowFilter string, historyMode bool) model {
+func newModel(ch chan LogEntry, windowFilter string, levelFilter string, historyMode bool) model {
 	ti := textinput.New()
 	ti.Placeholder = "type to filter..."
 	ti.CharLimit = 256
@@ -42,6 +43,7 @@ func newModel(ch chan LogEntry, windowFilter string, historyMode bool) model {
 	return model{
 		filter:       ti,
 		follow:       !historyMode,
+		levelFilter:  levelFilter,
 		logCh:        ch,
 		windowFilter: windowFilter,
 	}
@@ -77,7 +79,7 @@ func (m *model) refilter() {
 	m.filtered = m.filtered[:0]
 	query := m.filter.Value()
 	for i, e := range m.entries {
-		if m.matchWindow(e) && matchFilter(query, e.Raw) {
+		if m.matchWindow(e) && matchLevel(m.levelFilter, e) && matchFilter(query, formatEntry(e)) {
 			m.filtered = append(m.filtered, i)
 		}
 	}
@@ -131,7 +133,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case logLineMsg:
 		entry := LogEntry(msg)
 		m.entries = append(m.entries, entry)
-		if m.matchWindow(entry) && matchFilter(m.filter.Value(), entry.Raw) {
+		if m.matchWindow(entry) && matchLevel(m.levelFilter, entry) && matchFilter(m.filter.Value(), formatEntry(entry)) {
 			m.filtered = append(m.filtered, len(m.entries)-1)
 		}
 		if m.follow {
@@ -254,12 +256,16 @@ func renderEntry(e LogEntry, width int) string {
 	}
 
 	ts := dimStyle.Render(e.Timestamp)
+	pid := ""
+	if e.PID != "" {
+		pid = dimStyle.Render("["+e.PID+"]") + " "
+	}
 	comp := ""
 	if e.Component != "" {
 		comp = lipgloss.NewStyle().Bold(true).Render(e.Component) + ": "
 	}
 
-	line := fmt.Sprintf("%s %s %s%s", ts, levelStr, comp, e.Message)
+	line := fmt.Sprintf("%s %s%s %s%s", ts, pid, levelStr, comp, e.Message)
 	if width > 0 && lipgloss.Width(line) > width {
 		runes := []rune(line)
 		if len(runes) > width-1 {
