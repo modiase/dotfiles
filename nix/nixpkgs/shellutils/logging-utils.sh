@@ -65,31 +65,16 @@ _pad_center() {
 }
 
 log_to_system() {
-    local level="$1" msg="$2" label="${3:-main}"
+    local level="$1" msg="$2"
     local syslog_level="$level"
-    local os
-    os=$(uname -s)
 
     case "$level" in
         warn) syslog_level="warning" ;;
         error) syslog_level="err" ;;
     esac
 
-    case "$os" in
-        Linux)
-            command -v systemd-cat >/dev/null 2>&1 && {
-                echo "$msg" | systemd-cat -t "dotfiles-activate" -p "$syslog_level"
-                return
-            }
-            command -v logger >/dev/null 2>&1 &&
-                logger -t "dotfiles-activate" -p "user.${syslog_level}" "$msg"
-            ;;
-        Darwin)
-            local logfile="$HOME/Library/Logs/dotfiles-activate.log"
-            $_MKDIR -p "${logfile%/*}"
-            printf "%s | %s | %s | %s\n" "$($_DATE '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "$label" 20)" "$(_pad_center "$level" 7)" "$msg" >>"$logfile"
-            ;;
-    esac
+    command -v logger >/dev/null 2>&1 &&
+        logger -t "dotfiles-activate" -p "user.${syslog_level}" "[dotfiles-activate] $msg"
 }
 
 log_trace_to_pipe() {
@@ -98,47 +83,14 @@ log_trace_to_pipe() {
         return
     }
 
-    local os padded_level
-    os=$(uname -s)
-    padded_level="$(_pad_center "trace" 7)"
-
-    case "$os" in
-        Darwin)
-            local logfile="$HOME/Library/Logs/dotfiles-activate.log"
-            $_MKDIR -p "${logfile%/*}"
-            while IFS= read -r line; do
-                [[ "$line" == *"logging-utils.sh:"* ]] && continue
-                local label="${line%% | *}"
-                local msg="${line#* | }"
-                printf "%s | %s | %s | %s\n" \
-                    "$($_DATE '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "$label" 20)" "$padded_level" "$msg" >>"$logfile"
-            done
-            ;;
-        Linux)
-            if command -v systemd-cat >/dev/null 2>&1; then
-                while IFS= read -r line; do
-                    [[ "$line" == *"logging-utils.sh:"* ]] && continue
-                    local label="${line%% | *}"
-                    local msg="${line#* | }"
-                    printf "%s | %s | %s | %s\n" \
-                        "$($_DATE '+%Y-%m-%d %H:%M:%S')" "$(_pad_center "$label" 20)" "$padded_level" "$msg"
-                done | systemd-cat -t "dotfiles-activate" -p "debug"
-            elif command -v logger >/dev/null 2>&1; then
-                while IFS= read -r line; do
-                    [[ "$line" == *"logging-utils.sh:"* ]] && continue
-                    local label="${line%% | *}"
-                    local msg="${line#* | }"
-                    logger -t "dotfiles-activate" -p "user.debug" \
-                        "$($_DATE '+%Y-%m-%d %H:%M:%S') | $(_pad_center "$label" 20) | $padded_level | $msg"
-                done
-            else
-                $_CAT >/dev/null
-            fi
-            ;;
-        *)
-            $_CAT >/dev/null
-            ;;
-    esac
+    if command -v logger >/dev/null 2>&1; then
+        while IFS= read -r line; do
+            [[ "$line" == *"logging-utils.sh:"* ]] && continue
+            logger -t "dotfiles-activate" -p "user.debug" "[dotfiles-activate] $line"
+        done
+    else
+        $_CAT >/dev/null
+    fi
 }
 
 timestamp_prefix() {
@@ -243,7 +195,7 @@ run_logged() {
             set -o pipefail
             "$@" 2>&1 | while IFS= read -r line; do
                 if [[ -n "$line" ]]; then
-                    log_to_system "debug" "$line" "$label"
+                    log_to_system "debug" "$line"
                     _print_log_line "debug" "$line" "$label" "$COLOR_CYAN" "$COLOR_WHITE" false
                 fi
             done
@@ -281,11 +233,11 @@ run_logged() {
         set -o pipefail
         "$@" > >(while IFS= read -r line; do
             echo "$line" >"$tmpfile"
-            log_to_system "info" "$line" "$label"
+            log_to_system "info" "$line"
         done) \
         2> >(while IFS= read -r line; do
             echo "$line" >"$tmpfile"
-            log_to_system "warn" "$line" "$label"
+            log_to_system "warn" "$line"
         done)
     ) &
     local cmd_pid=$!
