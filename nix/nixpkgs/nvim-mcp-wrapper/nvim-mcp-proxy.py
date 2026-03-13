@@ -10,52 +10,14 @@ Uses asyncio for concurrency — no threads, no locks.
 """
 
 import asyncio
+import contextlib
 import json
-import logging
 import os
-import subprocess
 import sys
-from typing import Final
 
+from devlogs import setup_logging
 
-PRIORITY_MAP: Final = {
-    logging.DEBUG: "user.debug",
-    logging.INFO: "user.info",
-    logging.WARNING: "user.warning",
-    logging.ERROR: "user.err",
-    logging.CRITICAL: "user.crit",
-}
-
-
-class SyslogHandler(logging.Handler):
-    """Log via /usr/bin/logger for macOS unified logging."""
-
-    def emit(self, record: logging.LogRecord) -> None:
-        priority = PRIORITY_MAP.get(record.levelno, "user.info")
-        msg = self.format(record)
-        try:
-            subprocess.run(
-                ["logger", "-t", "devlogs", "-p", priority, msg],
-                timeout=2,
-            )
-        except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-            pass
-
-
-def _build_logger() -> logging.Logger:
-    window = os.environ.get("TARGET_WINDOW", "")
-    component = f"nvim-mcp(@{window})" if window else "nvim-mcp"
-    logger = logging.getLogger("nvim-mcp-proxy")
-    logger.setLevel(logging.DEBUG)
-    handler = SyslogHandler()
-    handler.setFormatter(
-        logging.Formatter(f"[devlogs] %(levelname)s {component}: %(message)s")
-    )
-    logger.addHandler(handler)
-    return logger
-
-
-log = _build_logger()
+log = setup_logging("nvim-mcp")
 
 
 def _error_response(req_id: object, code: int, message: str) -> str:
@@ -78,17 +40,22 @@ def _extract_connection_id(result: dict) -> str | None:
     for item in result.get("content", ()):
         if item.get("type") != "text":
             continue
-        try:
+        with contextlib.suppress(json.JSONDecodeError, TypeError):
             data = json.loads(item["text"])
             cid = data.get("connection_id")
             if cid:
                 return cid
-        except (json.JSONDecodeError, TypeError):
-            pass
     return None
 
 
 class McpProxy:
+    """Sits between mcp-clients and nvim-mcp, making Neovim connections invisible.
+
+    AI agents shouldn't need to know which tmux pane has Neovim or what its
+    socket path is. This proxy resolves that automatically so tools like
+    connect(target="auto") and connection_id="auto" just work.
+    """
+
     def __init__(self) -> None:
         self.socket: str | None = None
         self.connection_id: str | None = None
@@ -116,7 +83,8 @@ class McpProxy:
         sys.stdout.flush()
 
     async def discover_socket(self) -> str | None:
-        try:
+        """Find Neovim in the caller's tmux window via tmux-nvim-select."""
+        with contextlib.suppress(asyncio.TimeoutError, FileNotFoundError, OSError):
             proc = await asyncio.create_subprocess_exec(
                 "tmux-nvim-select",
                 stdout=asyncio.subprocess.PIPE,
@@ -128,12 +96,10 @@ class McpProxy:
             for line in stdout.decode().splitlines():
                 if line.startswith("NVIM_SOCKET="):
                     return line.split("=", 1)[1]
-        except (asyncio.TimeoutError, FileNotFoundError, OSError):
-            pass
         return None
 
     async def send_connect(self, socket_path: str) -> str | None:
-        """Send a connect call to nvim-mcp and await the connection_id."""
+        """Inject a connect call into nvim-mcp on behalf of the agent."""
         req_id = self._next_auto_id()
         self._auto_ids.add(req_id)
         fut: asyncio.Future[str | None] = asyncio.get_running_loop().create_future()
@@ -159,7 +125,6 @@ class McpProxy:
             return None
 
     def _resolve_pending_connect(self, msg_id: str, msg: dict) -> None:
-        """Resolve a pending connect future from a response message."""
         fut = self._pending_connects.pop(msg_id)
         error = msg.get("error")
 
@@ -177,15 +142,15 @@ class McpProxy:
             fut.set_result(cid)
 
     def _is_filtered(self, msg_id: object) -> bool:
-        """Check whether a response should be suppressed (auto-generated request)."""
         if msg_id is None or msg_id not in self._auto_ids:
             return False
         self._auto_ids.discard(msg_id)
         return True
 
     async def relay_stdout(self) -> None:
+        """Forward nvim-mcp responses, filtering out proxy-initiated ones."""
         assert self._child and self._child.stdout
-        try:
+        with contextlib.suppress(asyncio.CancelledError, OSError):
             async for raw in self._child.stdout:
                 line = raw.decode().rstrip("\n")
                 if not line:
@@ -208,18 +173,15 @@ class McpProxy:
                     continue
 
                 await self._write_stdout(line)
-        except (asyncio.CancelledError, OSError):
-            pass
 
     async def relay_stderr(self) -> None:
         assert self._child and self._child.stderr
-        try:
+        with contextlib.suppress(asyncio.CancelledError, OSError):
             async for raw in self._child.stderr:
                 log.debug(raw.decode().rstrip("\n"))
-        except (asyncio.CancelledError, OSError):
-            pass
 
     async def auto_detect_loop(self) -> None:
+        """Periodically check socket health and reconnect if Neovim restarts."""
         try:
             while True:
                 await asyncio.sleep(3)
@@ -252,7 +214,6 @@ class McpProxy:
         self._pending_connects[str(req_id)] = fut
 
     async def _handle_auto_connect(self, msg: dict, req_id: object) -> None:
-        """Handle connect/connect_tcp with target empty or "auto"."""
         if self.socket and os.path.exists(self.socket) and self.connection_id:
             log.info("connect no-op, already connected socket=%s", self.socket)
             await self._write_stdout(
@@ -296,6 +257,7 @@ class McpProxy:
         await self.send_connect(resolved)
 
     async def handle_message(self, msg: dict) -> None:
+        """Route an incoming JSON-RPC message, rewriting auto-connect targets."""
         params = msg.get("params", {})
         req_id = msg.get("id")
 
@@ -323,6 +285,7 @@ class McpProxy:
         await self._write_child(json.dumps(msg))
 
     async def relay_stdin(self) -> None:
+        """Read JSON-RPC from the agent (stdin) and dispatch via handle_message."""
         loop = asyncio.get_running_loop()
         while True:
             line = await loop.run_in_executor(None, sys.stdin.readline)
@@ -341,6 +304,7 @@ class McpProxy:
             await self.handle_message(msg)
 
     async def run(self) -> None:
+        """Launch nvim-mcp and bridge stdin/stdout until the agent disconnects."""
         socket_path = await self.discover_socket()
         cmd = ["nvim-mcp"] + sys.argv[1:]
         if socket_path:
@@ -363,21 +327,19 @@ class McpProxy:
             asyncio.create_task(self.auto_detect_loop()),
         ]
 
-        try:
+        with contextlib.suppress(KeyboardInterrupt, EOFError):
             await self.relay_stdin()
-        except (KeyboardInterrupt, EOFError):
-            pass
-        finally:
-            for t in tasks:
-                t.cancel()
-            self._child.terminate()
-            try:
-                await asyncio.wait_for(self._child.wait(), timeout=5)
-            except asyncio.TimeoutError:
-                self._child.kill()
-                await self._child.wait()
-            await asyncio.gather(*tasks, return_exceptions=True)
-            sys.exit(self._child.returncode or 0)
+
+        for t in tasks:
+            t.cancel()
+        self._child.terminate()
+        try:
+            await asyncio.wait_for(self._child.wait(), timeout=5)
+        except asyncio.TimeoutError:
+            self._child.kill()
+            await self._child.wait()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        sys.exit(self._child.returncode or 0)
 
 
 if __name__ == "__main__":

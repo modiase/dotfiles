@@ -4,6 +4,7 @@
   configDir ? null,
 }:
 let
+  devlogsLib = pkgs.callPackage ../devlogs-lib { };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 
   getClaudeIdeEnv = pkgs.writeShellApplication {
@@ -13,7 +14,12 @@ let
       pkgs.jq
       pkgs.neovim-remote
     ];
-    text = builtins.readFile ./scripts/get-claude-ide-env.sh;
+    text = ''
+      export DEVLOGS_COMPONENT="get-claude-ide-env"
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
+      ${builtins.readFile ./scripts/get-claude-ide-env.sh}
+    '';
   };
 
   generateAgentsMd = pkgs.writeShellApplication {
@@ -35,19 +41,16 @@ pkgs.writeShellApplication {
   ];
   text = ''
     ${configDirExport}
-    _DL_WIN=""
-    if [ -n "''${TMUX_PANE:-}" ]; then
-        _DL_WIN=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
-    fi
-    _DL_TAG="claude"
-    if [ -n "$_DL_WIN" ]; then _DL_TAG="claude(@$_DL_WIN)"; fi
+    export DEVLOGS_COMPONENT="claude"
+    # shellcheck source=/dev/null
+    source ${devlogsLib.shell}/lib/devlogs.sh
     ide_env=$(get-claude-ide-env 2>/dev/null) || true
     if [ -n "$ide_env" ]; then
         eval "$ide_env"
         export CLAUDE_CODE_SSE_PORT ENABLE_IDE_INTEGRATION
-        logger -t devlogs "[devlogs] INFO $_DL_TAG: IDE integration found port=$CLAUDE_CODE_SSE_PORT"
+        clog info "IDE integration found port=$CLAUDE_CODE_SSE_PORT"
     else
-        logger -t devlogs "[devlogs] INFO $_DL_TAG: no IDE integration"
+        clog info "no IDE integration"
     fi
     agents_md=$(generate-agents-md --agent claude)
     exec ${claudeCodePkg}/bin/claude --append-system-prompt "$agents_md" "$@"

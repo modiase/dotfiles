@@ -212,6 +212,18 @@ Compare log timestamps against your last message to determine if activation ran 
   - `@dataclass(frozen=True)` for data containers
 - **Mark constants with `Final`**: Use `from typing import Final` and annotate module-level constants as `CONSTANT: Final = value`
 - **Benefits**: Prevents accidental mutation, enables hashing, clearer intent, type checkers catch reassignment
+- **Use `contextlib.suppress`** instead of `try: ... except SomeError: pass`:
+  ```python
+  # Good
+  with contextlib.suppress(KeyError, TypeError):
+      value = data[key]
+
+  # Avoid
+  try:
+      value = data[key]
+  except (KeyError, TypeError):
+      pass
+  ```
 
 ## Fish Functions
 

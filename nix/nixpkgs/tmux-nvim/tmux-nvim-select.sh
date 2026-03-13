@@ -1,19 +1,6 @@
 # shellcheck shell=bash
 if [[ -z "$TMUX" ]]; then exit 1; fi
 
-_DEVLOGS_WIN=""
-if [[ -n "${TMUX_PANE:-}" ]]; then
-    _DEVLOGS_WIN=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
-fi
-
-clog() {
-    local level="$1"
-    shift
-    local win=""
-    if [[ -n "$_DEVLOGS_WIN" ]]; then win="(@$_DEVLOGS_WIN)"; fi
-    logger -t devlogs -p "user.$level" "[devlogs] ${level^^} tmux-nvim-select${win}: $*"
-}
-
 caller_window=$(tmux display-message -t "${TMUX_PANE:-}" -p '#{window_id}' 2>/dev/null) || true
 if [[ -z "$caller_window" ]]; then
     clog error "can't resolve window pane=${TMUX_PANE:-unset}"

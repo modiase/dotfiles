@@ -7,19 +7,30 @@
 let
   cfg = config.dotfiles.claude-code;
 
+  devlogsLib = pkgs.callPackage ../devlogs-lib { };
   ding = pkgs.callPackage ../ding { };
   nvimMcpWrapper = pkgs.callPackage ../nvim-mcp-wrapper { };
 
   hookScript = pkgs.writeShellApplication {
     name = "claude-hook";
     runtimeInputs = [ ding ];
-    text = builtins.readFile ./scripts/hook.sh;
+    text = ''
+      export DEVLOGS_COMPONENT="claude-hook"
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
+      ${builtins.readFile ./scripts/hook.sh}
+    '';
   };
 
   devnullHookScript = pkgs.writeShellApplication {
     name = "allow-devnull";
     runtimeInputs = [ pkgs.jq ];
-    text = builtins.readFile ./scripts/allow-devnull.sh;
+    text = ''
+      export DEVLOGS_COMPONENT="allow-devnull"
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
+      ${builtins.readFile ./scripts/allow-devnull.sh}
+    '';
   };
 
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
@@ -37,13 +48,23 @@ let
   openPlanScript = pkgs.writeShellApplication {
     name = "nvim-plan";
     runtimeInputs = planScriptInputs;
-    text = builtins.readFile ./scripts/nvim-plan.sh;
+    text = ''
+      export DEVLOGS_COMPONENT="nvim-plan"
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
+      ${builtins.readFile ./scripts/nvim-plan.sh}
+    '';
   };
 
   closePlanScript = pkgs.writeShellApplication {
     name = "close-plan";
     runtimeInputs = planScriptInputs;
-    text = builtins.readFile ./scripts/close-plan.sh;
+    text = ''
+      export DEVLOGS_COMPONENT="close-plan"
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
+      ${builtins.readFile ./scripts/close-plan.sh}
+    '';
   };
 
   hookBin = "${hookScript}/bin/claude-hook";

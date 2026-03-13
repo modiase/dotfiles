@@ -14,12 +14,6 @@ fi
 my_hostname=$(hostname -s)
 current_host="source-$my_hostname"
 last_ding=0
-clog() {
-    local level="$1"
-    shift
-    logger -t devlogs -p "user.$level" "[devlogs] ${level^^} ntfy-listen: $*"
-}
-
 state_dir="$HOME/.local/state/ntfy-listen"
 state_file="$state_dir/last-id"
 mkdir -p "$state_dir"
