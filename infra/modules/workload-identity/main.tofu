@@ -64,4 +64,6 @@ resource "google_iam_workload_identity_pool_provider" "oidc" {
   attribute_mapping = {
     "google.subject" = "assertion.sub"
   }
+
+  attribute_condition = "assertion.kid == assertion.sub"
 }
