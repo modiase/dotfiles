@@ -7,8 +7,6 @@ from base64 import urlsafe_b64encode
 from dataclasses import dataclass
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from importlib import resources
-from pathlib import Path
 from typing import Final, Generic, TypeVar
 
 import aiohttp
@@ -33,37 +31,6 @@ class NtfyOptions:
 @dataclass(frozen=True)
 class EmailOptions:
     subject: str = ""
-
-
-def _load_template(name: str) -> str:
-    static = resources.files(__package__).joinpath("static")
-    return Path(str(static.joinpath(name))).read_text()
-
-
-def format_cve_email(cves: list[CVE]) -> str:
-    email_template = _load_template("email.html")
-    row_template = _load_template("email_row.html")
-
-    rows = []
-    for cve in cves:
-        escaped_id = html.escape(cve.id)
-        escaped_product = html.escape(cve.product)
-        escaped_desc = html.escape(cve.description)
-        short_desc = (
-            escaped_desc[:150] + "..." if len(escaped_desc) > 150 else escaped_desc
-        )
-        systems_str = ", ".join(sorted(cve.systems)) if cve.systems else "-"
-        rows.append(
-            row_template.format(
-                id=escaped_id,
-                score=cve.score,
-                product=escaped_product,
-                systems=html.escape(systems_str),
-                description=short_desc,
-            )
-        )
-
-    return email_template.format(count=len(cves), rows="".join(rows))
 
 
 class Notifier(ABC, Generic[OptionsT]):
@@ -255,7 +222,7 @@ class GmailNotifier(Notifier[EmailOptions]):
         client_secret: str,
         refresh_token: str,
         address: str,
-        from_name: str = "CVE Scanner",
+        from_name: str = "Security Scan",
     ):
         self.client_id = client_id
         self.client_secret = client_secret
@@ -374,3 +341,25 @@ class GmailNotifier(Notifier[EmailOptions]):
             return await self._send_via_api(
                 session, subject, html_content, dry_run=dry_run
             )
+
+
+def format_cve_email(cves: list[CVE]) -> str:
+    rows = []
+    for cve in cves:
+        escaped_id = html.escape(cve.id)
+        escaped_product = html.escape(cve.product)
+        escaped_desc = html.escape(cve.description)
+        short_desc = (
+            escaped_desc[:150] + "..." if len(escaped_desc) > 150 else escaped_desc
+        )
+        systems_str = ", ".join(sorted(cve.systems)) if cve.systems else "-"
+        rows.append(
+            f"<tr><td>{escaped_id}</td><td>{cve.score}</td>"
+            f"<td>{escaped_product}</td><td>{html.escape(systems_str)}</td>"
+            f"<td>{short_desc}</td></tr>"
+        )
+
+    return (
+        "<table><tr><th>CVE</th><th>CVSS</th><th>Product</th>"
+        f"<th>Systems</th><th>Description</th></tr>{''.join(rows)}</table>"
+    )

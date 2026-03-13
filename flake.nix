@@ -437,7 +437,7 @@
             '';
         };
 
-        cve-scanner = pkgs.callPackage ./nix/nixpkgs/cve-scanner { };
+        security-scan = pkgs.callPackage ./nix/nixpkgs/security-scan { };
         derive-age-key = pkgs.callPackage ./nix/nixpkgs/derive-age-key { };
         secrets = pkgs.callPackage ./nix/nixpkgs/secrets { };
         shellutils = pkgs.callPackage ./nix/nixpkgs/shellutils { };
@@ -446,7 +446,7 @@
         packages = {
           inherit
             build-system-image
-            cve-scanner
+            security-scan
             derive-age-key
             secrets
             ;
@@ -469,10 +469,10 @@
             program = "${build-system-image}/bin/build-system-image";
             description = "Interactive builder for NixOS system images";
           };
-          cve-scanner = {
+          security-scan = {
             type = "app";
-            program = "${cve-scanner}/bin/cve-scanner";
-            description = "CVE vulnerability scanner with NVD API integration";
+            program = "${security-scan}/bin/security-scan";
+            description = "Security vulnerability scanner with NVD API integration";
           };
           secrets = {
             type = "app";

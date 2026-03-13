@@ -1,8 +1,6 @@
-"""CVE scanning via NVD API and NixOS package extraction."""
+"""CVE scanning via NVD API."""
 
 import asyncio
-import json
-import subprocess
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -17,14 +15,6 @@ NVD_API: Final = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 REQUEST_TIMEOUT: Final = aiohttp.ClientTimeout(total=30, connect=10)
 
 NOT_FOUND_TTL: Final = 2592000  # 30 days in seconds
-STRIP_SUFFIXES: Final = (
-    "-wrapped",
-    "-full",
-    "-minimal",
-    "-tiny",
-    "-small",
-    "-unwrapped",
-)
 NOT_FOUND_FILE: Final = "nvd-not-found.txt"
 
 
@@ -300,76 +290,3 @@ async def scan_products(
         logger.info(f"Cached {len(new_not_found)} new not-found products")
 
     return tuple(all_cves)
-
-
-def strip_package_suffix(name: str) -> str:
-    """Strip common Nix package suffixes."""
-    for suffix in STRIP_SUFFIXES:
-        if name.endswith(suffix):
-            return name[: -len(suffix)]
-    return name
-
-
-def eval_packages(flake_ref: str, attr: str) -> set[str]:
-    """Evaluate a Nix attribute and extract package names."""
-    result = subprocess.run(
-        (
-            "nix",
-            "eval",
-            "--json",
-            attr,
-            "--apply",
-            "map (p: p.pname or p.name or null)",
-        ),
-        capture_output=True,
-        text=True,
-        errors="replace",
-    )
-
-    if result.returncode != 0:
-        logger.debug(f"Failed to eval {attr}: {result.stderr.strip()}")
-        return set()
-
-    try:
-        names = json.loads(result.stdout)
-        return {strip_package_suffix(n) for n in names if n}
-    except json.JSONDecodeError:
-        logger.warning(f"Invalid JSON from nix eval: {result.stdout[:200]}")
-        return set()
-
-
-def get_system_packages(
-    flake_ref: str, systems: tuple[str, ...]
-) -> dict[str, tuple[str, ...]]:
-    """Extract packages per system using nix eval."""
-    system_packages: dict[str, tuple[str, ...]] = {}
-
-    for system in systems:
-        logger.info(f"Evaluating packages for {system}...")
-        packages: set[str] = set()
-
-        sys_attr = f"{flake_ref}#nixosConfigurations.{system}.config.environment.systemPackages"
-        packages.update(eval_packages(flake_ref, sys_attr))
-
-        home_attr = f"{flake_ref}#homeConfigurations.moye-{system}.config.home.packages"
-        packages.update(eval_packages(flake_ref, home_attr))
-
-        system_packages[system] = tuple(sorted(packages))
-        logger.info(f"Found {len(packages)} packages in {system}")
-
-    return system_packages
-
-
-def get_package_to_systems(
-    system_packages: dict[str, tuple[str, ...]],
-) -> dict[str, frozenset[str]]:
-    """Build reverse mapping from package name to systems containing it."""
-    pkg_to_systems: dict[str, set[str]] = {}
-
-    for system, packages in system_packages.items():
-        for pkg in packages:
-            if pkg not in pkg_to_systems:
-                pkg_to_systems[pkg] = set()
-            pkg_to_systems[pkg].add(system)
-
-    return {pkg: frozenset(systems) for pkg, systems in pkg_to_systems.items()}

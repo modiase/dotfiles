@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CVE Scanner CLI - scan products for vulnerabilities and send alerts."""
+"""Security scanner CLI - scan products for vulnerabilities and send alerts."""
 
 import asyncio
 import json
@@ -10,13 +10,9 @@ from pathlib import Path
 import click
 from loguru import logger
 
-from .digest import generate_digest
 from .notifiers import EmailNotifier, GmailNotifier, NtfyNotifier, NtfyOptions
-from .repo import sync_repo
 from .scanner import (
     CVE,
-    get_package_to_systems,
-    get_system_packages,
     scan_products,
 )
 from .utils import (
@@ -32,7 +28,7 @@ from .utils import (
 @click.group()
 @click.version_option(version="1.0.0")
 def cli():
-    """CVE Scanner - scan products for vulnerabilities via NVD API."""
+    """Security scanner - scan products for vulnerabilities via NVD API."""
     pass
 
 
@@ -53,7 +49,7 @@ def cli():
     "--state-dir",
     type=click.Path(path_type=Path),
     envvar="CVE_STATE_DIR",
-    default="/var/lib/cve-scanner",
+    default="/var/lib/security-scan",
     help="State directory for tracking seen CVEs",
 )
 @click.option(
@@ -287,7 +283,7 @@ def send(
             gmail_client_secret,
             gmail_refresh_token,
             gmail_address,
-            from_name=from_name or "CVE Scanner",
+            from_name=from_name or "Security Scan",
         )
 
     if raw:
@@ -333,197 +329,6 @@ def send(
 
     if not success:
         sys.exit(1)
-
-
-@cli.command("scan-system")
-@click.option(
-    "--flake",
-    "-f",
-    help="Flake reference (only used with --no-sync)",
-)
-@click.option(
-    "--systems",
-    "-s",
-    required=True,
-    help="Comma-separated NixOS system names to scan",
-)
-@click.option(
-    "--state-dir",
-    type=click.Path(path_type=Path),
-    envvar="CVE_STATE_DIR",
-    default="/var/lib/cve-scanner",
-    help="State directory for tracking seen CVEs",
-)
-@click.option(
-    "--no-sync",
-    is_flag=True,
-    help="Skip repo sync (use --flake directly)",
-)
-@click.option(
-    "--repo-url",
-    default="https://github.com/modiase/dotfiles.git",
-    help="Git repo URL to sync",
-)
-@click.option(
-    "--repo-dir",
-    type=click.Path(path_type=Path),
-    help="Local repo directory (default: {state-dir}/dotfiles)",
-)
-@click.option(
-    "--git-crypt-key",
-    type=click.Path(exists=True, path_type=Path),
-    help="Path to git-crypt key file",
-)
-@click.option(
-    "--gcp-key-secret",
-    default="dotfiles-key",
-    help="GCP secret name for git-crypt key",
-)
-@click.option(
-    "--api-key",
-    envvar="NVD_API_KEY",
-    help="NVD API key for higher rate limits",
-)
-@click.option(
-    "--cvss-threshold",
-    type=float,
-    default=7.0,
-    help="Minimum CVSS score to report",
-)
-@click.option(
-    "--since-days",
-    type=int,
-    default=30,
-    help="Check CVEs from N days ago",
-)
-@click.option(
-    "--output",
-    "-o",
-    type=click.Choice(["json", "html"]),
-    default="html",
-    help="Output format",
-)
-@click.option(
-    "--output-file",
-    type=click.File("w"),
-    default="-",
-    help="Output file (default: stdout)",
-)
-@click.option(
-    "--dry-run",
-    "-n",
-    is_flag=True,
-    help="Don't update state files",
-)
-@click.option(
-    "--refresh",
-    is_flag=True,
-    help="Ignore not-found cache and re-query all products",
-)
-@click.option(
-    "--debug",
-    "-d",
-    is_flag=True,
-    help="Enable debug logging",
-)
-def scan_system(
-    flake: str | None,
-    systems: str,
-    state_dir: Path,
-    no_sync: bool,
-    repo_url: str,
-    repo_dir: Path | None,
-    git_crypt_key: Path | None,
-    gcp_key_secret: str,
-    api_key: str | None,
-    cvss_threshold: float,
-    since_days: int,
-    output: str,
-    output_file,
-    dry_run: bool,
-    refresh: bool,
-    debug: bool,
-):
-    """Scan NixOS system closures for CVEs."""
-    configure_logging(debug)
-
-    state_dir.mkdir(parents=True, exist_ok=True)
-
-    if no_sync:
-        if not flake:
-            logger.error("--flake is required when using --no-sync")
-            sys.exit(1)
-        effective_flake = flake
-    else:
-        actual_repo_dir = repo_dir or (state_dir / "dotfiles")
-        sync_repo(repo_url, actual_repo_dir, git_crypt_key, gcp_key_secret)
-        effective_flake = f"path:{actual_repo_dir}"
-
-    systems_tuple = tuple(s.strip() for s in systems.split(","))
-    logger.info(f"Scanning systems: {', '.join(systems_tuple)}")
-
-    system_packages = get_system_packages(effective_flake, systems_tuple)
-    pkg_to_systems = get_package_to_systems(system_packages)
-
-    all_packages = tuple(sorted(pkg_to_systems.keys()))
-    if not all_packages:
-        logger.error("No packages found to scan")
-        sys.exit(1)
-
-    logger.info(f"Found {len(all_packages)} unique packages to scan")
-    state_dir.mkdir(parents=True, exist_ok=True)
-    last_check = get_last_check_date(state_dir, since_days)
-    seen_cves = load_seen_cves(state_dir)
-
-    logger.info(f"Scanning packages for CVEs since {last_check}")
-    cves = asyncio.run(
-        scan_products(
-            all_packages,
-            last_check=last_check,
-            api_key=api_key,
-            cvss_threshold=cvss_threshold,
-            state_dir=state_dir,
-            refresh_cache=refresh,
-        )
-    )
-
-    enriched_cves = tuple(
-        CVE(
-            id=c.id,
-            score=c.score,
-            description=c.description,
-            product=c.product,
-            systems=pkg_to_systems.get(c.product, frozenset()),
-        )
-        for c in cves
-    )
-    new_cves = tuple(c for c in enriched_cves if c.id not in seen_cves)
-
-    if not dry_run:
-        for cve in new_cves:
-            save_seen_cve(state_dir, cve.id)
-        save_last_check_date(state_dir)
-
-    if output == "json":
-        click.echo(
-            json.dumps(
-                [
-                    {
-                        "id": c.id,
-                        "score": c.score,
-                        "product": c.product,
-                        "description": c.description,
-                        "systems": sorted(c.systems),
-                    }
-                    for c in new_cves
-                ]
-            ),
-            file=output_file,
-        )
-    else:
-        click.echo(generate_digest(new_cves, system_packages), file=output_file)
-
-    logger.info(f"Scan complete. Found {len(new_cves)} new CVEs.")
 
 
 def main():
