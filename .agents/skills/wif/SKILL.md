@@ -36,10 +36,18 @@ Ensure `.sops.yaml` has a creation rule for the machine.
 ### 3. Extract public key coordinates for infrastructure
 
 ```bash
-openssl ec -pubin -in /tmp/ec-pub.pem -text -noout 2>/dev/null
+# x coordinate (bytes 1-32 of the uncompressed point)
+openssl ec -pubin -in /tmp/ec-pub.pem -outform der 2>/dev/null \
+  | tail -c 65 | dd bs=1 skip=1 count=32 2>/dev/null \
+  | base64 | tr '+/' '-_' | tr -d '='
+
+# y coordinate (bytes 33-64)
+openssl ec -pubin -in /tmp/ec-pub.pem -outform der 2>/dev/null \
+  | tail -c 65 | dd bs=1 skip=33 count=32 2>/dev/null \
+  | base64 | tr '+/' '-_' | tr -d '='
 ```
 
-Extract the base64url-encoded x and y coordinates and add them to `infra/tofu.tfvars` under `wif_machine_keys`:
+Add the coordinates to `infra/tofu.tfvars` under `wif_machine_keys`:
 
 ```hcl
 wif_machine_keys = {
@@ -96,6 +104,69 @@ credentialConfig = pkgs.writeText "gcp-credential-config.json" (
     service_account_impersonation_url = "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${saEmail}:generateAccessToken";
   }
 );
+```
+
+## Key Rotation
+
+Rotate a machine's WIF key when compromised or as periodic hygiene. The JWKS has one key per machine (`kid` = machine name), so there is a brief authentication outage between deploying infra (new public key) and deploying the machine (new private key).
+
+### 1. Generate a new key pair
+
+```bash
+openssl ecparam -name prime256v1 -genkey -noout -out /tmp/ec-key-new.pem
+openssl ec -in /tmp/ec-key-new.pem -pubout -out /tmp/ec-pub-new.pem
+```
+
+### 2. Extract new public key coordinates and update infrastructure
+
+```bash
+# x coordinate
+openssl ec -pubin -in /tmp/ec-pub-new.pem -outform der 2>/dev/null \
+  | tail -c 65 | dd bs=1 skip=1 count=32 2>/dev/null \
+  | base64 | tr '+/' '-_' | tr -d '='
+
+# y coordinate
+openssl ec -pubin -in /tmp/ec-pub-new.pem -outform der 2>/dev/null \
+  | tail -c 65 | dd bs=1 skip=33 count=32 2>/dev/null \
+  | base64 | tr '+/' '-_' | tr -d '='
+```
+
+Update `infra/tofu.tfvars` with the new coordinates for the machine.
+
+### 4. Deploy infrastructure first
+
+```bash
+bin/deploy-infra
+```
+
+This uploads the new JWKS to the GCS bucket. GCP STS will now accept JWTs signed by the new key.
+
+### 5. Update the private key in SOPS
+
+```bash
+just sops-edit --set "$(printf '[\"gcp-identity-key\"] \"%s\"' "$(cat /tmp/ec-key-new.pem)")" systems/<machine>/secrets.yaml
+```
+
+### 6. Deploy the machine
+
+```bash
+bin/activate deploy <machine>
+```
+
+### 7. Verify
+
+```bash
+# Check JWKS has the new coordinates
+curl -s https://storage.googleapis.com/modiase-infra-workload-identity/jwks.json | jq .
+
+# Check the service authenticates successfully
+journalctl -u <service> --since "5 min ago"
+```
+
+### 8. Clean up
+
+```bash
+rm /tmp/ec-key-new.pem /tmp/ec-pub-new.pem
 ```
 
 ## Gotchas
