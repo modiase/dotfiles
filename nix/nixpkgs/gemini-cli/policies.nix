@@ -198,6 +198,10 @@ let
     }
   ];
 
+  mcpRules = allow 100 [
+    { mcpName = "nvim"; }
+  ];
+
   allowRules = allow 100 (
     readTools
     ++ webRules
@@ -232,4 +236,4 @@ let
     }
   ];
 in
-denyRules ++ allowRules ++ notesRules
+denyRules ++ allowRules ++ mcpRules ++ notesRules
