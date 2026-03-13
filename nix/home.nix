@@ -78,7 +78,6 @@ let
     nodePackages.typescript
     nodejs
     ntfy-me
-    ntfy-sh
     opentofu
     pgcli
     pre-commit
