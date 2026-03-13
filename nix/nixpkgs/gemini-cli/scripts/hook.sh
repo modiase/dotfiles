@@ -20,12 +20,9 @@ EOF
 }
 
 on_init() {
-    local nvim_context="CRITICAL: Neovim integration is available. You MUST call the 'connect' tool with target=auto IMMEDIATELY. This is a mandatory prerequisite. Do NOT attempt to list buffers, read files, or run diagnostics until the connection is established. This connection is required for all IDE and LSP features."
     local agents_md
     agents_md=$(generate-agents-md --agent gemini)
-    local context
-    context=$(printf '%s\n\n%s' "$nvim_context" "$agents_md")
-    jq -n --arg ctx "$context" '{
+    jq -n --arg ctx "$agents_md" '{
       "systemMessage": "Agent configuration loaded",
       "hookSpecificOutput": { "additionalContext": $ctx }
     }'

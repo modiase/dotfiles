@@ -19,11 +19,7 @@ EOF
 }
 
 on_init() {
-    cat <<EOF
-{
-  "additionalContext": "Neovim integration is available. You MUST call mcp__nvim__connect with target=auto IMMEDIATELY before using any nvim MCP tools."
-}
-EOF
+    echo '{}'
 }
 
 _DEVLOGS_WIN=""

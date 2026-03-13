@@ -9,7 +9,6 @@ pkgs.writeShellApplication {
   name = "nvim-mcp";
   runtimeInputs = [
     pkgs.nvim-mcp
-    pkgs.inetutils
     tmuxNvimSelect
     pkgs.python313
   ];
