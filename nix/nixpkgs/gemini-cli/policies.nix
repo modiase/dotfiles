@@ -56,8 +56,10 @@ let
     "nix flake check"
     "nix flake metadata"
     "nix flake show"
+    "nix path-info"
     "nix-build"
     "nix-instantiate"
+    "nix-store"
     "nixos-option"
     # keep-sorted end
   ];

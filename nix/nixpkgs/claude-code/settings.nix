@@ -22,6 +22,8 @@
       "Bash(nix flake check:*)"
       "Bash(nix-instantiate:*)"
       "Bash(nix-build:*)"
+      "Bash(nix-store:*)"
+      "Bash(nix path-info:*)"
       "Bash(nixos-option:*)"
 
       # Git (read-only)
