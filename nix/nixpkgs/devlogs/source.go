@@ -12,12 +12,43 @@ type LogEntry struct {
 	Level     string
 	Component string
 	Window    string
+	PID       string
 	Message   string
-	Raw       string
+}
+
+func extractTimestamp(s string) string {
+	if len(s) < 19 || s[4] != '-' {
+		return s
+	}
+	// macOS compact: "2026-03-13 06:05:38.190 Db  logger[PID:TID]"
+	if s[10] == ' ' && s[13] == ':' {
+		return s[:23]
+	}
+	// journalctl short-iso: "2026-03-13T06:05:38+0000 hostname logger[PID]:"
+	if s[10] == 'T' && s[13] == ':' {
+		spaceIdx := strings.Index(s, " ")
+		if spaceIdx > 0 {
+			return s[:spaceIdx]
+		}
+	}
+	return s
+}
+
+// extractPID finds PID from log prefix: macOS "process[PID:TID]" or journalctl "process[PID]"
+func extractPID(prefix string) string {
+	bracketIdx := strings.LastIndex(prefix, "[")
+	if bracketIdx < 0 {
+		return ""
+	}
+	rest := prefix[bracketIdx+1:]
+	if endIdx := strings.IndexAny(rest, ":]"); endIdx > 0 {
+		return rest[:endIdx]
+	}
+	return ""
 }
 
 func parseLogEntry(line string) LogEntry {
-	entry := LogEntry{Raw: line}
+	entry := LogEntry{}
 
 	idx := strings.Index(line, "[devlogs] ")
 	if idx < 0 {
@@ -25,7 +56,9 @@ func parseLogEntry(line string) LogEntry {
 		return entry
 	}
 
-	entry.Timestamp = strings.TrimSpace(line[:idx])
+	prefix := strings.TrimSpace(line[:idx])
+	entry.Timestamp = extractTimestamp(prefix)
+	entry.PID = extractPID(prefix)
 	rest := line[idx+len("[devlogs] "):]
 
 	parts := strings.SplitN(rest, " ", 2)
