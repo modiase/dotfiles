@@ -81,6 +81,9 @@ function M.close()
 	if tab and #vim.api.nvim_list_tabpages() > 1 then
 		vim.api.nvim_set_current_tabpage(tab)
 		vim.cmd("tabclose")
+		if buf and vim.api.nvim_buf_is_valid(buf) then
+			vim.api.nvim_buf_delete(buf, { force = true })
+		end
 	elseif buf and vim.api.nvim_buf_is_valid(buf) then
 		vim.api.nvim_buf_delete(buf, { force = true })
 	end
