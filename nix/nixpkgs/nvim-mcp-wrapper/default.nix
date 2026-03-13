@@ -3,6 +3,7 @@
   ...
 }:
 let
+  devlogsLib = pkgs.callPackage ../devlogs-lib { };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 in
 pkgs.writeShellApplication {
@@ -12,5 +13,8 @@ pkgs.writeShellApplication {
     tmuxNvimSelect
     pkgs.python313
   ];
-  text = ''exec python3 ${./nvim-mcp-proxy.py} "$@"'';
+  text = ''
+    export PYTHONPATH="${devlogsLib.python}/lib:''${PYTHONPATH:-}"
+    exec python3 ${./nvim-mcp-proxy.py} "$@"
+  '';
 }

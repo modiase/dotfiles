@@ -8,6 +8,7 @@ let
   cfg = config.dotfiles.gemini-cli;
   generateAgentsMd = config.dotfiles.agents-config.generateAgentsMd;
 
+  devlogsLib = pkgs.callPackage ../devlogs-lib { };
   ding = pkgs.callPackage ../ding { };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 
@@ -18,7 +19,12 @@ let
       generateAgentsMd
       pkgs.jq
     ];
-    text = builtins.readFile ./scripts/hook.sh;
+    text = ''
+      export DEVLOGS_COMPONENT="gemini-hook"
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
+      ${builtins.readFile ./scripts/hook.sh}
+    '';
   };
 
   hookBin = "${hookScript}/bin/gemini-hook";
@@ -50,7 +56,12 @@ let
       pkgs.neovim-remote
       pkgs.tmux
     ];
-    text = builtins.readFile ./scripts/gemini-editor.sh;
+    text = ''
+      export DEVLOGS_COMPONENT="gemini-editor"
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
+      ${builtins.readFile ./scripts/gemini-editor.sh}
+    '';
   };
 
   getGeminiIdeEnv = pkgs.writeShellApplication {
@@ -59,7 +70,12 @@ let
       tmuxNvimSelect
       pkgs.lsof
     ];
-    text = builtins.readFile ./scripts/get-gemini-ide-env.sh;
+    text = ''
+      export DEVLOGS_COMPONENT="get-gemini-ide-env"
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
+      ${builtins.readFile ./scripts/get-gemini-ide-env.sh}
+    '';
   };
 
   nvimMcpWrapper = pkgs.callPackage ../nvim-mcp-wrapper { };
@@ -74,19 +90,16 @@ let
     ];
     text = ''
       export EDITOR=gemini-editor
-      _DL_WIN=""
-      if [ -n "''${TMUX_PANE:-}" ]; then
-          _DL_WIN=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
-      fi
-      _DL_TAG="gemini"
-      if [ -n "$_DL_WIN" ]; then _DL_TAG="gemini(@$_DL_WIN)"; fi
+      export DEVLOGS_COMPONENT="gemini"
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
       ide_env=$(get-gemini-ide-env 2>/dev/null) || true
       if [ -n "$ide_env" ]; then
           eval "$ide_env"
-          logger -t devlogs "[devlogs] INFO $_DL_TAG: IDE integration found port=$GEMINI_CLI_IDE_SERVER_PORT"
+          clog info "IDE integration found port=$GEMINI_CLI_IDE_SERVER_PORT"
           gemini-nvim-ide-bridge -socket "$NVIM_LISTEN_ADDRESS" -port "$GEMINI_CLI_IDE_SERVER_PORT" -ide-pids "$IDE_PIDS" -workspace "$(pwd)" 2>&1 | logger -t devlogs &
       else
-          logger -t devlogs "[devlogs] INFO $_DL_TAG: no IDE integration"
+          clog info "no IDE integration"
       fi
       exec ${cfg.executable} "$@"
     '';

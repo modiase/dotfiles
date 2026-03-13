@@ -1,4 +1,5 @@
 {
+  callPackage,
   writeShellApplication,
   symlinkJoin,
   coreutils,
@@ -10,6 +11,8 @@
 }:
 
 let
+  devlogsLib = callPackage ../devlogs-lib { };
+
   ntfy-me = writeShellApplication {
     name = "ntfy-me";
     runtimeInputs = [
@@ -30,7 +33,12 @@ let
       secrets
       # keep-sorted end
     ];
-    text = builtins.readFile ./ntfy-listen.sh;
+    text = ''
+      export DEVLOGS_COMPONENT="ntfy-listen"
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
+      ${builtins.readFile ./ntfy-listen.sh}
+    '';
   };
 in
 symlinkJoin {
