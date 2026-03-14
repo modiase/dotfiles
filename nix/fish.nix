@@ -37,9 +37,7 @@ let
       ls = ezaOrLs "${ezaBase} --git $argv" "command ls --color=auto $argv";
       ll = ezaOrLs "${ezaBase} -l --git $argv" "command ls -lh --color=auto $argv";
       lt = ezaOrLs "${ezaBase} --tree $argv" "command ls -R --color=auto $argv";
-      df = "command -q duf; and duf $argv; or command df -h $argv";
       du = "command -q dust; and dust $argv; or command du -sh $argv";
-      ps = "command -q procs; and procs $argv; or command ps $argv";
       top = "command -q btop; and btop $argv; or command top $argv";
       cd = ''
         if test (count $argv) -gt 0
