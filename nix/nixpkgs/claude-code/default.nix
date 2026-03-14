@@ -24,16 +24,7 @@ let
     '';
   };
 
-  devnullHookScript = pkgs.writeShellApplication {
-    name = "allow-devnull";
-    runtimeInputs = [ pkgs.jq ];
-    text = ''
-      export DEVLOGS_COMPONENT="allow-devnull"
-      # shellcheck source=/dev/null
-      source ${devlogsLib.shell}/lib/devlogs.sh
-      ${builtins.readFile ./scripts/allow-devnull.sh}
-    '';
-  };
+  allowShellcommand = pkgs.callPackage ../allow-shellcommand { };
 
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 
@@ -70,9 +61,9 @@ let
   };
 
   hookBin = "${hookScript}/bin/claude-hook";
-  devnullHookBin = "${devnullHookScript}/bin/allow-devnull";
+  shellcommandHookBin = "${allowShellcommand}/bin/allow-shellcommand";
 
-  baseSettings = import ./settings.nix { inherit hookBin devnullHookBin; };
+  baseSettings = import ./settings.nix { inherit hookBin shellcommandHookBin; };
 
   settings = baseSettings // {
     hooks = baseSettings.hooks // {

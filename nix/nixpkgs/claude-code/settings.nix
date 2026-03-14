@@ -1,4 +1,4 @@
-{ hookBin, devnullHookBin }:
+{ hookBin, shellcommandHookBin }:
 {
   theme = "ANSI Dark";
   alwaysThinkingEnabled = true;
@@ -178,7 +178,7 @@
         hooks = [
           {
             type = "command";
-            command = devnullHookBin;
+            command = shellcommandHookBin;
           }
         ];
       }
