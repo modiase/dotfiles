@@ -10,9 +10,9 @@ let
 
   sharedSettings = {
     font-family = "Iosevka Nerd Font";
-    font-size = 12;
+    font-size = 10;
     window-decoration = "auto";
-    macos-titlebar-style = "transparent";
+    macos-titlebar-style = "tabs";
     window-padding-x = 0;
     window-padding-y = 0;
     background = colors.background;
