@@ -1,4 +1,4 @@
-argparse h/help 'a/agent=' no-rename -- $argv
+argparse h/help 'a/agent=' no-rename no-debug -- $argv
 or return
 
 if set -q _flag_help
@@ -9,17 +9,20 @@ if set -q _flag_help
     echo "Options:"
     echo "  -a, --agent=NAME  Add agent column (gemini, claude, opencode)"
     echo "  --no-rename       Don't rename tmux window"
+    echo "  --no-debug        Don't add debug pane"
     echo ""
-    echo "Layout: yazi (left) | nvim (top-right) / terminal (bottom-right)"
+    echo "Layout: yazi | nvim / terminal | agent (optional) / debug (default)"
     return 0
 end
 
 test -z "$TMUX"; and echo "Error: code requires tmux" >&2; and return 1
 
-set -l pane_count (tmux list-panes | wc -l | string trim)
+set -l win (tmux display-message -p '#{window_id}')
+
+set -l pane_count (tmux list-panes -t $win | wc -l | string trim)
 test "$pane_count" -ne 1; and echo "Error: code requires exactly 1 pane (current: $pane_count)" >&2; and return 1
 
-not set -q _flag_no_rename; and tmux rename-window (string lower (basename $PWD))
+not set -q _flag_no_rename; and tmux rename-window -t $win (string lower (basename $PWD))
 
 set -l agent_cmd
 if set -q _flag_agent
@@ -38,21 +41,33 @@ if set -q _flag_agent
     end
 end
 
-# Layout: yazi (15%) | nvim (top) / terminal (bottom) | agent (25%, optional)
-tmux split-window -h -p 85
+set -l has_agent (test -n "$agent_cmd"; and echo 1; or echo 0)
+set -l has_debug (not set -q _flag_no_debug; and echo 1; or echo 0)
 
-# Now in right pane (nvim area). Split for terminal (bottom 20%)
-tmux split-window -v -p 20
-tmux select-pane -U
-
-if test -n "$agent_cmd"
-    # Split nvim area: left for nvim, right 25% for agent
-    tmux split-window -h -p 25
-    tmux send-keys "$agent_cmd" Enter
-    tmux select-pane -L
+set -l need (math 3 + $has_agent + $has_debug)
+for i in (seq 2 $need)
+    tmux split-window -t $win
 end
 
-tmux send-keys nvim Enter
+# Pane order: yazi(0), nvim(1), [agent(2)], terminal, [debug]
+if test $has_agent -eq 1 -a $has_debug -eq 1
+    tmux select-layout -t $win '2351,384x92,0,0{40x92,0,0,75,343x92,41,0[343x81,41,0{222x81,41,0,76,120x81,264,0,78},343x10,41,82{222x10,41,82,77,120x10,264,82,79}]}'
+else if test $has_agent -eq 1
+    tmux select-layout -t $win '2b65,384x92,0,0{40x92,0,0,71,343x92,41,0[343x81,41,0{222x81,41,0,72,120x81,264,0,74},343x10,41,82,73]}'
+else if test $has_debug -eq 1
+    tmux select-layout -t $win '4cfa,384x92,0,0{40x92,0,0,80,343x92,41,0[343x81,41,0,81,343x10,41,82{222x10,41,82,82,120x10,264,82,83}]}'
+else
+    tmux select-layout -t $win '1d6e,384x92,0,0{40x92,0,0,67,343x92,41,0[343x81,41,0,68,343x10,41,82,69]}'
+end
 
-tmux select-pane -t :.0
-tmux send-keys yazi Enter
+tmux send-keys -t $win.0 yazi Enter
+tmux send-keys -t $win.1 nvim Enter
+
+if test $has_agent -eq 1
+    tmux send-keys -t $win.2 "$agent_cmd" Enter
+end
+
+if test $has_debug -eq 1
+    set -l debug_pane (math 2 + $has_agent)
+    tmux send-keys -t $win.$debug_pane debug Enter
+end
