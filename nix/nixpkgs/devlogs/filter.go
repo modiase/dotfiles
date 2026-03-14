@@ -3,10 +3,11 @@ package main
 import "strings"
 
 var levelSeverity = map[string]int{
-	"DEBUG": 0,
-	"INFO":  1,
-	"WARN":  2,
-	"ERROR": 3,
+	"DEBUG":   0,
+	"INFO":    1,
+	"WARN":    2,
+	"WARNING": 2,
+	"ERROR":   3,
 }
 
 func matchLevel(minLevel string, entry LogEntry) bool {

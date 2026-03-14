@@ -32,7 +32,7 @@ func resolveWindowFilter(w string) string {
 func main() {
 	// keep-sorted start
 	history := flag.StringP("history", "H", "", "Show history (e.g. 1h, 30m, 2d)")
-	level := flag.StringP("level", "l", "", "Minimum log level (debug, info, warn, error)")
+	level := flag.StringP("level", "l", "info", "Minimum log level (debug, info, warn, error)")
 	noFollow := flag.BoolP("no-follow", "n", false, "Show history and exit (no live stream)")
 	plain := flag.BoolP("plain", "p", false, "Force plain text output (no TUI)")
 	window := flag.StringP("window", "w", "", "Window filter (-1 for all, N for specific)")
