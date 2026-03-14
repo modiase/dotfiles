@@ -9,7 +9,9 @@ let
 
   devlogsLib = pkgs.callPackage ../devlogs-lib { };
   ding = pkgs.callPackage ../ding { };
-  nvimMcpWrapper = pkgs.callPackage ../nvim-mcp-wrapper { };
+
+  agentsCfg = config.dotfiles.agents-config;
+  sharedMcpJson = pkgs.writeText "shared-mcp-servers.json" (builtins.toJSON agentsCfg.mcpServers);
 
   hookScript = pkgs.writeShellApplication {
     name = "claude-hook";
@@ -127,7 +129,6 @@ in
     home = {
       packages = [
         wrappedClaude
-        nvimMcpWrapper
       ];
 
       file.".claude/settings.json" = lib.mkIf (cfg.configDir == null) {
@@ -146,6 +147,15 @@ in
             ${symlinkScript cfg.configDir}
           ''
         );
+
+        claude-mcp-servers = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+          CLAUDE_JSON="$HOME/.claude.json"
+          if [ -f "$CLAUDE_JSON" ]; then
+            $DRY_RUN_CMD ${pkgs.jq}/bin/jq --argjson servers "$(cat ${sharedMcpJson})" \
+              '.mcpServers = (.mcpServers // {}) * $servers' "$CLAUDE_JSON" > "$CLAUDE_JSON.tmp"
+            $DRY_RUN_CMD mv "$CLAUDE_JSON.tmp" "$CLAUDE_JSON"
+          fi
+        '';
       };
     };
   };

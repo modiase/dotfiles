@@ -32,15 +32,10 @@ let
   settings = import ./settings.nix { inherit hookBin; };
   settingsJson = pkgs.writeText "gemini-settings.json" (builtins.toJSON settings);
 
+  agentsCfg = config.dotfiles.agents-config;
+
   mcpSettings = {
-    mcpServers = {
-      nvim = {
-        type = "stdio";
-        command = "nvim-mcp";
-        args = [ ];
-        env = { };
-      };
-    };
+    mcpServers = agentsCfg.mcpServers;
   };
   mcpJson = pkgs.writeText "mcp.json" (builtins.toJSON mcpSettings);
 
@@ -77,8 +72,6 @@ let
       ${builtins.readFile ./scripts/get-gemini-ide-env.sh}
     '';
   };
-
-  nvimMcpWrapper = pkgs.callPackage ../nvim-mcp-wrapper { };
 
   wrappedGemini = pkgs.writeShellApplication {
     name = "gemini";
@@ -124,7 +117,6 @@ in
     home = {
       packages = [
         wrappedGemini
-        nvimMcpWrapper
       ];
 
       file.".gemini/policies/managed.toml".source = policyFile;
