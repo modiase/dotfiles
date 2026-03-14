@@ -29,15 +29,13 @@ let
 
   hookBin = "${hookScript}/bin/gemini-hook";
 
-  settings = import ./settings.nix { inherit hookBin; };
-  settingsJson = pkgs.writeText "gemini-settings.json" (builtins.toJSON settings);
-
   agentsCfg = config.dotfiles.agents-config;
 
-  mcpSettings = {
+  baseSettings = import ./settings.nix { inherit hookBin; };
+  settings = baseSettings // {
     mcpServers = agentsCfg.mcpServers;
   };
-  mcpJson = pkgs.writeText "mcp.json" (builtins.toJSON mcpSettings);
+  settingsJson = pkgs.writeText "gemini-settings.json" (builtins.toJSON settings);
 
   policyRules = import ./policies.nix;
   tomlFormat = pkgs.formats.toml { };
@@ -127,10 +125,6 @@ in
         $DRY_RUN_CMD chmod u+w "$HOME/.gemini/settings.json"
       '';
 
-      activation.gemini-mcp-config = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-        $DRY_RUN_CMD cp -f "${mcpJson}" "$HOME/.mcp.json"
-        $DRY_RUN_CMD chmod u+w "$HOME/.mcp.json"
-      '';
     };
   };
 }
