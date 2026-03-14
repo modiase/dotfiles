@@ -13,6 +13,7 @@ in
 {
   programs.yazi = {
     enable = true;
+    shellWrapperName = "y";
     theme = {
       mgr = {
         syntect_theme = "${pastelGrayTheme}";
