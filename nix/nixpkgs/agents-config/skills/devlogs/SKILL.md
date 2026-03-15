@@ -1,11 +1,11 @@
 ---
 name: devlogs
-description: How to use the devlogs logging library (shell and Python) for unified syslog logging.
+description: How to use the devlogs logging library (shell, Python, Lua) for unified syslog logging.
 ---
 
 # Devlogs Logging Library
 
-Unified logging library for shell and Python scripts that log to the devlogs syslog stream.
+Unified logging library for shell, Python, and Lua (Neovim) that logs to the devlogs syslog stream.
 
 ## Shell
 
@@ -63,6 +63,18 @@ text = ''
 '';
 ```
 
+## Lua (Neovim)
+
+```lua
+local log = require("devlogs").new("my-component")
+
+log.info("something happened")
+log.debug("detail=" .. value)
+log.error("something broke")
+```
+
+The module is installed via `xdg.configFile` in `neovim.nix` — no extra setup needed in Neovim plugins.
+
 ## Log format
 
 ```
@@ -70,8 +82,8 @@ text = ''
 ```
 
 - `LEVEL`: DEBUG, INFO, WARNING, ERROR (uppercase)
-- `component`: value of `DEVLOGS_COMPONENT` (shell) or argument to `setup_logging` (Python)
-- `(@window)`: tmux window index, included automatically when `TMUX_PANE` (shell) or `TARGET_WINDOW` (Python) is set
+- `component`: value of `DEVLOGS_COMPONENT` (shell), argument to `setup_logging` (Python), or `new` (Lua)
+- `(@window)`: tmux window index, included automatically when `TMUX_PANE` (shell/Lua) or `TARGET_WINDOW` (Python) is set
 
 ## Available levels
 

@@ -1,4 +1,5 @@
 local M = {}
+local log = require("devlogs").new("claude-plan")
 
 local current_plans_dir = nil
 local claude_pane_id = nil
@@ -34,11 +35,14 @@ end
 
 local function tmux_send(text)
 	if not claude_pane_id then
+		log.warning("tmux_send: pane ID not set")
 		vim.notify("Claude pane ID not set", vim.log.levels.WARN)
 		return false
 	end
 	vim.fn.system({ "tmux", "send-keys", "-t", claude_pane_id, "-l", text })
-	return vim.v.shell_error == 0
+	local ok = vim.v.shell_error == 0
+	log.debug("tmux_send pane=" .. claude_pane_id .. " ok=" .. tostring(ok))
+	return ok
 end
 
 local function tmux_send_key(key)
@@ -68,6 +72,7 @@ function M.open(file_path, config_dir)
 		return
 	end
 
+	log.info("open file=" .. file_path)
 	local existing_tab, existing_buf = M.find_existing_plan_tab()
 	if existing_tab then
 		vim.api.nvim_set_current_tabpage(existing_tab)
@@ -98,6 +103,7 @@ end
 
 local function start_close_watcher()
 	stop_close_watcher()
+	log.debug("close_watcher: started")
 	local timer = vim.uv.new_timer()
 	close_watcher_timer = timer
 	local dialog_seen = true
@@ -110,11 +116,13 @@ local function start_close_watcher()
 			elapsed = elapsed + WATCHER_INTERVAL_MS
 
 			if not M.find_existing_plan_tab() then
+				log.debug("close_watcher: plan tab gone, stopping")
 				stop_close_watcher()
 				return
 			end
 
 			if elapsed >= WATCHER_TIMEOUT_MS then
+				log.debug("close_watcher: timed out")
 				stop_close_watcher()
 				return
 			end
@@ -123,6 +131,7 @@ local function start_close_watcher()
 			if has_dialog then
 				dialog_seen = true
 			elseif dialog_seen then
+				log.info("close_watcher: dialog dismissed, closing plan")
 				stop_close_watcher()
 				M.close()
 			end
@@ -150,6 +159,7 @@ end
 local function poll_and_send(key, callback)
 	local elapsed = 0
 	local timer = vim.uv.new_timer()
+	log.debug("poll_and_send: waiting for dialog, key=" .. key)
 
 	timer:start(
 		0,
@@ -160,6 +170,7 @@ local function poll_and_send(key, callback)
 			if tmux_pane_contains(DIALOG_PATTERN) then
 				timer:stop()
 				timer:close()
+				log.debug("poll_and_send: dialog found after " .. elapsed .. "ms key=" .. key)
 				tmux_send(key)
 				if callback then
 					callback()
@@ -170,6 +181,7 @@ local function poll_and_send(key, callback)
 			if elapsed >= POLL_TIMEOUT_MS then
 				timer:stop()
 				timer:close()
+				log.warning("poll_and_send: timed out after " .. elapsed .. "ms")
 				vim.notify("Timed out waiting for plan dialog", vim.log.levels.WARN)
 			end
 		end)
@@ -208,6 +220,7 @@ function M.reject()
 end
 
 function M.setup_buffer(config_dir, pane_id)
+	log.info("setup_buffer pane=" .. tostring(pane_id))
 	if config_dir then
 		current_plans_dir = get_plans_dir(config_dir)
 	end

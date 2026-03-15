@@ -2,12 +2,15 @@
 
 let
   colors = import ./colors.nix;
+  devlogsLib = pkgs.callPackage ./nixpkgs/devlogs-lib { };
 in
 {
   programs.neovim = {
     enable = true;
     extraPackages = [ pkgs.tree-sitter ];
   };
+
+  xdg.configFile."nvim/lua/devlogs.lua".source = "${devlogsLib.lua}/lua/devlogs.lua";
 
   xdg.configFile."nvim/lua/colors.lua".text = ''
     return {
