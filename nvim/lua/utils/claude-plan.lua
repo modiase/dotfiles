@@ -14,13 +14,19 @@ local function is_plan_file(path, plans_dir)
 end
 
 function M.find_existing_plan_tab()
+	local buf = vim.g.claude_plan_bufnr
+	local tab = vim.g.claude_plan_tabnr
+	if tab and vim.api.nvim_tabpage_is_valid(tab) and buf and vim.api.nvim_buf_is_valid(buf) then
+		return tab, buf
+	end
+
 	local plans_dir = current_plans_dir or get_plans_dir()
-	for _, tab in ipairs(vim.api.nvim_list_tabpages()) do
-		local win = vim.api.nvim_tabpage_get_win(tab)
-		local buf = vim.api.nvim_win_get_buf(win)
-		local name = vim.api.nvim_buf_get_name(buf)
+	for _, t in ipairs(vim.api.nvim_list_tabpages()) do
+		local win = vim.api.nvim_tabpage_get_win(t)
+		local b = vim.api.nvim_win_get_buf(win)
+		local name = vim.api.nvim_buf_get_name(b)
 		if is_plan_file(name, plans_dir) then
-			return tab, buf
+			return t, b
 		end
 	end
 	return nil, nil
@@ -75,23 +81,71 @@ function M.open(file_path, config_dir)
 	end
 end
 
+local POLL_INTERVAL_MS = 100
+local POLL_TIMEOUT_MS = 10000
+local WATCHER_INTERVAL_MS = 500
+local WATCHER_TIMEOUT_MS = 300000
+local DIALOG_PATTERN = "manually approve edits"
+local close_watcher_timer = nil
+
+local function stop_close_watcher()
+	if close_watcher_timer then
+		close_watcher_timer:stop()
+		close_watcher_timer:close()
+		close_watcher_timer = nil
+	end
+end
+
+local function start_close_watcher()
+	stop_close_watcher()
+	local timer = vim.uv.new_timer()
+	close_watcher_timer = timer
+	local dialog_seen = false
+	local elapsed = 0
+
+	timer:start(
+		WATCHER_INTERVAL_MS,
+		WATCHER_INTERVAL_MS,
+		vim.schedule_wrap(function()
+			elapsed = elapsed + WATCHER_INTERVAL_MS
+
+			if not M.find_existing_plan_tab() then
+				stop_close_watcher()
+				return
+			end
+
+			if elapsed >= WATCHER_TIMEOUT_MS then
+				stop_close_watcher()
+				return
+			end
+
+			local has_dialog = tmux_pane_contains(DIALOG_PATTERN)
+			if has_dialog then
+				dialog_seen = true
+			elseif dialog_seen then
+				stop_close_watcher()
+				M.close()
+			end
+		end)
+	)
+end
+
 function M.close()
+	stop_close_watcher()
 	local tab, buf = M.find_existing_plan_tab()
+
+	vim.g.claude_plan_bufnr = nil
+	vim.g.claude_plan_tabnr = nil
 
 	if tab and #vim.api.nvim_list_tabpages() > 1 then
 		vim.api.nvim_set_current_tabpage(tab)
 		vim.cmd("tabclose")
-		if buf and vim.api.nvim_buf_is_valid(buf) then
-			vim.api.nvim_buf_delete(buf, { force = true })
-		end
-	elseif buf and vim.api.nvim_buf_is_valid(buf) then
+	end
+
+	if buf and vim.api.nvim_buf_is_valid(buf) then
 		vim.api.nvim_buf_delete(buf, { force = true })
 	end
 end
-
-local POLL_INTERVAL_MS = 100
-local POLL_TIMEOUT_MS = 10000
-local DIALOG_PATTERN = "manually approve edits"
 
 local function poll_and_send(key, callback)
 	local elapsed = 0
@@ -175,6 +229,11 @@ function M.setup_buffer(config_dir, pane_id)
 	for _, key in ipairs({ "i", "I", "A", "o", "O", "s", "S", "c", "C", "r", "R" }) do
 		vim.keymap.set("n", key, "<Nop>", { buffer = buf })
 	end
+
+	vim.g.claude_plan_bufnr = buf
+	vim.g.claude_plan_tabnr = vim.api.nvim_get_current_tabpage()
+
+	start_close_watcher()
 end
 
 return M
