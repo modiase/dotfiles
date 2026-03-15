@@ -20,6 +20,7 @@ let
     # keep-sorted start block=yes
     (callPackage ./nixpkgs/ankigen { })
     (callPackage ./nixpkgs/devlogs { })
+    (callPackage ./nixpkgs/nvr { })
     (callPackage ./nixpkgs/semsearch { })
     (python313.withPackages (
       ps: with ps; [
@@ -67,7 +68,6 @@ let
     lsof
     moor
     ncdu
-    neovim-remote
     ngrok
     nix-prefetch-git
     nix-tree

@@ -68,6 +68,6 @@ if test $has_agent -eq 1
 end
 
 if test $has_debug -eq 1
-    set -l debug_pane (math 2 + $has_agent)
+    set -l debug_pane (math $need - 1)
     tmux send-keys -t $win.$debug_pane debug Enter
 end

@@ -100,7 +100,7 @@ local function start_close_watcher()
 	stop_close_watcher()
 	local timer = vim.uv.new_timer()
 	close_watcher_timer = timer
-	local dialog_seen = false
+	local dialog_seen = true
 	local elapsed = 0
 
 	timer:start(

@@ -10,6 +10,7 @@ let
 
   devlogsLib = pkgs.callPackage ../devlogs-lib { };
   ding = pkgs.callPackage ../ding { };
+  nvr = pkgs.callPackage ../nvr { };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 
   hookScript = pkgs.writeShellApplication {
@@ -46,7 +47,7 @@ let
     runtimeInputs = [
       tmuxNvimSelect
       pkgs.gum
-      pkgs.neovim-remote
+      nvr
       pkgs.tmux
     ];
     text = ''
