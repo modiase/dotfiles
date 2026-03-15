@@ -9,6 +9,7 @@ let
 
   devlogsLib = pkgs.callPackage ../devlogs-lib { };
   ding = pkgs.callPackage ../ding { };
+  nvr = pkgs.callPackage ../nvr { };
 
   agentsCfg = config.dotfiles.agents-config;
   sharedMcpJson = pkgs.writeText "shared-mcp-servers.json" (builtins.toJSON agentsCfg.mcpServers);
@@ -32,11 +33,13 @@ let
     with pkgs;
     [
       # keep-sorted start
-      neovim-remote
       tmux
       # keep-sorted end
     ]
-    ++ [ tmuxNvimSelect ];
+    ++ [
+      nvr
+      tmuxNvimSelect
+    ];
 
   openPlanScript = pkgs.writeShellApplication {
     name = "nvim-plan";

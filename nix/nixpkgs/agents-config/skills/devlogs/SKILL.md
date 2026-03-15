@@ -76,3 +76,7 @@ text = ''
 ## Available levels
 
 `debug`, `info`, `warning`, `error`
+
+## Important
+
+**Always use this library** for logging in shell and Python scripts — never call `logger` directly. This ensures consistent log format, automatic tmux window tagging, and correct syslog priorities.
