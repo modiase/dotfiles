@@ -14,6 +14,12 @@ return {
 		},
 		views = {
 			popup = { enter = true },
+			cmdline_input = {
+				win_options = {
+					wrap = true,
+					linebreak = true,
+				},
+			},
 		},
 		routes = {
 			{ filter = { min_height = 10 }, view = "popup" },
