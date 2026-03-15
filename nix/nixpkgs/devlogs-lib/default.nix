@@ -10,7 +10,12 @@ let
     destination = "/lib/devlogs.py";
     text = builtins.readFile ./devlogs.py;
   };
+  lua = writeTextFile {
+    name = "devlogs-lua";
+    destination = "/lua/devlogs.lua";
+    text = builtins.readFile ./devlogs.lua;
+  };
 in
 {
-  inherit shell python;
+  inherit shell python lua;
 }
