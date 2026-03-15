@@ -77,6 +77,16 @@ text = ''
 
 `debug`, `info`, `warning`, `error`
 
+## Viewing logs
+
+- **Live**: `devlogs` (TUI with filtering, follow mode)
+- **History**: `devlogs --history 1h` (or `30m`, `2d`, etc.)
+- **Plain**: `devlogs --no-follow --history 1h` (pipe-friendly)
+
+## macOS syslog priority
+
+macOS unified logging does not persist `user.debug` to disk — debug messages only appear in real-time `log stream`, not in `log show` history. The library works around this by promoting all debug messages to `user.info` syslog priority while keeping the `DEBUG` label in the message text. This is transparent: the `devlogs` viewer uses the message label for level filtering, not the syslog priority.
+
 ## Important
 
 **Always use this library** for logging in shell and Python scripts — never call `logger` directly. This ensures consistent log format, automatic tmux window tagging, and correct syslog priorities.
