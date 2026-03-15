@@ -9,5 +9,8 @@ clog() {
     shift
     local win=""
     if [[ -n "$_DEVLOGS_WIN" ]]; then win="(@$_DEVLOGS_WIN)"; fi
-    logger -t devlogs -p "user.$level" "[devlogs] ${level^^} ${DEVLOGS_COMPONENT:-unknown}${win}: $*"
+    local priority="user.$level"
+    # macOS unified logging drops user.debug from history; promote so log show works
+    if [[ "$level" == "debug" ]]; then priority="user.info"; fi
+    logger -t devlogs -p "$priority" "[devlogs] ${level^^} ${DEVLOGS_COMPONENT:-unknown}${win}: $*"
 }

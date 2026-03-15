@@ -7,7 +7,7 @@ import subprocess
 from typing import Final
 
 PRIORITY_MAP: Final = {
-    logging.DEBUG: "user.debug",
+    logging.DEBUG: "user.info",  # macOS drops user.debug from history
     logging.INFO: "user.info",
     logging.WARNING: "user.warning",
     logging.ERROR: "user.err",
