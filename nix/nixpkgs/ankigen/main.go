@@ -323,7 +323,7 @@ func runAgentTurn(ctx *PipelineContext) tea.Cmd {
 
 		default:
 			ctx.Logf("Turn %d: unknown action '%s'", ctx.AgentTurn, resp.Action)
-			ctx.FailedAttempts = append(ctx.FailedAttempts, fmt.Sprintf("Turn %d: unknown action '%s'", ctx.AgentTurn, resp.Action))
+			ctx.FailedAttempts = append(ctx.FailedAttempts, fmt.Sprintf("Turn %d: unknown action '%s'. Your JSON must contain \"action\" set to one of: generate, refuse, search, ask. Do not return a bare card object — wrap it as {\"action\": \"generate\", \"card\": {...}}", ctx.AgentTurn, resp.Action))
 			return agentTurnMsg{turn: ctx.AgentTurn, action: "unknown", detail: resp.Action, ctx: ctx}
 		}
 	}
@@ -386,7 +386,7 @@ type model struct {
 }
 
 type debugModel struct {
-	activeTab int // 0=Card, 1=SearchTerms, 2=SearchResults, 3=Summary, 4=Logs, 5=Debug
+	activeTab int // 0=Card, 1=SearchTerms, 2=SearchResults, 3=Summary, 4=Logs, 5=SystemPrompt, 6=Debug
 	viewport  viewport.Model
 	contents  []string
 	titles    []string
@@ -592,8 +592,8 @@ func initDebugModel(ctx *PipelineContext, width, height int) *debugModel {
 	vpWidth, vpHeight := max(width-4, 40), max(height-8, 10)
 	return &debugModel{
 		viewport: viewport.New(vpWidth, vpHeight),
-		titles:   []string{"Card", "Search Terms", "Search Results", "Summary", "Logs", "Debug"},
-		contents: []string{"", formatSearchTerms(ctx.SearchTerms), ctx.SearchResult, ctx.Summary, ctx.Logs.String(), formatDebugHistory(ctx.DebugHistory)},
+		titles:   []string{"Card", "Search Terms", "Search Results", "Summary", "Logs", "System Prompt", "Debug"},
+		contents: []string{"", formatSearchTerms(ctx.SearchTerms), ctx.SearchResult, ctx.Summary, ctx.Logs.String(), fetchSystemPrompt(), formatDebugHistory(ctx.DebugHistory)},
 		width:    vpWidth,
 		height:   vpHeight,
 	}
@@ -849,7 +849,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.substage = "copied back"
 				}
 			}
-		case "1", "2", "3", "4", "5":
+		case "1", "2", "3", "4", "5", "6":
 			if m.done && m.tabView != nil {
 				tab := int(msg.String()[0] - '1')
 				m.tabView.activeTab = tab
@@ -860,7 +860,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "tab":
 			if m.done && m.tabView != nil {
-				m.tabView.activeTab = (m.tabView.activeTab + 1) % 6
+				n := len(m.tabView.titles)
+				m.tabView.activeTab = (m.tabView.activeTab + 1) % n
 				if m.tabView.activeTab > 0 {
 					m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
 					m.tabView.viewport.GotoTop()
@@ -868,7 +869,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "shift+tab":
 			if m.done && m.tabView != nil {
-				m.tabView.activeTab = (m.tabView.activeTab + 5) % 6
+				n := len(m.tabView.titles)
+				m.tabView.activeTab = (m.tabView.activeTab + n - 1) % n
 				if m.tabView.activeTab > 0 {
 					m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
 					m.tabView.viewport.GotoTop()
@@ -876,7 +878,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "left":
 			if m.done && m.tabView != nil {
-				m.tabView.activeTab = (m.tabView.activeTab + 5) % 6
+				n := len(m.tabView.titles)
+				m.tabView.activeTab = (m.tabView.activeTab + n - 1) % n
 				if m.tabView.activeTab > 0 {
 					m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
 					m.tabView.viewport.GotoTop()
@@ -884,7 +887,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "right":
 			if m.done && m.tabView != nil {
-				m.tabView.activeTab = (m.tabView.activeTab + 1) % 6
+				n := len(m.tabView.titles)
+				m.tabView.activeTab = (m.tabView.activeTab + 1) % n
 				if m.tabView.activeTab > 0 {
 					m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
 					m.tabView.viewport.GotoTop()
@@ -945,8 +949,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			m.done = true
 			m.tabView = initDebugModel(m.context, m.width, m.height)
-			m.tabView.activeTab = 5
-			m.tabView.viewport.SetContent(m.tabView.contents[5])
+			m.tabView.activeTab = 6
+			m.tabView.viewport.SetContent(m.tabView.contents[6])
 			saveHistory(m.context)
 			return m, nil
 		}
@@ -988,8 +992,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.err = msg.err
 			m.done = true
 			m.tabView = initDebugModel(m.context, m.width, m.height)
-			m.tabView.activeTab = 5
-			m.tabView.viewport.SetContent(m.tabView.contents[5])
+			m.tabView.activeTab = 6
+			m.tabView.viewport.SetContent(m.tabView.contents[6])
 			saveHistory(m.context)
 			return m, nil
 		}
@@ -1207,12 +1211,8 @@ func iterateCard(ctx *PipelineContext, instructions string) (Card, error) {
 	if ctx.Summary != "" {
 		fmt.Fprintf(&userPrompt, "Research context:\n%s\n\n", ctx.Summary)
 	}
-	if len(ctx.AdditionalContext) > 0 {
-		userPrompt.WriteString("Additional context from user:\n")
-		for _, c := range ctx.AdditionalContext {
-			fmt.Fprintf(&userPrompt, "---\n%s\n", c)
-		}
-		userPrompt.WriteString("\n")
+	if ac := formatAdditionalContext(ctx.AdditionalContext); ac != "" {
+		fmt.Fprintf(&userPrompt, "Additional context from user:\n%s\n\n", ac)
 	}
 	fmt.Fprintf(&userPrompt, "Current card:\nFront: %s\nBack: %s\n\n", ctx.Card.Front, ctx.Card.Back)
 	fmt.Fprintf(&userPrompt, "Please modify this card according to these instructions: %s", instructions)
@@ -1469,28 +1469,28 @@ Provide a concise summary (300-500 words) of the key information relevant to ans
 	return callLLM(prompt, true)
 }
 
-func buildContext(summary string, additional []string) string {
+func formatAdditionalContext(additional []string) string {
 	if len(additional) == 0 {
-		return summary
+		return ""
 	}
 	var b strings.Builder
-	if summary != "" {
-		b.WriteString(summary)
-		b.WriteString("\n\n")
-	}
-	b.WriteString("Additional context from user:\n")
+	b.WriteString("<user-context>\n")
 	for _, c := range additional {
-		fmt.Fprintf(&b, "---\n%s\n", c)
+		fmt.Fprintf(&b, "<item>\n%s\n</item>\n", c)
 	}
+	b.WriteString("</user-context>")
 	return b.String()
 }
 
-func generateCard(question, context string) (Card, error) {
+func generateCard(question, summary string, additional []string) (Card, error) {
 	systemPrompt := fetchSystemPrompt()
 
 	userPrompt := fmt.Sprintf("Question: %s", question)
-	if context != "" {
-		userPrompt += fmt.Sprintf("\n\nContext from web research:\n%s", context)
+	if summary != "" {
+		userPrompt += fmt.Sprintf("\n\nContext from web research:\n%s", summary)
+	}
+	if ac := formatAdditionalContext(additional); ac != "" {
+		userPrompt += fmt.Sprintf("\n\nAdditional context from user:\n%s", ac)
 	}
 
 	response, err := callLLMWithSystem(systemPrompt, userPrompt, !deepThink)
@@ -1551,17 +1551,29 @@ func callAgenticLLM(ctx *PipelineContext, turn int) (AgentResponse, DebugTurn, e
 
 You are an agentic card generator. You must respond with exactly one raw JSON object — no markdown, no code fences, no backticks, no other text. The valid actions and their exact formats will be specified in the user prompt.`
 
+	searchesRemaining := "unlimited"
+	if maxSearches != -1 {
+		remaining := maxSearches - ctx.SearchCount
+		if remaining < 0 {
+			remaining = 0
+		}
+		searchesRemaining = fmt.Sprintf("%d", remaining)
+	}
+
 	var userPrompt strings.Builder
+	fmt.Fprintf(&userPrompt, `You MUST respond with exactly one raw JSON object (no markdown, no code fences). Every response MUST include an "action" field. Valid actions:
+{"action": "generate", "card": {"front": "...", "back": "..."}}
+{"action": "refuse", "reason": "..."}
+{"action": "search", "search_term": "..."} (%s searches remaining)
+{"action": "ask", "question": "..."}
+
+`, searchesRemaining)
 	fmt.Fprintf(&userPrompt, "Question: %s\n\n", ctx.Question)
 	if ctx.Summary != "" {
 		fmt.Fprintf(&userPrompt, "Research context:\n%s\n\n", ctx.Summary)
 	}
-	if len(ctx.AdditionalContext) > 0 {
-		userPrompt.WriteString("Additional context from user:\n")
-		for _, c := range ctx.AdditionalContext {
-			fmt.Fprintf(&userPrompt, "---\n%s\n", c)
-		}
-		userPrompt.WriteString("\n")
+	if ac := formatAdditionalContext(ctx.AdditionalContext); ac != "" {
+		fmt.Fprintf(&userPrompt, "Additional context from user:\n%s\n\n", ac)
 	}
 	if len(ctx.UserResponses) > 0 {
 		userPrompt.WriteString("User responses to your questions:\n")
@@ -1577,22 +1589,6 @@ You are an agentic card generator. You must respond with exactly one raw JSON ob
 		}
 		userPrompt.WriteString("\n")
 	}
-
-	searchesRemaining := "unlimited"
-	if maxSearches != -1 {
-		remaining := maxSearches - ctx.SearchCount
-		if remaining < 0 {
-			remaining = 0
-		}
-		searchesRemaining = fmt.Sprintf("%d", remaining)
-	}
-
-	fmt.Fprintf(&userPrompt, `Respond with exactly one raw JSON object (no markdown, no code fences). Valid actions:
-{"action": "generate", "card": {"front": "...", "back": "..."}}
-{"action": "refuse", "reason": "..."}
-{"action": "search", "search_term": "..."} (%s searches remaining)
-{"action": "ask", "question": "..."}
-`, searchesRemaining)
 	debug.Prompt = userPrompt.String()
 
 	response, err := callLLMWithSystem(systemPrompt, userPrompt.String(), !deepThink)
@@ -2429,7 +2425,7 @@ func run(cmd *cobra.Command, args []string) {
 			ctx.History.AddEvent("summary", map[string]any{"summary": ctx.Summary})
 		}
 
-		ctx.Card, err = generateCard(ctx.Question, buildContext(ctx.Summary, ctx.AdditionalContext))
+		ctx.Card, err = generateCard(ctx.Question, ctx.Summary, ctx.AdditionalContext)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
