@@ -1,8 +1,11 @@
 local M = {}
 local log = require("devlogs").new("claude-plan")
+local comments = require("utils.plan-comments")
 
+local ns = vim.api.nvim_create_namespace("claude_plan_comments")
 local current_plans_dir = nil
 local claude_pane_id = nil
+local autocmd_registered = false
 
 local function get_plans_dir(config_dir)
 	config_dir = config_dir or os.getenv("CLAUDE_CONFIG_DIR") or (os.getenv("HOME") .. "/.claude")
@@ -72,15 +75,31 @@ function M.open(file_path, config_dir)
 		return
 	end
 
+	if not autocmd_registered then
+		vim.api.nvim_create_autocmd("BufRead", {
+			pattern = current_plans_dir .. "/*.md",
+			callback = function()
+				log.debug("BufRead autocmd triggered")
+				M.setup_buffer()
+			end,
+		})
+		autocmd_registered = true
+		log.debug("registered BufRead autocmd for " .. current_plans_dir)
+	end
+
 	log.info("open file=" .. file_path)
 	local existing_tab, existing_buf = M.find_existing_plan_tab()
 	if existing_tab then
+		log.debug("open: reusing tab=" .. tostring(existing_tab) .. " buf=" .. tostring(existing_buf))
 		vim.api.nvim_set_current_tabpage(existing_tab)
 		if not existing_buf or vim.api.nvim_buf_get_name(existing_buf) ~= file_path then
 			vim.cmd("edit " .. vim.fn.fnameescape(file_path))
 			M.setup_buffer()
+		else
+			log.debug("open: same file already displayed, skipping setup")
 		end
 	else
+		log.debug("open: creating new tab")
 		vim.cmd("tabnew " .. vim.fn.fnameescape(file_path))
 		M.setup_buffer()
 	end
@@ -139,9 +158,37 @@ local function start_close_watcher()
 	)
 end
 
+function M.serialise_comments()
+	local _, buf = M.find_existing_plan_tab()
+	if not buf or not vim.api.nvim_buf_is_valid(buf) then
+		log.debug("serialise_comments: no valid buf, skipping")
+		return
+	end
+
+	local marks = vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, {})
+	if #marks == 0 then
+		log.debug("serialise_comments: no extmarks, skipping")
+		return
+	end
+
+	log.debug("serialise_comments: found " .. #marks .. " extmarks, serialising")
+	vim.bo[buf].modifiable = true
+	vim.bo[buf].readonly = false
+	local count = comments.serialise(buf, ns)
+	vim.cmd("silent write")
+	vim.bo[buf].modifiable = false
+	vim.bo[buf].readonly = true
+
+	log.info("serialise_comments: wrote " .. count .. " comments")
+end
+
 function M.close()
+	log.debug("close: starting")
 	stop_close_watcher()
+	M.serialise_comments()
+
 	local tab, buf = M.find_existing_plan_tab()
+	log.debug("close: tab=" .. tostring(tab) .. " buf=" .. tostring(buf))
 
 	vim.g.claude_plan_bufnr = nil
 	vim.g.claude_plan_tabnr = nil
@@ -204,23 +251,35 @@ function M.accept_manual()
 end
 
 function M.reject()
-	vim.ui.input({ prompt = "Rejection reason: " }, function(input)
-		if not input then
-			return
-		end
+	local buf = vim.g.claude_plan_bufnr
+	local has_comments = buf and #vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, {}) > 0
+
+	local function do_reject(reason)
 		M.close()
 		poll_and_send("4", function()
 			tmux_send_key("Enter")
 			vim.defer_fn(function()
-				tmux_send(input)
+				tmux_send(reason)
 				tmux_send_key("Enter")
 			end, 200)
 		end)
+	end
+
+	if has_comments then
+		do_reject("Please address all comments in the plan")
+		return
+	end
+
+	vim.ui.input({ prompt = "Rejection reason: " }, function(input)
+		if not input then
+			return
+		end
+		do_reject(input)
 	end)
 end
 
 function M.setup_buffer(config_dir, pane_id)
-	log.info("setup_buffer pane=" .. tostring(pane_id))
+	log.info("setup_buffer pane=" .. tostring(pane_id) .. " config_dir=" .. tostring(config_dir))
 	if config_dir then
 		current_plans_dir = get_plans_dir(config_dir)
 	end
@@ -228,18 +287,33 @@ function M.setup_buffer(config_dir, pane_id)
 		claude_pane_id = pane_id
 	end
 	local buf = vim.api.nvim_get_current_buf()
+	if vim.b[buf].claude_plan_setup then
+		return
+	end
+	vim.b[buf].claude_plan_setup = true
+	log.debug("setup_buffer: buf=" .. buf .. " name=" .. vim.api.nvim_buf_get_name(buf))
+
+	local count = comments.deserialise(buf, ns)
+	log.debug("setup_buffer: deserialised " .. count .. " comments")
 
 	vim.bo[buf].modifiable = false
 	vim.bo[buf].readonly = true
 
 	local opts = { buffer = buf, nowait = true }
-	vim.keymap.set("n", "a", M.accept_clear, vim.tbl_extend("force", opts, { desc = "Accept + clear context" }))
-	vim.keymap.set("n", "y", M.accept_auto, vim.tbl_extend("force", opts, { desc = "Accept (auto-approve)" }))
-	vim.keymap.set("n", "m", M.accept_manual, vim.tbl_extend("force", opts, { desc = "Accept (manual approve)" }))
-	vim.keymap.set("n", "q", M.close, vim.tbl_extend("force", opts, { desc = "Close plan" }))
-	vim.keymap.set("n", "n", M.reject, vim.tbl_extend("force", opts, { desc = "Reject plan" }))
+	vim.keymap.set("n", "<leader>a", M.accept_clear, vim.tbl_extend("force", opts, { desc = "Accept + clear context" }))
+	vim.keymap.set("n", "<leader>y", M.accept_auto, vim.tbl_extend("force", opts, { desc = "Accept (auto-approve)" }))
+	vim.keymap.set(
+		"n",
+		"<leader>m",
+		M.accept_manual,
+		vim.tbl_extend("force", opts, { desc = "Accept (manual approve)" })
+	)
+	vim.keymap.set("n", "<leader>q", M.close, vim.tbl_extend("force", opts, { desc = "Close plan" }))
+	vim.keymap.set("n", "<leader>n", M.reject, vim.tbl_extend("force", opts, { desc = "Reject plan" }))
 
-	for _, key in ipairs({ "i", "I", "A", "o", "O", "s", "S", "c", "C", "r", "R" }) do
+	comments.setup_keymaps(buf, ns)
+
+	for _, key in ipairs({ "i", "I", "A", "o", "O", "s", "S", "r", "R" }) do
 		vim.keymap.set("n", key, "<Nop>", { buffer = buf })
 	end
 
