@@ -15,6 +15,7 @@ return {
 		views = {
 			popup = { enter = true },
 			cmdline_input = {
+				size = { width = 120 },
 				win_options = {
 					wrap = true,
 					linebreak = true,
