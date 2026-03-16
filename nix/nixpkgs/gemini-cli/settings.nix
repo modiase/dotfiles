@@ -1,7 +1,6 @@
 { hookBin }:
 {
   general = {
-    vimMode = true;
     sessionRetention = {
       enabled = true;
       maxAge = "120d";

@@ -122,8 +122,16 @@ in
 
       activation.gemini-settings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         $DRY_RUN_CMD mkdir -p "$HOME/.gemini"
-        $DRY_RUN_CMD cp -f "${settingsJson}" "$HOME/.gemini/settings.json"
-        $DRY_RUN_CMD chmod u+w "$HOME/.gemini/settings.json"
+        settings="$HOME/.gemini/settings.json"
+        if [ -f "$settings" ]; then
+          $DRY_RUN_CMD ${pkgs.jq}/bin/jq -s '
+            .[1] * {security: {auth: (.[0].security.auth // {})}}
+          ' "$settings" "${settingsJson}" > "$settings.tmp"
+          $DRY_RUN_CMD mv "$settings.tmp" "$settings"
+        else
+          $DRY_RUN_CMD cp "${settingsJson}" "$settings"
+        fi
+        $DRY_RUN_CMD chmod u+w "$settings"
       '';
 
     };
