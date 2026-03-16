@@ -1,1 +1,0 @@
-devlogs --level debug $argv

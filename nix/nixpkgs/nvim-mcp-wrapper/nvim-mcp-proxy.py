@@ -63,6 +63,7 @@ class McpProxy:
         self._pending_connects: dict[str, asyncio.Future[str | None]] = {}
         self._auto_ids: set[str] = set()
         self._child: asyncio.subprocess.Process | None = None
+        self._last_health: str | None = None
 
     def _next_auto_id(self) -> str:
         self._auto_counter += 1
@@ -193,17 +194,22 @@ class McpProxy:
 
     async def _health_check_and_reconnect(self) -> None:
         if self.socket and os.path.exists(self.socket):
-            log.debug("socket healthy socket=%s", self.socket)
+            if self._last_health != "healthy":
+                log.info("socket healthy socket=%s", self.socket)
+                self._last_health = "healthy"
             return
 
         if self.socket:
             log.info("socket gone socket=%s", self.socket)
             self.socket = None
             self.connection_id = None
+            self._last_health = None
 
         discovered = await self.discover_socket()
         if not discovered:
-            log.debug("no socket found")
+            if self._last_health != "no_socket":
+                log.info("no socket found")
+                self._last_health = "no_socket"
             return
 
         log.info("discovered socket=%s", discovered)
