@@ -1,6 +1,5 @@
 return {
 	"coder/claudecode.nvim",
-	cond = not vim.g.pager_mode,
 	event = "VeryLazy",
 	dependencies = { "folke/snacks.nvim" },
 	opts = {
