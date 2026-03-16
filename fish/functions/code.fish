@@ -9,9 +9,9 @@ if set -q _flag_help
     echo "Options:"
     echo "  -a, --agent=NAME  Add agent column (gemini, claude, opencode)"
     echo "  --no-rename       Don't rename tmux window"
-    echo "  --no-debug        Don't add debug pane"
+    echo "  --no-debug        Don't add devlogs pane"
     echo ""
-    echo "Layout: yazi | nvim / terminal | agent (optional) / debug (default)"
+    echo "Layout: yazi | nvim / terminal | agent (optional) / devlogs (default)"
     return 0
 end
 
@@ -49,7 +49,7 @@ for i in (seq 2 $need)
     tmux split-window -t $win
 end
 
-# Pane order: yazi(0), nvim(1), [agent(2)], terminal, [debug]
+# Pane order: yazi(0), nvim(1), [agent(2)], terminal, [devlogs]
 if test $has_agent -eq 1 -a $has_debug -eq 1
     tmux select-layout -t $win '2351,384x92,0,0{40x92,0,0,75,343x92,41,0[343x81,41,0{222x81,41,0,76,120x81,264,0,78},343x10,41,82{222x10,41,82,77,120x10,264,82,79}]}'
 else if test $has_agent -eq 1
@@ -69,5 +69,5 @@ end
 
 if test $has_debug -eq 1
     set -l debug_pane (math $need - 1)
-    tmux send-keys -t $win.$debug_pane debug Enter
+    tmux send-keys -t $win.$debug_pane devlogs Enter
 end

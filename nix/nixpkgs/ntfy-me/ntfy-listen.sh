@@ -68,7 +68,7 @@ while read -r line; do
         continue
     fi
     if [[ $((now - last_ding)) -lt 2 ]]; then
-        clog info "skipped (debounce)"
+        clog debug "skipped (debounce)"
         continue
     fi
     last_ding=$now
