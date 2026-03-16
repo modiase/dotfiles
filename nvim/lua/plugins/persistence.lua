@@ -1,6 +1,5 @@
 return {
 	"folke/persistence.nvim",
-	cond = not vim.g.pager_mode,
 	event = "BufReadPre",
 	opts = {},
 	init = function()

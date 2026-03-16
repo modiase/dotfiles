@@ -1,6 +1,5 @@
 return {
 	"neoclide/coc.nvim",
-	cond = not vim.g.pager_mode,
 	branch = "release",
 	event = "VeryLazy",
 	init = function()
