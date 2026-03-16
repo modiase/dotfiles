@@ -1,11 +1,13 @@
-{ hookBin }:
+{ hookBin, ... }:
 {
   general = {
+    defaultApprovalMode = "plan";
     sessionRetention = {
       enabled = true;
       maxAge = "120d";
     };
   };
+  experimental.plan = true;
   ide.enabled = true;
   context.fileName = [
     "GEMINI.md"
