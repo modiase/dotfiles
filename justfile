@@ -32,6 +32,7 @@ pre-commit:
     if has 'systems/hekate/run/dashboard/webui/src/.*\.(ts|html)$'; then run pre-commit-typescript; fi
     if has '\.(sh|bash)$|^bin/'; then run pre-commit-shell; fi
     if has '^infra/.*\.tofu$'; then run pre-commit-terraform; fi
+    run pre-commit-no-binaries
     run pre-commit-whitespace
 
     failed=0
@@ -146,6 +147,26 @@ pre-commit-gitleaks:
     #!/usr/bin/env bash
     set -euo pipefail
     nix-shell -p gitleaks --run "gitleaks protect --staged"
+
+pre-commit-no-binaries:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mapfile -t files < <(git diff --cached --name-only --diff-filter d)
+    [[ ${#files[@]} -eq 0 ]] && exit 0
+    binaries=()
+    for f in "${files[@]}"; do
+        [[ -f "$f" ]] || continue
+        mime=$(file --brief --mime-type "$f")
+        case "$mime" in
+            application/x-mach-binary|application/x-executable|application/x-pie-executable|application/x-sharedlib)
+                binaries+=("$f") ;;
+        esac
+    done
+    if [[ ${#binaries[@]} -gt 0 ]]; then
+        printf 'Compiled binaries staged for commit:\n'
+        printf '  %s\n' "${binaries[@]}"
+        exit 1
+    fi
 
 pre-commit-whitespace:
     #!/usr/bin/env bash
