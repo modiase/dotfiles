@@ -2,7 +2,7 @@ argparse h/help 'a/agent=' no-rename no-debug -- $argv
 or return
 
 if set -q _flag_help
-    echo "Usage: code [OPTIONS]"
+    echo "Usage: code [OPTIONS] [DIR]"
     echo ""
     echo "Create development layout with yazi, neovim, and terminal"
     echo ""
@@ -14,6 +14,13 @@ if set -q _flag_help
     echo "Layout: yazi | nvim / terminal | agent (optional) / devlogs (default)"
     return 0
 end
+
+set -l dir (test (count $argv) -gt 0; and echo $argv[1]; or echo $PWD)
+test -d "$dir"; or begin
+    echo "Error: not a directory: $dir" >&2
+    return 1
+end
+cd "$dir"
 
 test -z "$TMUX"; and echo "Error: code requires tmux" >&2; and return 1
 
