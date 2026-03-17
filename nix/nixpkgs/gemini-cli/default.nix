@@ -10,7 +10,6 @@ let
 
   devlogsLib = pkgs.callPackage ../devlogs-lib { };
   ding = pkgs.callPackage ../ding { };
-  nvr = pkgs.callPackage ../nvr { };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 
   hookScript = pkgs.writeShellApplication {
@@ -45,16 +44,16 @@ let
   geminiEditor = pkgs.writeShellApplication {
     name = "gemini-editor";
     runtimeInputs = [
+      (pkgs.callPackage ./scripts/gemini-editor { })
       tmuxNvimSelect
-      pkgs.gum
-      nvr
       pkgs.tmux
+      pkgs.neovim
     ];
     text = ''
       export DEVLOGS_COMPONENT="gemini-editor"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
-      ${builtins.readFile ./scripts/gemini-editor.sh}
+      exec gemini-editor-go "$@"
     '';
   };
 
