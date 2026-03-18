@@ -9,7 +9,7 @@ terraform {
 
 resource "google_service_account" "monitor" {
   account_id   = "${var.name}-monitor"
-  display_name = "${var.name} GCS Freshness Monitor"
+  display_name = "${var.name} GCS Periodic Upload Monitor"
   project      = var.project_id
 }
 
@@ -46,7 +46,7 @@ resource "google_cloudfunctions2_function" "monitor" {
 
   build_config {
     runtime     = "nodejs20"
-    entry_point = "checkFreshness"
+    entry_point = "checkUpload"
     source {
       storage_source {
         bucket = var.functions_bucket

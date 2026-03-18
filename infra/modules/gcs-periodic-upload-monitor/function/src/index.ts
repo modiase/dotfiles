@@ -17,14 +17,14 @@ const AlertConfig = t.strict({
   message: t.string,
 });
 
-const FreshnessCheckRequest = t.strict({
+const UploadCheckRequest = t.strict({
   bucket: t.string,
   object: t.string,
   max_age_hours: t.number,
   alert: AlertConfig,
 });
 
-type FreshnessCheckRequest = t.TypeOf<typeof FreshnessCheckRequest>;
+type UploadCheckRequest = t.TypeOf<typeof UploadCheckRequest>;
 
 const getEnv = (name: string): E.Either<Error, string> =>
   pipe(
@@ -36,13 +36,13 @@ const getEnv = (name: string): E.Either<Error, string> =>
     ),
   );
 
-const decodeRequest = (body: unknown): E.Either<Error, FreshnessCheckRequest> =>
+const decodeRequest = (body: unknown): E.Either<Error, UploadCheckRequest> =>
   pipe(
-    FreshnessCheckRequest.decode(body),
+    UploadCheckRequest.decode(body),
     E.mapLeft((errors) => new Error(PathReporter.report(E.left(errors)).join(", "))),
   );
 
-export const checkFreshness = async (req: Request, res: Response): Promise<void> =>
+export const checkUpload = async (req: Request, res: Response): Promise<void> =>
   pipe(
     E.Do,
     E.bind("request", () => decodeRequest(req.body)),
@@ -82,7 +82,7 @@ export const checkFreshness = async (req: Request, res: Response): Promise<void>
     ),
     TE.match(
       (err) => {
-        console.error("Error checking freshness:", err);
+        console.error("Error checking upload:", err);
         res.status(err.message.startsWith("Invalid value") ? 400 : 500).json({
           error: err.message,
         });
