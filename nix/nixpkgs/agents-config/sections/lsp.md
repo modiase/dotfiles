@@ -1,3 +1,8 @@
+---
+priority: 50
+agents: [claude]
+---
+
 ## LSP Diagnostics (MANDATORY if nvim MCP available)
 
 **If the nvim MCP server is available and operational**, you MUST check LSP diagnostics on changed files after each round of changes. This is not optional.

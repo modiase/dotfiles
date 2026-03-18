@@ -1,3 +1,9 @@
+---
+priority: 50
+conditions:
+  google3: false
+---
+
 ## Preferred Tools
 | Instead of | Use    | Why                                |
 |------------|--------|------------------------------------|

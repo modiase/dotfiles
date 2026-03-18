@@ -81,6 +81,7 @@ let
     ];
     text = ''
       export EDITOR=gemini-editor
+      export GEMINI_SYSTEM_MD="$HOME/.gemini/system.md"
       export DEVLOGS_COMPONENT="gemini"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
@@ -118,6 +119,7 @@ in
       ];
 
       file.".gemini/policies/managed.toml".source = policyFile;
+      file.".gemini/system.md".source = ./system.md;
 
       activation.gemini-settings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
         $DRY_RUN_CMD mkdir -p "$HOME/.gemini"

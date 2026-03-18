@@ -100,6 +100,7 @@ let
   wrappedClaude = import ./wrapper.nix {
     inherit pkgs;
     claudeCodePkg = pkgs.claude-code;
+    generateAgentsMd = agentsCfg.generateAgentsMd;
     configDir = cfg.configDir;
   };
 
