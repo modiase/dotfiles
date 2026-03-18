@@ -1,4 +1,9 @@
-{ hookBin, ... }:
+{
+  hookBin,
+  openPlanBin,
+  closePlanBin,
+  ...
+}:
 {
   general = {
     defaultApprovalMode = "plan";
@@ -41,6 +46,28 @@
           {
             type = "command";
             command = "${hookBin} stop";
+          }
+        ];
+      }
+    ];
+    AfterTool = [
+      {
+        matcher = "write_file";
+        hooks = [
+          {
+            type = "command";
+            command = "${openPlanBin}";
+          }
+        ];
+      }
+    ];
+    BeforeTool = [
+      {
+        matcher = "exit_plan_mode";
+        hooks = [
+          {
+            type = "command";
+            command = "${closePlanBin}";
           }
         ];
       }

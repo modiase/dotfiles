@@ -10,7 +10,41 @@ let
 
   devlogsLib = pkgs.callPackage ../devlogs-lib { };
   ding = pkgs.callPackage ../ding { };
+  nvr = pkgs.callPackage ../nvr { };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
+
+  planScriptInputs =
+    with pkgs;
+    [
+      jq
+      tmux
+    ]
+    ++ [
+      nvr
+      tmuxNvimSelect
+    ];
+
+  openPlanScript = pkgs.writeShellApplication {
+    name = "gemini-nvim-plan";
+    runtimeInputs = planScriptInputs;
+    text = ''
+      export DEVLOGS_COMPONENT="gemini-nvim-plan"
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
+      ${builtins.readFile ./scripts/nvim-plan.sh}
+    '';
+  };
+
+  closePlanScript = pkgs.writeShellApplication {
+    name = "gemini-close-plan";
+    runtimeInputs = planScriptInputs;
+    text = ''
+      export DEVLOGS_COMPONENT="gemini-close-plan"
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
+      ${builtins.readFile ./scripts/close-plan.sh}
+    '';
+  };
 
   hookScript = pkgs.writeShellApplication {
     name = "gemini-hook";
@@ -28,10 +62,12 @@ let
   };
 
   hookBin = "${hookScript}/bin/gemini-hook";
+  openPlanBin = "${openPlanScript}/bin/gemini-nvim-plan";
+  closePlanBin = "${closePlanScript}/bin/gemini-close-plan";
 
   agentsCfg = config.dotfiles.agents-config;
 
-  baseSettings = import ./settings.nix { inherit hookBin; };
+  baseSettings = import ./settings.nix { inherit hookBin openPlanBin closePlanBin; };
   settings = baseSettings // {
     mcpServers = agentsCfg.mcpServers;
   };
