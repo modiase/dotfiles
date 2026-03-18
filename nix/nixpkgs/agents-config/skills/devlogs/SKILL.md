@@ -91,9 +91,24 @@ The module is installed via `xdg.configFile` in `neovim.nix` — no extra setup 
 
 ## Viewing logs
 
-- **Live**: `devlogs` (TUI with filtering, follow mode)
+Use `devlogs` to read logs from this logging stack. System log tools (`/usr/bin/log show`, `journalctl`) are for OS-level logs — devlogs wraps them with the right filters and formatting for development logging.
+
+```
+devlogs [flags]
+  -H, --history string   Show history (e.g. 1h, 30m, 2d)
+  -l, --level string     Minimum log level: debug, info, warn, error (default "info")
+  -n, --no-follow        Show history and exit (no live stream)
+  -p, --plain            Force plain text output (no TUI)
+  -w, --window string    Window filter (-1 for all, N for specific)
+```
+
+Common usage:
+
+- **Live TUI**: `devlogs` (interactive, follow mode)
 - **History**: `devlogs --history 1h` (or `30m`, `2d`, etc.)
-- **Plain**: `devlogs --no-follow --history 1h` (pipe-friendly)
+- **Scriptable/grep-friendly**: `devlogs --plain --history 5m -w "-1"`
+- **Debug-level logs**: `devlogs --plain --history 5m --level debug` (default is info, so debug messages are hidden unless you pass this)
+- **Specific window**: `devlogs --plain --history 5m -w 3`
 
 ## macOS syslog priority
 
