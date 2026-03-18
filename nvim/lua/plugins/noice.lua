@@ -13,7 +13,14 @@ return {
 			message = { enabled = false },
 		},
 		views = {
-			popup = { enter = true },
+			popup = {
+				enter = true,
+				size = { max_width = 120 },
+				win_options = {
+					wrap = true,
+					linebreak = true,
+				},
+			},
 			cmdline_input = {
 				size = { width = 120 },
 				win_options = {
