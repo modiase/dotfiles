@@ -80,7 +80,7 @@ module "gmail_dispatcher" {
 }
 
 module "hestia_backup_monitor" {
-  source           = "./modules/gcs-freshness-monitor"
+  source           = "./modules/gcs-periodic-upload-monitor"
   project_id       = var.project_id
   region           = var.region
   functions_bucket = module.ntfy_pubsub.functions_bucket
