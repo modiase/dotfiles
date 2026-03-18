@@ -38,6 +38,7 @@ let
     "read_file"
     "save_memory"
     "search_file_content"
+    "write_todos"
     # keep-sorted end
   ];
 

@@ -118,6 +118,11 @@ function M.setup()
 		return
 	end
 
+	if vim.fn.isdirectory(vim.fn.getcwd() .. "/.opencode") == 0 then
+		log.debug("setup: no .opencode directory, skipping")
+		return
+	end
+
 	vim.fn.mkdir(plans_dir, "p")
 
 	local handle = vim.uv.new_fs_event()

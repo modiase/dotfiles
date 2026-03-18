@@ -13,6 +13,7 @@
     };
   };
   experimental.plan = true;
+  useWriteTodos = true;
   ide.enabled = true;
   context.fileName = [
     "GEMINI.md"
@@ -60,6 +61,15 @@
           }
         ];
       }
+      {
+        matcher = "exit_plan_mode";
+        hooks = [
+          {
+            type = "command";
+            command = "${hookBin} after-plan";
+          }
+        ];
+      }
     ];
     BeforeTool = [
       {
@@ -68,6 +78,15 @@
           {
             type = "command";
             command = "${closePlanBin}";
+          }
+        ];
+      }
+      {
+        matcher = "write_file";
+        hooks = [
+          {
+            type = "command";
+            command = "${hookBin} before-plan-write";
           }
         ];
       }
