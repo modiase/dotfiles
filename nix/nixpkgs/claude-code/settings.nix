@@ -185,7 +185,7 @@
     ];
     SessionStart = [
       {
-        matcher = "startup";
+        matcher = "*";
         hooks = [
           {
             type = "command";
