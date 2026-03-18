@@ -28,7 +28,7 @@ let
       cond_args=""
       ${conditionEvalScript}
       # shellcheck disable=SC2086
-      exec python3 ${./generate-agents-md.py} $cond_args${extraDirArgs} "$@"
+      exec python3 ${./generate-agents-md.py} $cond_args ${extraDirArgs} "$@"
     '';
   };
 in
