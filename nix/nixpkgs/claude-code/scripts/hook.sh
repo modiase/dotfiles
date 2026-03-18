@@ -19,6 +19,7 @@ EOF
 }
 
 on_init() {
+    clog debug "init: session started pwd=$PWD"
     echo '{}'
 }
 
@@ -31,10 +32,12 @@ notify() {
 }
 
 on_stop() {
+    clog debug "stop: agent stopped"
     notify '#{t_window_name}' 'Agent stopped'
 }
 
 on_permission() {
+    clog debug "permission: request received"
     notify 'Claude Code' 'Permission needed' request
 }
 
