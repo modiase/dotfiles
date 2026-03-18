@@ -5,6 +5,11 @@
 }:
 
 let
+  devlogsLib = pkgs.callPackage ./nixpkgs/devlogs-lib { };
+  clogInit = ''
+    if [[ $- == *i* ]]; then source ${devlogsLib.shell}/lib/devlogs.sh; fi
+  '';
+
   displayResolver = pkgs.writeShellScript "resolve-display" ''
     if [ "$(uname -s)" != "Darwin" ]; then exit 0; fi
     if ! command -v launchctl >/dev/null 2>&1; then exit 0; fi
@@ -80,6 +85,7 @@ in
         + setTerm
         + setDisplay
         + setTmuxTmpdir
+        + clogInit
         + ''
           if [ -f "$HOME/.bashrc.local" ]; then
             source "$HOME/.bashrc.local"
@@ -100,6 +106,7 @@ in
         + setTerm
         + setDisplay
         + setTmuxTmpdir
+        + clogInit
         + ''
           if [ -f "$HOME/.zshrc.local" ]; then
             source "$HOME/.zshrc.local"

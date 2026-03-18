@@ -17,7 +17,7 @@ fi
 count=$(echo "$panes" | wc -l | tr -d ' ')
 if [[ "$count" -eq 1 ]]; then
     selected="$panes"
-elif command -v gum >/dev/null 2>&1; then
+elif [[ -t 0 ]] && command -v gum >/dev/null 2>&1; then
     selected=$(echo "$panes" | gum choose --header "Select neovim pane")
     if [[ -z "$selected" ]]; then exit 1; fi
 else
