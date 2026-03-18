@@ -1,3 +1,7 @@
+---
+priority: 10
+---
+
 # Code Quality Guidelines
 
 ## Mandatory Review

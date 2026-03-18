@@ -37,11 +37,27 @@ notify() {
 }
 
 on_before_agent() {
-    if [[ "$PWD" != */google/src/cloud/* ]]; then return 0; fi
-    jq -n '{
-      "hookSpecificOutput": {
-        "additionalContext": "REMINDER: You are in google3. For codebase search and exploration, use codesearch MCP tools — not find, fd, rg, or grep (they cannot index google3). These tools are fine only for specific known file paths."
-      }
+    local ctx="MANDATORY: Before taking any action this turn, reason through the following in your thinking tokens (NOT in your visible response):
+1. CURRENT STATE: What is the current state of the task? What has been completed so far?
+2. THIS TURN: What specific action are you about to take and why?
+3. REMAINING INSTRUCTIONS: List the explicit instructions from the user, GEMINI.md, and AGENTS.md that apply to your current task. Quote them directly.
+
+After reasoning through the above, proceed with ONLY the action described in (2).
+
+CONSTRAINTS (mandatory for this turn):
+- Execute ONLY what was explicitly requested. No follow-up actions.
+- If ambiguous, ask for clarification rather than assuming.
+- Scope changes to exactly what was asked. Do not expand into broader refactors.
+- Do not commit, deploy, push, or run destructive operations unless explicitly instructed.
+- Comply with all project instructions (GEMINI.md, AGENTS.md) without exception.
+- When the task is complete, stop. Do not suggest or begin additional work."
+
+    if [[ "$PWD" == */google/src/cloud/* ]]; then
+        ctx+=$'\n\n'"REMINDER: You are in google3. For codebase search and exploration, use codesearch MCP tools — not find, fd, rg, or grep (they cannot index google3). These tools are fine only for specific known file paths."
+    fi
+
+    jq -n --arg ctx "$ctx" '{
+      "hookSpecificOutput": { "additionalContext": $ctx }
     }'
 }
 

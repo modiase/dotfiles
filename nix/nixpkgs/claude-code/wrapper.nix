@@ -1,6 +1,7 @@
 {
   pkgs,
   claudeCodePkg,
+  generateAgentsMd,
   configDir ? null,
 }:
 let
@@ -19,15 +20,6 @@ let
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
       ${builtins.readFile ./scripts/get-claude-ide-env.sh}
-    '';
-  };
-
-  generateAgentsMd = pkgs.writeShellApplication {
-    name = "generate-agents-md";
-    runtimeInputs = [ pkgs.python3 ];
-    text = ''
-      export AGENTS_SECTIONS_DIR="${../agents-config/sections}"
-      exec python3 ${../agents-config/generate-agents-md.py} "$@"
     '';
   };
 

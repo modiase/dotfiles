@@ -451,14 +451,31 @@
             secrets
             ;
           inherit (shellutils) hook-utils logging-utils build-gce-nixos-image;
-          claude-code = import ./nix/nixpkgs/claude-code/wrapper.nix {
-            inherit pkgs;
-            claudeCodePkg =
-              (import nixpkgs {
-                inherit system;
-                config.allowUnfree = true;
-              }).claude-code;
-          };
+          claude-code =
+            let
+              devlogsLib = pkgs.callPackage ./nix/nixpkgs/devlogs-lib { };
+              generateAgentsMd = pkgs.writeShellApplication {
+                name = "generate-agents-md";
+                runtimeInputs = [ pkgs.python3 ];
+                text = ''
+                  export PYTHONPATH="${devlogsLib.python}/lib:''${PYTHONPATH:-}"
+                  export DEVLOGS_COMPONENT="generate-agents-md"
+                  export AGENTS_SECTIONS_DIR="${./nix/nixpkgs/agents-config/sections}"
+                  cond_args=""
+                  if command -v nix >/dev/null 2>&1; then cond_args+=" --condition nix=true"; else cond_args+=" --condition nix=false"; fi
+                  # shellcheck disable=SC2086
+                  exec python3 ${./nix/nixpkgs/agents-config/generate-agents-md.py} $cond_args "$@"
+                '';
+              };
+            in
+            import ./nix/nixpkgs/claude-code/wrapper.nix {
+              inherit pkgs generateAgentsMd;
+              claudeCodePkg =
+                (import nixpkgs {
+                  inherit system;
+                  config.allowUnfree = true;
+                }).claude-code;
+            };
         };
 
         shellutils = shellutils;

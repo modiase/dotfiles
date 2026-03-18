@@ -1,3 +1,9 @@
+---
+priority: 50
+conditions:
+  cloudtop: true
+---
+
 ## Cloudtop Environment
 
 You are running on a Cloudtop instance. Keep these constraints in mind:
