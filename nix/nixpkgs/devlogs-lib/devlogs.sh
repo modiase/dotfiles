@@ -6,7 +6,10 @@ fi
 
 clog() {
     local level="$1"
-    shift
+    case "$level" in
+        debug | info | warning | error) shift ;;
+        *) level="info" ;;
+    esac
     local win=""
     if [[ -n "$_DEVLOGS_WIN" ]]; then win="(@$_DEVLOGS_WIN)"; fi
     local priority="user.$level"
