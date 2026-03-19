@@ -13,14 +13,18 @@ let
   nvr = pkgs.callPackage ../nvr { };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 
+  planResponder = pkgs.callPackage ../agents-plan-responder { };
+
   planScriptInputs =
     with pkgs;
     [
       jq
       tmux
+      util-linux
     ]
     ++ [
       nvr
+      planResponder
       tmuxNvimSelect
     ];
 

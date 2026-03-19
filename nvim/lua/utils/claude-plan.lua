@@ -4,7 +4,6 @@ local comments = require("utils.plan-comments")
 
 local ns = vim.api.nvim_create_namespace("claude_plan_comments")
 local current_plans_dir = nil
-local claude_pane_id = nil
 local autocmd_registered = false
 
 local function get_plans_dir(config_dir)
@@ -17,252 +16,125 @@ local function is_plan_file(path, plans_dir)
 	return path and path:match("^" .. vim.pesc(plans_dir) .. "/.*%.md$")
 end
 
-function M.find_existing_plan_tab()
-	local buf = vim.g.claude_plan_bufnr
-	local tab = vim.g.claude_plan_tabnr
-	if tab and vim.api.nvim_tabpage_is_valid(tab) and buf and vim.api.nvim_buf_is_valid(buf) then
-		return tab, buf
+local function write_fifo(fifo_path, response)
+	if not fifo_path then
+		log.warning("write_fifo: no fifo path")
+		return
 	end
+	log.info("write_fifo: " .. response .. " -> " .. fifo_path)
+	vim.fn.jobstart({ "sh", "-c", string.format("echo '%s' > %s", response, vim.fn.shellescape(fifo_path)) }, {
+		detach = true,
+	})
+end
 
-	local plans_dir = current_plans_dir or get_plans_dir()
+local function find_win_by_fifo(fifo_path)
 	for _, t in ipairs(vim.api.nvim_list_tabpages()) do
 		local win = vim.api.nvim_tabpage_get_win(t)
-		local b = vim.api.nvim_win_get_buf(win)
-		local name = vim.api.nvim_buf_get_name(b)
-		if is_plan_file(name, plans_dir) then
-			return t, b
+		if vim.w[win].plan_fifo == fifo_path then
+			return win, t
 		end
 	end
 	return nil, nil
 end
 
-local function tmux_send(text)
-	if not claude_pane_id then
-		log.warning("tmux_send: pane ID not set")
-		vim.notify("Claude pane ID not set", vim.log.levels.WARN)
-		return false
-	end
-	vim.fn.system({ "tmux", "send-keys", "-t", claude_pane_id, "-l", text })
-	local ok = vim.v.shell_error == 0
-	log.debug("tmux_send pane=" .. claude_pane_id .. " ok=" .. tostring(ok))
-	return ok
-end
-
-local function tmux_send_key(key)
-	if not claude_pane_id then
-		return false
-	end
-	vim.fn.system({ "tmux", "send-keys", "-t", claude_pane_id, key })
-	return vim.v.shell_error == 0
-end
-
-local function tmux_pane_contains(pattern)
-	if not claude_pane_id then
-		return false
-	end
-	local output = vim.fn.system({ "tmux", "capture-pane", "-t", claude_pane_id, "-p" })
-	return output:find(pattern, 1, true) ~= nil
-end
-
-function M.open(file_path, config_dir)
-	if not file_path then
-		return
-	end
-
-	current_plans_dir = get_plans_dir(config_dir)
-	file_path = vim.fn.resolve(file_path)
-	if not is_plan_file(file_path, current_plans_dir) then
-		return
-	end
-
-	if not autocmd_registered then
-		vim.api.nvim_create_autocmd("BufRead", {
-			pattern = current_plans_dir .. "/*.md",
-			callback = function()
-				log.debug("BufRead autocmd triggered")
-				M.setup_buffer()
-			end,
-		})
-		autocmd_registered = true
-		log.debug("registered BufRead autocmd for " .. current_plans_dir)
-	end
-
-	log.info("open file=" .. file_path)
-	local existing_tab, existing_buf = M.find_existing_plan_tab()
-	if existing_tab then
-		log.debug("open: reusing tab=" .. tostring(existing_tab) .. " buf=" .. tostring(existing_buf))
-		vim.api.nvim_set_current_tabpage(existing_tab)
-		if not existing_buf or vim.api.nvim_buf_get_name(existing_buf) ~= file_path then
-			vim.cmd("edit " .. vim.fn.fnameescape(file_path))
-			M.setup_buffer()
-		else
-			log.debug("open: same file already displayed, skipping setup")
+local function buf_has_other_plan_wins(buf, exclude_win)
+	for _, w in ipairs(vim.api.nvim_list_wins()) do
+		if w ~= exclude_win and vim.api.nvim_win_get_buf(w) == buf and vim.w[w].plan_fifo then
+			return true
 		end
-	else
-		log.debug("open: creating new tab")
-		vim.cmd("tabnew " .. vim.fn.fnameescape(file_path))
-		M.setup_buffer()
+	end
+	return false
+end
+
+local function close_plan_tab(buf, win)
+	if buf_has_other_plan_wins(buf, win) then
+		if #vim.api.nvim_list_tabpages() > 1 then
+			vim.cmd("tabclose")
+		end
+	elseif vim.api.nvim_buf_is_valid(buf) then
+		vim.api.nvim_buf_delete(buf, { force = true })
 	end
 end
 
-local POLL_INTERVAL_MS = 100
-local POLL_TIMEOUT_MS = 10000
-local WATCHER_INTERVAL_MS = 500
-local WATCHER_TIMEOUT_MS = 300000
-local DIALOG_PATTERN = "manually approve edits"
-local close_watcher_timer = nil
-
-local function stop_close_watcher()
-	if close_watcher_timer then
-		close_watcher_timer:stop()
-		close_watcher_timer:close()
-		close_watcher_timer = nil
+function M.close_by_fifo(fifo_path)
+	local win, tab = find_win_by_fifo(fifo_path)
+	if not win then
+		log.debug("close_by_fifo: no win for fifo=" .. tostring(fifo_path))
+		return
 	end
+
+	local buf = vim.api.nvim_win_get_buf(win)
+	log.debug("close_by_fifo: buf=" .. buf .. " tab=" .. tostring(tab))
+
+	M.serialise_comments(buf)
+
+	vim.api.nvim_set_current_tabpage(tab)
+	close_plan_tab(buf, win)
 end
 
-local function start_close_watcher()
-	stop_close_watcher()
-	log.debug("close_watcher: started")
-	local timer = vim.uv.new_timer()
-	close_watcher_timer = timer
-	local dialog_seen = true
-	local elapsed = 0
-
-	timer:start(
-		WATCHER_INTERVAL_MS,
-		WATCHER_INTERVAL_MS,
-		vim.schedule_wrap(function()
-			elapsed = elapsed + WATCHER_INTERVAL_MS
-
-			if not M.find_existing_plan_tab() then
-				log.debug("close_watcher: plan tab gone, stopping")
-				stop_close_watcher()
-				return
-			end
-
-			if elapsed >= WATCHER_TIMEOUT_MS then
-				log.debug("close_watcher: timed out")
-				stop_close_watcher()
-				return
-			end
-
-			local has_dialog = tmux_pane_contains(DIALOG_PATTERN)
-			if has_dialog then
-				dialog_seen = true
-			elseif dialog_seen then
-				log.info("close_watcher: dialog dismissed, closing plan")
-				stop_close_watcher()
-				M.close()
-			end
-		end)
-	)
-end
-
-function M.serialise_comments()
-	local _, buf = M.find_existing_plan_tab()
-	if not buf or not vim.api.nvim_buf_is_valid(buf) then
-		log.debug("serialise_comments: no valid buf, skipping")
+function M.serialise_comments(buf)
+	buf = buf or vim.api.nvim_get_current_buf()
+	if not vim.api.nvim_buf_is_valid(buf) or not vim.b[buf].plan_provider then
+		log.debug("serialise_comments: not a plan buffer")
 		return
 	end
 
 	local marks = vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, {})
 	if #marks == 0 then
-		log.debug("serialise_comments: no extmarks, skipping")
 		return
 	end
 
-	log.debug("serialise_comments: found " .. #marks .. " extmarks, serialising")
+	log.debug("serialise_comments: " .. #marks .. " extmarks")
 	vim.bo[buf].modifiable = true
 	vim.bo[buf].readonly = false
 	local count = comments.serialise(buf, ns)
-	vim.cmd("silent write")
+	vim.api.nvim_buf_call(buf, function()
+		vim.cmd("silent write")
+	end)
 	vim.bo[buf].modifiable = false
 	vim.bo[buf].readonly = true
-
 	log.info("serialise_comments: wrote " .. count .. " comments")
 end
 
 function M.close()
-	log.debug("close: starting")
-	stop_close_watcher()
-	M.serialise_comments()
-
-	local tab, buf = M.find_existing_plan_tab()
-	log.debug("close: tab=" .. tostring(tab) .. " buf=" .. tostring(buf))
-
-	vim.g.claude_plan_bufnr = nil
-	vim.g.claude_plan_tabnr = nil
-
-	if tab and #vim.api.nvim_list_tabpages() > 1 then
-		vim.api.nvim_set_current_tabpage(tab)
-		vim.cmd("tabclose")
+	local win = vim.api.nvim_get_current_win()
+	local buf = vim.api.nvim_win_get_buf(win)
+	if not vim.b[buf].plan_provider then
+		log.debug("close: not a plan buffer")
+		return
 	end
+	log.debug("close: buf=" .. buf)
 
-	if buf and vim.api.nvim_buf_is_valid(buf) then
-		vim.api.nvim_buf_delete(buf, { force = true })
-	end
-end
-
-local function poll_and_send(key, callback)
-	local elapsed = 0
-	local timer = vim.uv.new_timer()
-	log.debug("poll_and_send: waiting for dialog, key=" .. key)
-
-	timer:start(
-		0,
-		POLL_INTERVAL_MS,
-		vim.schedule_wrap(function()
-			elapsed = elapsed + POLL_INTERVAL_MS
-
-			if tmux_pane_contains(DIALOG_PATTERN) then
-				timer:stop()
-				timer:close()
-				log.debug("poll_and_send: dialog found after " .. elapsed .. "ms key=" .. key)
-				tmux_send(key)
-				if callback then
-					callback()
-				end
-				return
-			end
-
-			if elapsed >= POLL_TIMEOUT_MS then
-				timer:stop()
-				timer:close()
-				log.warning("poll_and_send: timed out after " .. elapsed .. "ms")
-				vim.notify("Timed out waiting for plan dialog", vim.log.levels.WARN)
-			end
-		end)
-	)
+	M.serialise_comments(buf)
+	close_plan_tab(buf, win)
 end
 
 function M.accept_clear()
+	local fifo = vim.w[vim.api.nvim_get_current_win()].plan_fifo
 	M.close()
-	poll_and_send("1")
+	write_fifo(fifo, "accept_clear")
 end
 
 function M.accept_auto()
+	local fifo = vim.w[vim.api.nvim_get_current_win()].plan_fifo
 	M.close()
-	poll_and_send("2")
+	write_fifo(fifo, "accept_auto")
 end
 
 function M.accept_manual()
+	local fifo = vim.w[vim.api.nvim_get_current_win()].plan_fifo
 	M.close()
-	poll_and_send("3")
+	write_fifo(fifo, "accept_manual")
 end
 
 function M.reject()
-	local buf = vim.g.claude_plan_bufnr
-	local has_comments = buf and #vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, {}) > 0
+	local buf = vim.api.nvim_get_current_buf()
+	local fifo = vim.w[vim.api.nvim_get_current_win()].plan_fifo
+	local has_comments = #vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, {}) > 0
 
 	local function do_reject(reason)
 		M.close()
-		poll_and_send("4", function()
-			tmux_send_key("Enter")
-			vim.defer_fn(function()
-				tmux_send(reason)
-				tmux_send_key("Enter")
-			end, 200)
-		end)
+		write_fifo(fifo, "reject:" .. reason)
 	end
 
 	if has_comments then
@@ -278,20 +150,55 @@ function M.reject()
 	end)
 end
 
-function M.setup_buffer(config_dir, pane_id)
-	log.info("setup_buffer pane=" .. tostring(pane_id) .. " config_dir=" .. tostring(config_dir))
+function M.open(file_path, config_dir, fifo_path)
+	if not file_path or not fifo_path then
+		return
+	end
+
+	current_plans_dir = get_plans_dir(config_dir)
+	file_path = vim.fn.resolve(file_path)
+	if not is_plan_file(file_path, current_plans_dir) then
+		return
+	end
+
+	if not autocmd_registered then
+		vim.api.nvim_create_autocmd("BufRead", {
+			pattern = current_plans_dir .. "/*.md",
+			callback = function()
+				log.debug("BufRead autocmd triggered")
+			end,
+		})
+		autocmd_registered = true
+	end
+
+	log.info("open file=" .. file_path .. " fifo=" .. fifo_path)
+
+	local _, existing_tab = find_win_by_fifo(fifo_path)
+	if existing_tab then
+		vim.api.nvim_set_current_tabpage(existing_tab)
+		return
+	end
+
+	vim.cmd("tabnew " .. vim.fn.fnameescape(file_path))
+	M.setup_buffer(config_dir, fifo_path)
+end
+
+function M.setup_buffer(config_dir, fifo_path)
 	if config_dir then
 		current_plans_dir = get_plans_dir(config_dir)
 	end
-	if pane_id then
-		claude_pane_id = pane_id
-	end
+
+	local win = vim.api.nvim_get_current_win()
+	vim.w[win].plan_fifo = fifo_path
+
 	local buf = vim.api.nvim_get_current_buf()
 	if vim.b[buf].claude_plan_setup then
+		log.info("setup_buffer: reused buf=" .. buf .. " new win fifo=" .. tostring(fifo_path))
 		return
 	end
 	vim.b[buf].claude_plan_setup = true
-	log.debug("setup_buffer: buf=" .. buf .. " name=" .. vim.api.nvim_buf_get_name(buf))
+	vim.b[buf].plan_provider = "claude"
+	log.info("setup_buffer buf=" .. buf .. " fifo=" .. tostring(fifo_path))
 
 	local count = comments.deserialise(buf, ns)
 	log.debug("setup_buffer: deserialised " .. count .. " comments")
@@ -316,11 +223,6 @@ function M.setup_buffer(config_dir, pane_id)
 	for _, key in ipairs({ "i", "I", "A", "o", "O", "s", "S", "r", "R" }) do
 		vim.keymap.set("n", key, "<Nop>", { buffer = buf })
 	end
-
-	vim.g.claude_plan_bufnr = buf
-	vim.g.claude_plan_tabnr = vim.api.nvim_get_current_tabpage()
-
-	start_close_watcher()
 end
 
 return M
