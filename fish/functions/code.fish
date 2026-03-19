@@ -20,14 +20,23 @@ test -d "$dir"; or begin
     echo "Error: not a directory: $dir" >&2
     return 1
 end
-cd "$dir"
 
 test -z "$TMUX"; and echo "Error: code requires tmux" >&2; and return 1
 
 set -l win (tmux display-message -p '#{window_id}')
 
 set -l pane_count (tmux list-panes -t $win | wc -l | string trim)
-test "$pane_count" -ne 1; and echo "Error: code requires exactly 1 pane (current: $pane_count)" >&2; and return 1
+if test "$pane_count" -ne 1
+    set -l cmd code
+    set -q _flag_agent; and set -a cmd -a $_flag_agent
+    set -q _flag_no_rename; and set -a cmd --no-rename
+    set -q _flag_no_debug; and set -a cmd --no-debug
+    test -n "$argv[1]"; and set -a cmd $argv[1]
+    tmux new-window -c "$dir" fish -c "$cmd"
+    return 0
+end
+
+cd "$dir"
 
 not set -q _flag_no_rename; and tmux rename-window -t $win (string lower (basename $PWD))
 
