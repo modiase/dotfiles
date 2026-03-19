@@ -1,4 +1,14 @@
 # shellcheck shell=bash
+_wrapper_id=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --wrapper-id)
+            _wrapper_id="$2"
+            shift 2
+            ;;
+        *) shift ;;
+    esac
+done
 stdin=$(cat)
 clog debug "raw stdin: $stdin"
 
@@ -25,11 +35,19 @@ if [[ -z "${NVIM_SOCKET:-}" ]]; then
     exit 0
 fi
 
+session_dir="$(dirname "$(dirname "$plan_file")")"
+PIDFILE="$session_dir/plan-responder.pid"
+if [[ -f "$PIDFILE" ]]; then
+    kill "$(cat "$PIDFILE")" 2>/dev/null || true
+    rm -f "$PIDFILE"
+fi
+
 FIFO="/tmp/nvim-plan-$(uuidgen | tr '[:upper:]' '[:lower:]').fifo"
 mkfifo "$FIFO"
 
 setsid agents-plan-responder --fifo "$FIFO" --pane "$TMUX_PANE" --provider gemini \
-    --nvim-socket "$NVIM_SOCKET" </dev/null &>>"/tmp/agents-plan-responder.log" &
+    --wrapper-id "$WRAPPER_ID" </dev/null &>/dev/null &
+echo $! >"$PIDFILE"
 
 clog info "opening file=$plan_file socket=$NVIM_SOCKET fifo=$FIFO"
 

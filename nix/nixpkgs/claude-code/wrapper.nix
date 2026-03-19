@@ -16,7 +16,7 @@ let
       pkgs.neovim-remote
     ];
     text = ''
-      export DEVLOGS_COMPONENT="get-claude-ide-env"
+      export DEVLOGS_COMPONENT="get-claude-ide-env''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
       ${builtins.readFile ./scripts/get-claude-ide-env.sh}
@@ -33,7 +33,9 @@ pkgs.writeShellApplication {
   ];
   text = ''
     ${configDirExport}
-    export DEVLOGS_COMPONENT="claude"
+    export WRAPPER_ID
+    WRAPPER_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+    export DEVLOGS_COMPONENT="claude[$WRAPPER_ID]"
     # shellcheck source=/dev/null
     source ${devlogsLib.shell}/lib/devlogs.sh
     ide_env=$(get-claude-ide-env 2>/dev/null) || true

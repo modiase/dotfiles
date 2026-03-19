@@ -15,6 +15,6 @@ pkgs.writeShellApplication {
   ];
   text = ''
     export PYTHONPATH="${devlogsLib.python}/lib:''${PYTHONPATH:-}"
-    exec python3 ${./nvim-mcp-proxy.py} "$@"
+    exec python3 ${./nvim-mcp-proxy.py} --wrapper-id "''${WRAPPER_ID:-unknown}" "$@"
   '';
 }

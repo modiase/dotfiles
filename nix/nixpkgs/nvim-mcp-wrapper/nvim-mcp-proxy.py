@@ -56,7 +56,7 @@ class McpProxy:
     connect(target="auto") and connection_id="auto" just work.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, passthrough_args: tuple[str, ...]) -> None:
         self.socket: str | None = None
         self.connection_id: str | None = None
         self._auto_counter: int = 0
@@ -64,6 +64,7 @@ class McpProxy:
         self._auto_ids: set[str] = set()
         self._child: asyncio.subprocess.Process | None = None
         self._last_health: str | None = None
+        self._passthrough_args = passthrough_args
 
     def _next_auto_id(self) -> str:
         self._auto_counter += 1
@@ -312,9 +313,9 @@ class McpProxy:
     async def run(self) -> None:
         """Launch nvim-mcp and bridge stdin/stdout until the agent disconnects."""
         socket_path = await self.discover_socket()
-        cmd = ["nvim-mcp"] + sys.argv[1:]
+        cmd = ["nvim-mcp", *self._passthrough_args]
         if socket_path:
-            cmd = ["nvim-mcp", "--connect", socket_path] + sys.argv[1:]
+            cmd = ["nvim-mcp", "--connect", socket_path, *self._passthrough_args]
             self.socket = socket_path
             log.info("socket discovered socket=%s", socket_path)
         else:
@@ -348,5 +349,23 @@ class McpProxy:
         sys.exit(self._child.returncode or 0)
 
 
+def _parse_passthrough_args() -> tuple[str, ...]:
+    """Extract args to forward to nvim-mcp, stripping --wrapper-id."""
+    args = sys.argv[1:]
+    filtered: list[str] = []
+    skip_next = False
+    for arg in args:
+        if skip_next:
+            skip_next = False
+            continue
+        if arg.startswith("--wrapper-id="):
+            continue
+        if arg == "--wrapper-id":
+            skip_next = True
+            continue
+        filtered.append(arg)
+    return tuple(filtered)
+
+
 if __name__ == "__main__":
-    asyncio.run(McpProxy().run())
+    asyncio.run(McpProxy(_parse_passthrough_args()).run())

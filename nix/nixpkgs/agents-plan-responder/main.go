@@ -4,13 +4,12 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
 
-	"github.com/neovim/go-client/nvim"
+	"devlogs-lib"
 )
 
 type providerConfig struct {
@@ -38,8 +37,19 @@ var providers = map[string]providerConfig{
 	},
 }
 
+var log = devlogs.NewLogger("agents-plan-responder")
+
 func clog(level, msg string) {
-	log.Printf("[devlogs] %s agents-plan-responder: %s", strings.ToUpper(level), msg)
+	switch level {
+	case "debug":
+		log.Debug(msg)
+	case "warning":
+		log.Warn(msg)
+	case "error":
+		log.Error(msg)
+	default:
+		log.Info(msg)
+	}
 }
 
 func tmuxCapturePane(pane string) string {
@@ -62,23 +72,6 @@ func tmuxSendKeys(pane string, keys ...string) error {
 
 func tmuxSendLiteral(pane, text string) error {
 	return exec.Command("tmux", "send-keys", "-t", pane, "-l", text).Run()
-}
-
-func nvimClosePlanByFifo(socket, provider, fifo string) {
-	clog("debug", fmt.Sprintf("nvim close: dialling socket=%s", socket))
-	v, err := nvim.Dial(socket)
-	if err != nil {
-		clog("warning", fmt.Sprintf("nvim dial failed: %v", err))
-		return
-	}
-	defer func() { _ = v.Close() }()
-
-	lua := fmt.Sprintf("require('utils.%s-plan').close_by_fifo('%s')", provider, fifo)
-	clog("debug", fmt.Sprintf("nvim close: executing lua=%s", lua))
-	if err := v.ExecLua(lua, nil); err != nil {
-		clog("warning", fmt.Sprintf("close_by_fifo failed: %v", err))
-	}
-	clog("info", fmt.Sprintf("nvim close: plan tab closed provider=%s", provider))
 }
 
 func readFifo(fifo string) <-chan string {
@@ -179,11 +172,11 @@ func main() {
 	fifo := flag.String("fifo", "", "Path to FIFO")
 	pane := flag.String("pane", "", "Tmux pane ID")
 	provider := flag.String("provider", "", "Provider: claude or gemini")
-	nvimSocket := flag.String("nvim-socket", "", "Neovim socket path")
+	wrapperID := flag.String("wrapper-id", "", "Wrapper instance identifier")
 	flag.Parse()
 
-	if *fifo == "" || *pane == "" || *provider == "" || *nvimSocket == "" {
-		fmt.Fprintf(os.Stderr, "Usage: plan-responder --fifo PATH --pane PANE --provider PROVIDER --nvim-socket SOCKET\n")
+	if *fifo == "" || *pane == "" || *provider == "" || *wrapperID == "" {
+		fmt.Fprintf(os.Stderr, "Usage: plan-responder --fifo PATH --pane PANE --provider PROVIDER --wrapper-id ID\n")
 		os.Exit(1)
 	}
 
@@ -198,22 +191,13 @@ func main() {
 		_ = os.Remove(*fifo)
 	}()
 
-	clog("info", fmt.Sprintf("started fifo=%s pane=%s provider=%s socket=%s", *fifo, *pane, *provider, *nvimSocket))
+	clog("info", fmt.Sprintf("started fifo=%s pane=%s provider=%s wrapper=%s", *fifo, *pane, *provider, *wrapperID))
 
-	fifoCh := readFifo(*fifo)
-	timeout := time.After(900 * time.Second)
-
-	select {
-	case response, ok := <-fifoCh:
-		if !ok {
-			clog("warning", "fifo closed without response")
-			return
-		}
-		clog("info", fmt.Sprintf("received response: %s", response))
-		handleResponse(response, *pane, cfg)
-
-	case <-timeout:
-		clog("info", "timed out, closing nvim plan tab")
-		nvimClosePlanByFifo(*nvimSocket, *provider, *fifo)
+	response, ok := <-readFifo(*fifo)
+	if !ok {
+		clog("warning", "fifo closed without response")
+		return
 	}
+	clog("info", fmt.Sprintf("received response: %s", response))
+	handleResponse(response, *pane, cfg)
 }

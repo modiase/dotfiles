@@ -2,4 +2,6 @@ module github.com/modiase/agents-plan-responder
 
 go 1.25.5
 
-require github.com/neovim/go-client v1.2.1
+require devlogs-lib v0.0.0
+
+replace devlogs-lib => ../devlogs-lib

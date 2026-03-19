@@ -32,7 +32,7 @@ let
     name = "gemini-nvim-plan";
     runtimeInputs = planScriptInputs;
     text = ''
-      export DEVLOGS_COMPONENT="gemini-nvim-plan"
+      export DEVLOGS_COMPONENT="gemini-nvim-plan''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
       ${builtins.readFile ./scripts/nvim-plan.sh}
@@ -43,7 +43,7 @@ let
     name = "gemini-close-plan";
     runtimeInputs = planScriptInputs;
     text = ''
-      export DEVLOGS_COMPONENT="gemini-close-plan"
+      export DEVLOGS_COMPONENT="gemini-close-plan''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
       ${builtins.readFile ./scripts/close-plan.sh}
@@ -58,7 +58,7 @@ let
       pkgs.jq
     ];
     text = ''
-      export DEVLOGS_COMPONENT="gemini-hook"
+      export DEVLOGS_COMPONENT="gemini-hook''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
       ${builtins.readFile ./scripts/hook.sh}
@@ -90,7 +90,7 @@ let
       pkgs.neovim
     ];
     text = ''
-      export DEVLOGS_COMPONENT="gemini-editor"
+      export DEVLOGS_COMPONENT="gemini-editor''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
       exec gemini-editor-go "$@"
@@ -104,7 +104,7 @@ let
       pkgs.lsof
     ];
     text = ''
-      export DEVLOGS_COMPONENT="get-gemini-ide-env"
+      export DEVLOGS_COMPONENT="get-gemini-ide-env''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
       ${builtins.readFile ./scripts/get-gemini-ide-env.sh}
@@ -120,16 +120,18 @@ let
       pkgs.inetutils
     ];
     text = ''
+      export WRAPPER_ID
+      WRAPPER_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
       export EDITOR=gemini-editor
       export GEMINI_SYSTEM_MD="$HOME/.gemini/system.md"
-      export DEVLOGS_COMPONENT="gemini"
+      export DEVLOGS_COMPONENT="gemini[$WRAPPER_ID]"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
       ide_env=$(get-gemini-ide-env 2>/dev/null) || true
       if [ -n "$ide_env" ]; then
           eval "$ide_env"
           clog info "IDE integration found port=$GEMINI_CLI_IDE_SERVER_PORT"
-          gemini-nvim-ide-bridge -socket "$NVIM_LISTEN_ADDRESS" -port "$GEMINI_CLI_IDE_SERVER_PORT" -ide-pids "$IDE_PIDS" -workspace "$(pwd)" 2>&1 | logger -t devlogs &
+          gemini-nvim-ide-bridge -socket "$NVIM_LISTEN_ADDRESS" -port "$GEMINI_CLI_IDE_SERVER_PORT" -ide-pids "$IDE_PIDS" -workspace "$(pwd)" -wrapper-id "$WRAPPER_ID" 2>&1 | logger -t devlogs &
       else
           clog info "no IDE integration"
       fi

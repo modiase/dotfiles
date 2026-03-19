@@ -1,0 +1,4 @@
+# devlogs-lib v0.0.0 => ../devlogs-lib
+## explicit; go 1.23.0
+devlogs-lib
+# devlogs-lib => ../devlogs-lib

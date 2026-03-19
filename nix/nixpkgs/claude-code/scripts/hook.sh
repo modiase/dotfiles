@@ -41,13 +41,26 @@ on_permission() {
     notify 'Claude Code' 'Permission needed' request
 }
 
-case "${1:-}" in
+event="${1:-}"
+shift || true
+_wrapper_id=""
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --wrapper-id)
+            _wrapper_id="$2"
+            shift 2
+            ;;
+        *) shift ;;
+    esac
+done
+
+case "$event" in
     -h | --help) usage ;;
     init) on_init ;;
     stop) on_stop ;;
     permission) on_permission ;;
     *)
-        echo "Unknown event: ${1:-}" >&2
+        echo "Unknown event: $event" >&2
         exit 1
         ;;
 esac
