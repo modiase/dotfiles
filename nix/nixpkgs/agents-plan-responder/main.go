@@ -29,7 +29,7 @@ var providers = map[string]providerConfig{
 		},
 	},
 	"gemini": {
-		dialogPattern: "Do you want to",
+		dialogPattern: "Ready to start implementation",
 		keys: map[string]string{
 			"accept_auto":   "1",
 			"accept_manual": "2",
@@ -100,27 +100,6 @@ func readFifo(fifo string) <-chan string {
 		}
 		clog("debug", "fifo reader: done")
 		close(ch)
-	}()
-	return ch
-}
-
-func watchExternalDismissal(pane, pattern string) <-chan struct{} {
-	ch := make(chan struct{}, 1)
-	go func() {
-		clog("debug", fmt.Sprintf("pane watcher: started pane=%s pattern=%q", pane, pattern))
-		dialogSeen := false
-		for {
-			time.Sleep(500 * time.Millisecond)
-			has := tmuxPaneContains(pane, pattern)
-			if has && !dialogSeen {
-				clog("debug", "pane watcher: dialog appeared")
-				dialogSeen = true
-			} else if !has && dialogSeen {
-				clog("debug", "pane watcher: dialog disappeared (external dismissal)")
-				ch <- struct{}{}
-				return
-			}
-		}
 	}()
 	return ch
 }
@@ -222,8 +201,7 @@ func main() {
 	clog("info", fmt.Sprintf("started fifo=%s pane=%s provider=%s socket=%s", *fifo, *pane, *provider, *nvimSocket))
 
 	fifoCh := readFifo(*fifo)
-	dismissCh := watchExternalDismissal(*pane, cfg.dialogPattern)
-	timeout := time.After(300 * time.Second)
+	timeout := time.After(900 * time.Second)
 
 	select {
 	case response, ok := <-fifoCh:
@@ -233,10 +211,6 @@ func main() {
 		}
 		clog("info", fmt.Sprintf("received response: %s", response))
 		handleResponse(response, *pane, cfg)
-
-	case <-dismissCh:
-		clog("info", "dialog dismissed externally, closing nvim plan tab")
-		nvimClosePlanByFifo(*nvimSocket, *provider, *fifo)
 
 	case <-timeout:
 		clog("info", "timed out, closing nvim plan tab")

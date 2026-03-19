@@ -29,7 +29,7 @@ FIFO="/tmp/nvim-plan-$(uuidgen | tr '[:upper:]' '[:lower:]').fifo"
 mkfifo "$FIFO"
 
 setsid agents-plan-responder --fifo "$FIFO" --pane "$TMUX_PANE" --provider claude \
-    --nvim-socket "$NVIM_SOCKET" </dev/null &>/dev/null &
+    --nvim-socket "$NVIM_SOCKET" </dev/null &>>"/tmp/agents-plan-responder.log" &
 
 clog info "opening file=$PLAN_FILE socket=$NVIM_SOCKET fifo=$FIFO"
 

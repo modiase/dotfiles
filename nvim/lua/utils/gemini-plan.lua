@@ -172,8 +172,6 @@ function M.setup_buffer(fifo_path)
 
 	vim.bo[buf].modifiable = false
 	vim.bo[buf].readonly = true
-	vim.bo[buf].bufhidden = "delete"
-
 	local opts = { buffer = buf, nowait = true }
 	vim.keymap.set("n", "<leader>y", M.accept_auto, vim.tbl_extend("force", opts, { desc = "Accept (auto-approve)" }))
 	vim.keymap.set(
