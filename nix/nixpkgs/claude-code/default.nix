@@ -18,7 +18,7 @@ let
     name = "claude-hook";
     runtimeInputs = [ ding ];
     text = ''
-      export DEVLOGS_COMPONENT="claude-hook"
+      export DEVLOGS_COMPONENT="claude-hook''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
       ${builtins.readFile ./scripts/hook.sh}
@@ -49,7 +49,7 @@ let
     name = "nvim-plan";
     runtimeInputs = planScriptInputs;
     text = ''
-      export DEVLOGS_COMPONENT="nvim-plan"
+      export DEVLOGS_COMPONENT="nvim-plan''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
       ${builtins.readFile ./scripts/nvim-plan.sh}
@@ -60,7 +60,7 @@ let
     name = "close-plan";
     runtimeInputs = planScriptInputs;
     text = ''
-      export DEVLOGS_COMPONENT="close-plan"
+      export DEVLOGS_COMPONENT="close-plan''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
       ${builtins.readFile ./scripts/close-plan.sh}
@@ -80,7 +80,7 @@ let
           hooks = [
             {
               type = "command";
-              command = "${openPlanScript}/bin/nvim-plan";
+              command = "${openPlanScript}/bin/nvim-plan --wrapper-id $WRAPPER_ID";
             }
           ];
         }
@@ -91,7 +91,7 @@ let
           hooks = [
             {
               type = "command";
-              command = "${closePlanScript}/bin/close-plan";
+              command = "${closePlanScript}/bin/close-plan --wrapper-id $WRAPPER_ID";
             }
           ];
         }

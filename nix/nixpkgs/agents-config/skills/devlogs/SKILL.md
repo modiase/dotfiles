@@ -1,11 +1,11 @@
 ---
 name: devlogs
-description: How to use the devlogs logging library (shell, Python, Lua) for unified syslog logging.
+description: How to use the devlogs logging library (shell, Python, Lua, Go) for unified syslog logging.
 ---
 
 # Devlogs Logging Library
 
-Unified logging library for shell, Python, and Lua (Neovim) that logs to the devlogs syslog stream.
+Unified logging library for shell, Python, Lua (Neovim), and Go that logs to the devlogs syslog stream.
 
 ## Shell
 
@@ -75,6 +75,46 @@ log.error("something broke")
 
 The module is installed via `xdg.configFile` in `neovim.nix` — no extra setup needed in Neovim plugins.
 
+## Go
+
+```go
+import "devlogs-lib"
+
+var log = devlogs.NewLogger("my-component")
+
+log.Info("something happened")
+log.Debug(fmt.Sprintf("detail=%s", value))
+log.Error("something broke")
+```
+
+Methods: `Debug`, `Info`, `Warn`, `Error` — each takes a single string.
+
+### Nix integration
+
+Use a `replace` directive in `go.mod` to point at the local library:
+
+```
+require devlogs-lib v0.0.0
+replace devlogs-lib => ../devlogs-lib
+```
+
+Do **not** vendor — use a `combinedSrc` pattern in Nix to assemble both directories:
+
+```nix
+let
+  combinedSrc = pkgs.runCommand "my-tool-src" { } ''
+    mkdir -p $out/my-tool $out/devlogs-lib
+    cp -r ${./.}/* $out/my-tool/
+    cp -r ${../devlogs-lib}/* $out/devlogs-lib/
+  '';
+in
+pkgs.buildGoModule {
+  src = combinedSrc;
+  sourceRoot = "${combinedSrc.name}/my-tool";
+  vendorHash = null;
+}
+```
+
 ## Log format
 
 ```
@@ -82,7 +122,7 @@ The module is installed via `xdg.configFile` in `neovim.nix` — no extra setup 
 ```
 
 - `LEVEL`: DEBUG, INFO, WARNING, ERROR (uppercase)
-- `component`: value of `DEVLOGS_COMPONENT` (shell), argument to `setup_logging` (Python), or `new` (Lua)
+- `component`: value of `DEVLOGS_COMPONENT` (shell), argument to `setup_logging` (Python), `new` (Lua), or `NewLogger` (Go)
 - `(@window)`: tmux window index, included automatically when `TMUX_PANE` (shell/Lua) or `TARGET_WINDOW` (Python) is set
 
 ## Available levels
@@ -116,4 +156,4 @@ macOS unified logging does not persist `user.debug` to disk — debug messages o
 
 ## Important
 
-**Always use this library** for logging in shell and Python scripts — never call `logger` directly. This ensures consistent log format, automatic tmux window tagging, and correct syslog priorities.
+**Always use this library** for logging in shell, Python, and Go — never call `logger` or `log/syslog` directly. This ensures consistent log format, automatic tmux window tagging, and correct syslog priorities.

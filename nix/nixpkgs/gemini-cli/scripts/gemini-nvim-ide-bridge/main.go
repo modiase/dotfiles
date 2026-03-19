@@ -341,6 +341,7 @@ func main() {
 	port := flag.Int("port", 0, "Port to listen on")
 	idePidsStr := flag.String("ide-pids", "", "Space-separated candidate IDE PIDs")
 	workspace := flag.String("workspace", "", "Workspace path")
+	_ = flag.String("wrapper-id", "", "Wrapper instance identifier")
 	flag.Parse()
 
 	if *socketPath == "" {

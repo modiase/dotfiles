@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -150,6 +151,8 @@ func run(log *devlogs.Logger) *Decision {
 }
 
 func main() {
+	_ = flag.String("wrapper-id", "", "Wrapper instance identifier")
+	flag.Parse()
 	log := devlogs.NewLogger("allow-shellcommand")
 	decision := run(log)
 	if decision != nil {

@@ -178,7 +178,7 @@
         hooks = [
           {
             type = "command";
-            command = shellcommandHookBin;
+            command = "${shellcommandHookBin} --wrapper-id $WRAPPER_ID";
           }
         ];
       }
@@ -189,7 +189,7 @@
         hooks = [
           {
             type = "command";
-            command = "${hookBin} init";
+            command = "${hookBin} init --wrapper-id $WRAPPER_ID";
           }
         ];
       }
@@ -199,7 +199,7 @@
         hooks = [
           {
             type = "command";
-            command = "${hookBin} stop";
+            command = "${hookBin} stop --wrapper-id $WRAPPER_ID";
           }
         ];
       }
@@ -210,7 +210,7 @@
         hooks = [
           {
             type = "command";
-            command = "${hookBin} permission";
+            command = "${hookBin} permission --wrapper-id $WRAPPER_ID";
           }
         ];
       }

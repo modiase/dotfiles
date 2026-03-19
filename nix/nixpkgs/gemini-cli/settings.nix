@@ -27,7 +27,7 @@
         hooks = [
           {
             type = "command";
-            command = "${hookBin} init";
+            command = "${hookBin} init --wrapper-id $WRAPPER_ID";
           }
         ];
       }
@@ -37,7 +37,7 @@
         hooks = [
           {
             type = "command";
-            command = "${hookBin} before-agent";
+            command = "${hookBin} before-agent --wrapper-id $WRAPPER_ID";
           }
         ];
       }
@@ -47,7 +47,7 @@
         hooks = [
           {
             type = "command";
-            command = "${hookBin} stop";
+            command = "${hookBin} stop --wrapper-id $WRAPPER_ID";
           }
         ];
       }
@@ -58,7 +58,7 @@
         hooks = [
           {
             type = "command";
-            command = "${openPlanBin}";
+            command = "${openPlanBin} --wrapper-id $WRAPPER_ID";
           }
         ];
       }
@@ -67,7 +67,7 @@
         hooks = [
           {
             type = "command";
-            command = "${hookBin} after-plan";
+            command = "${hookBin} after-plan --wrapper-id $WRAPPER_ID";
           }
         ];
       }
@@ -78,7 +78,7 @@
         hooks = [
           {
             type = "command";
-            command = "${closePlanBin}";
+            command = "${closePlanBin} --wrapper-id $WRAPPER_ID";
           }
         ];
       }
@@ -87,7 +87,7 @@
         hooks = [
           {
             type = "command";
-            command = "${hookBin} before-plan-write";
+            command = "${hookBin} before-plan-write --wrapper-id $WRAPPER_ID";
           }
         ];
       }
@@ -98,7 +98,7 @@
         hooks = [
           {
             type = "command";
-            command = "${hookBin} permission";
+            command = "${hookBin} permission --wrapper-id $WRAPPER_ID";
           }
         ];
       }
