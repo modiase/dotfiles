@@ -15,6 +15,7 @@
   experimental.plan = true;
   useWriteTodos = true;
   ide.enabled = true;
+  ui.hideTips = true;
   context.fileName = [
     "GEMINI.md"
   ];
