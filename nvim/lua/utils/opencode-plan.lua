@@ -24,9 +24,6 @@ function M.serialise_and_close()
 
 	vim.cmd("silent write")
 
-	vim.g.opencode_plan_bufnr = nil
-	vim.g.opencode_plan_tabnr = nil
-
 	if #vim.api.nvim_list_tabpages() > 1 then
 		vim.cmd("tabclose")
 	else
@@ -35,10 +32,12 @@ function M.serialise_and_close()
 end
 
 function M.find_plan_tab()
-	local buf = vim.g.opencode_plan_bufnr
-	local tab = vim.g.opencode_plan_tabnr
-	if tab and vim.api.nvim_tabpage_is_valid(tab) and buf and vim.api.nvim_buf_is_valid(buf) then
-		return tab, buf
+	for _, t in ipairs(vim.api.nvim_list_tabpages()) do
+		local win = vim.api.nvim_tabpage_get_win(t)
+		local b = vim.api.nvim_win_get_buf(win)
+		if vim.b[b].plan_provider == "opencode" then
+			return t, b
+		end
 	end
 
 	for _, t in ipairs(vim.api.nvim_list_tabpages()) do
@@ -58,8 +57,7 @@ function M.setup_buffer()
 
 	comments.deserialise(buf, ns)
 
-	vim.g.opencode_plan_bufnr = buf
-	vim.g.opencode_plan_tabnr = vim.api.nvim_get_current_tabpage()
+	vim.b[buf].plan_provider = "opencode"
 
 	comments.setup_keymaps(buf, ns, {
 		["<leader>q"] = {

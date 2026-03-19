@@ -25,17 +25,17 @@ if [[ -z "${NVIM_SOCKET:-}" ]]; then
     exit 0
 fi
 
-clog info "opening file=$plan_file socket=$NVIM_SOCKET pane=${TARGET_PANE:-} tmux_pane=${TMUX_PANE:-}"
+FIFO="/tmp/nvim-plan-$(uuidgen | tr '[:upper:]' '[:lower:]').fifo"
+mkfifo "$FIFO"
+
+setsid agents-plan-responder --fifo "$FIFO" --pane "$TMUX_PANE" --provider gemini \
+    --nvim-socket "$NVIM_SOCKET" </dev/null &>/dev/null &
+
+clog info "opening file=$plan_file socket=$NVIM_SOCKET fifo=$FIFO"
 
 nvr_exit=0
 nvr_stderr=$(nvr --servername "$NVIM_SOCKET" \
-    -c "lua require('utils.gemini-plan').close()" 2>&1) || nvr_exit=$?
-clog debug "nvr close exit=$nvr_exit stderr=$nvr_stderr"
-
-nvr_exit=0
-nvr_stderr=$(nvr --servername "$NVIM_SOCKET" \
-    --remote-tab-silent "$plan_file" \
-    -c "lua require('utils.gemini-plan').setup_buffer('${TMUX_PANE:-}')" 2>&1) || nvr_exit=$?
+    -c "lua require('utils.gemini-plan').open('$plan_file', '$FIFO')" 2>&1) || nvr_exit=$?
 clog debug "nvr open+setup exit=$nvr_exit stderr=$nvr_stderr"
 
 if [[ -n "${TARGET_PANE:-}" ]]; then

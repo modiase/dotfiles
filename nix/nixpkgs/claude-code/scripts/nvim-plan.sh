@@ -25,17 +25,17 @@ if [[ -z "${NVIM_SOCKET:-}" ]]; then
     exit 0
 fi
 
-clog info "opening file=$PLAN_FILE socket=$NVIM_SOCKET pane=${TARGET_PANE:-}"
+FIFO="/tmp/nvim-plan-$(uuidgen | tr '[:upper:]' '[:lower:]').fifo"
+mkfifo "$FIFO"
+
+setsid agents-plan-responder --fifo "$FIFO" --pane "$TMUX_PANE" --provider claude \
+    --nvim-socket "$NVIM_SOCKET" </dev/null &>/dev/null &
+
+clog info "opening file=$PLAN_FILE socket=$NVIM_SOCKET fifo=$FIFO"
 
 nvr_exit=0
 nvr --servername "$NVIM_SOCKET" \
-    -c "lua require('utils.claude-plan').close()" 2>/dev/null || nvr_exit=$?
-if [[ $nvr_exit -ne 0 ]]; then clog error "nvr close failed exit=$nvr_exit"; fi
-
-nvr_exit=0
-nvr --servername "$NVIM_SOCKET" \
-    --remote-tab-silent "$PLAN_FILE" \
-    -c "lua require('utils.claude-plan').setup_buffer('$config_dir', '$TMUX_PANE')" 2>/dev/null || nvr_exit=$?
+    -c "lua require('utils.claude-plan').open('$PLAN_FILE', '$config_dir', '$FIFO')" 2>/dev/null || nvr_exit=$?
 if [[ $nvr_exit -ne 0 ]]; then clog error "nvr open failed exit=$nvr_exit"; fi
 
 if [[ -n "${TARGET_PANE:-}" ]]; then

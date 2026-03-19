@@ -29,15 +29,19 @@ let
 
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 
+  planResponder = pkgs.callPackage ../agents-plan-responder { };
+
   planScriptInputs =
     with pkgs;
     [
       # keep-sorted start
       tmux
+      util-linux
       # keep-sorted end
     ]
     ++ [
       nvr
+      planResponder
       tmuxNvimSelect
     ];
 
