@@ -23,6 +23,33 @@ let
     ding = "${ding}/bin/ding";
   };
 
+  explorePrompt = ''
+    You are a fast, read-only codebase exploration agent. FOLLOW WITHOUT EXCEPTION:
+
+    1. Answer ONLY the question asked — no preamble, no summary, no suggestions
+    2. Output structured bullets, never prose paragraphs
+    3. Cite every claim as file:line (e.g. src/main.ts:42)
+    4. Stop immediately when the question is answered — do not explore further
+    5. If the answer is not found, say so in one line
+
+    Output format:
+    - **Finding**: description (file:line)
+    - **Finding**: description (file:line)
+  '';
+
+  researchPrompt = ''
+    You are a research-only agent. You may read code, search the codebase, and browse the web, but you MUST NOT modify any files.
+
+    Methodology:
+    1. Clarify the question — restate what you're investigating
+    2. Hypothesise — list candidate explanations or locations
+    3. Gather evidence — use read/grep/glob/bash (read-only commands only) to verify
+    4. Cross-reference — check multiple sources before concluding
+    5. Report — present findings with file:line citations, distinguishing facts from interpretation
+
+    Bash is available but restricted to read-only commands. FORBIDDEN in bash: rm, mv, cp, mkdir, touch, chmod, chown, sed, awk (with -i), tee, write, append (>), edit, git commit, git push, git checkout, git reset, git rebase, kill, pkill.
+  '';
+
   baseMcp = lib.mapAttrs (_name: server: {
     type = "local";
     command = [ server.command ] ++ server.args;
@@ -54,7 +81,65 @@ let
         "${homeDir}/.config/opencode/plugins/plan-review.ts"
         "${homeDir}/.config/opencode/plugins/notify.ts"
       ];
-      agent.plan.prompt = "You may use the question tool to ask the user clarifying questions before writing a plan. Once your plan is ready, you MUST call the submit_plan tool — do NOT present the plan in chat. Format every actionable item as a markdown checkbox (- [ ] item). If the user rejects, revise based on their feedback and call submit_plan again. NEVER proceed to implementation without plan approval via submit_plan.";
+      agent = {
+        plan.prompt = "Before writing a plan, call @explore with a carefully constructed prompt to gather the codebase context you need — relevant files, structure, dependencies, and existing patterns. Use the explore findings to ground your plan in reality rather than assumptions. You may also use the question tool to ask the user clarifying questions. Once your plan is ready, you MUST call the submit_plan tool — do NOT present the plan in chat. Format every actionable item as a markdown checkbox (- [ ] item). If the user rejects, revise based on their feedback and call submit_plan again. NEVER proceed to implementation without plan approval via submit_plan.";
+
+        explore = {
+          model = "openrouter/google/gemini-2.5-flash";
+          description = "Fast read-only codebase exploration via @explore";
+          mode = "subagent";
+          hidden = false;
+          color = "#4ade80";
+          steps = 30;
+          prompt = explorePrompt;
+          permission = {
+            read = "allow";
+            glob = "allow";
+            grep = "allow";
+            list = "allow";
+            codesearch = "allow";
+            lsp = "allow";
+            todoread = "allow";
+            question = "allow";
+            bash = "deny";
+            edit = "deny";
+            webfetch = "deny";
+            websearch = "deny";
+            todowrite = "deny";
+            task = "deny";
+            skill = "deny";
+            external_directory = "deny";
+            doom_loop = "deny";
+          };
+        };
+
+        research = {
+          description = "Research-only: investigate code, docs, web — no modifications";
+          mode = "primary";
+          color = "#60a5fa";
+          steps = 50;
+          prompt = researchPrompt;
+          permission = {
+            read = "allow";
+            glob = "allow";
+            grep = "allow";
+            list = "allow";
+            bash = "allow";
+            codesearch = "allow";
+            lsp = "allow";
+            webfetch = "allow";
+            websearch = "allow";
+            question = "allow";
+            todoread = "allow";
+            task = "allow";
+            edit = "deny";
+            todowrite = "deny";
+            skill = "deny";
+            external_directory = "deny";
+            doom_loop = "deny";
+          };
+        };
+      };
       inherit mcp;
     }
   );
