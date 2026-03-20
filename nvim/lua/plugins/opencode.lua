@@ -4,7 +4,6 @@ return {
 	dependencies = { "folke/snacks.nvim" },
 	config = function()
 		vim.o.autoread = true
-		require("utils.opencode-plan").setup()
 	end,
 	keys = {
 		{

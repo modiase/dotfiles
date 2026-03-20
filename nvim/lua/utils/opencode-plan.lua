@@ -3,175 +3,127 @@ local log = require("devlogs").new("opencode-plan")
 local comments = require("utils.plan-comments")
 
 local ns = vim.api.nvim_create_namespace("opencode_plan_comments")
-local watcher = nil
-local PLANS_DIR = ".opencode/plans"
-local DEBOUNCE_MS = 200
 
-local function get_plans_dir()
-	return vim.fn.getcwd() .. "/" .. PLANS_DIR
-end
-
-local function is_plan_file(path)
-	return path and path:match("%.md$") and path:find(PLANS_DIR, 1, true) ~= nil
-end
-
-function M.serialise_and_close()
-	local buf = vim.api.nvim_get_current_buf()
-	local count = comments.serialise(buf, ns)
-	if count > 0 then
-		log.info("serialise_and_close: wrote " .. count .. " comments")
-	end
-
-	vim.cmd("silent write")
-
-	if #vim.api.nvim_list_tabpages() > 1 then
-		vim.cmd("tabclose")
-	else
-		vim.api.nvim_buf_delete(buf, { force = true })
-	end
-end
-
-function M.find_plan_tab()
+local function find_win_by_fifo(fifo_path)
 	for _, t in ipairs(vim.api.nvim_list_tabpages()) do
 		local win = vim.api.nvim_tabpage_get_win(t)
-		local b = vim.api.nvim_win_get_buf(win)
-		if vim.b[b].plan_provider == "opencode" then
-			return t, b
-		end
-	end
-
-	for _, t in ipairs(vim.api.nvim_list_tabpages()) do
-		local win = vim.api.nvim_tabpage_get_win(t)
-		local b = vim.api.nvim_win_get_buf(win)
-		local name = vim.api.nvim_buf_get_name(b)
-		if is_plan_file(name) then
-			return t, b
+		if vim.w[win].plan_fifo == fifo_path then
+			return win, t
 		end
 	end
 	return nil, nil
 end
 
-function M.setup_buffer()
+local function buf_has_other_plan_wins(buf, exclude_win)
+	for _, w in ipairs(vim.api.nvim_list_wins()) do
+		if w ~= exclude_win and vim.api.nvim_win_get_buf(w) == buf and vim.w[w].plan_fifo then
+			return true
+		end
+	end
+	return false
+end
+
+local function close_plan_tab(buf, win)
+	if buf_has_other_plan_wins(buf, win) then
+		if #vim.api.nvim_list_tabpages() > 1 then
+			vim.cmd("tabclose")
+		end
+	elseif vim.api.nvim_buf_is_valid(buf) then
+		vim.api.nvim_buf_delete(buf, { force = true })
+	end
+end
+
+function M.close()
+	local win = vim.api.nvim_get_current_win()
+	local buf = vim.api.nvim_win_get_buf(win)
+	if not vim.b[buf].plan_provider then
+		return
+	end
+	log.debug("close: buf=" .. buf)
+
+	comments.serialise_comments(buf, ns)
+	close_plan_tab(buf, win)
+end
+
+function M.accept()
+	local fifo = vim.w[vim.api.nvim_get_current_win()].plan_fifo
+	log.info("accept")
+	M.close()
+	comments.write_fifo(fifo, "accept")
+end
+
+function M.reject()
 	local buf = vim.api.nvim_get_current_buf()
-	log.info("setup_buffer buf=" .. buf)
+	local fifo = vim.w[vim.api.nvim_get_current_win()].plan_fifo
+	local has_comments = #vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, {}) > 0
 
-	comments.deserialise(buf, ns)
-
-	vim.b[buf].plan_provider = "opencode"
-
-	comments.setup_keymaps(buf, ns, {
-		["<leader>q"] = {
-			fn = function()
-				M.serialise_and_close()
-			end,
-			desc = "Save comments and close",
-		},
-	})
-end
-
-local debounce_timer = nil
-
-function M.on_plan_change(path)
-	if debounce_timer then
-		debounce_timer:stop()
-		debounce_timer:close()
+	local function do_reject(reason)
+		M.close()
+		comments.write_fifo(fifo, "reject:" .. reason)
 	end
 
-	debounce_timer = vim.uv.new_timer()
-	debounce_timer:start(
-		DEBOUNCE_MS,
-		0,
-		vim.schedule_wrap(function()
-			debounce_timer:close()
-			debounce_timer = nil
-
-			if not is_plan_file(path) then
-				return
-			end
-
-			log.info("on_plan_change path=" .. path)
-
-			local existing_tab, existing_buf = M.find_plan_tab()
-			if existing_tab then
-				vim.api.nvim_set_current_tabpage(existing_tab)
-				local current_name = vim.api.nvim_buf_get_name(existing_buf)
-				if current_name ~= path then
-					vim.cmd("edit " .. vim.fn.fnameescape(path))
-					M.setup_buffer()
-				else
-					vim.cmd("checktime")
-				end
-			else
-				vim.cmd("tabnew " .. vim.fn.fnameescape(path))
-				M.setup_buffer()
-			end
-		end)
-	)
-end
-
-function M.setup()
-	local plans_dir = get_plans_dir()
-	if watcher then
-		log.debug("setup: already watching")
+	if has_comments then
+		do_reject("Please address all comments in the plan")
 		return
 	end
 
-	if vim.fn.isdirectory(vim.fn.getcwd() .. "/.opencode") == 0 then
-		log.debug("setup: no .opencode directory, skipping")
-		return
-	end
-
-	vim.fn.mkdir(plans_dir, "p")
-
-	local handle = vim.uv.new_fs_event()
-	if not handle then
-		log.warning("setup: failed to create fs_event")
-		return
-	end
-
-	local ok, err = handle:start(plans_dir, { recursive = true }, function(err_msg, filename, events)
-		if err_msg then
-			log.warning("fs_event error: " .. err_msg)
+	vim.ui.input({ prompt = "Rejection reason: " }, function(input)
+		if not input then
 			return
 		end
-		if not filename or not events.change then
-			return
-		end
-
-		local full_path = plans_dir .. "/" .. filename
-		vim.schedule(function()
-			M.on_plan_change(full_path)
-		end)
+		do_reject(input)
 	end)
+end
 
-	if not ok then
-		log.warning("setup: fs_event start failed: " .. tostring(err))
-		handle:close()
+function M.open(file_path, fifo_path)
+	if not file_path or not fifo_path then
+		return
+	end
+	log.info("open file=" .. file_path .. " fifo=" .. fifo_path)
+
+	local _, existing_tab = find_win_by_fifo(fifo_path)
+	if existing_tab then
+		vim.api.nvim_set_current_tabpage(existing_tab)
 		return
 	end
 
-	watcher = handle
-	log.info("setup: watching " .. plans_dir)
-
-	vim.api.nvim_create_autocmd("BufRead", {
-		pattern = plans_dir .. "/*.md",
-		callback = function()
-			M.setup_buffer()
-		end,
-	})
+	vim.cmd("tabnew " .. vim.fn.fnameescape(file_path))
+	M.setup_buffer(fifo_path)
 end
 
-function M.stop()
-	if watcher then
-		watcher:stop()
-		watcher:close()
-		watcher = nil
-		log.info("stop: watcher closed")
+function M.setup_buffer(fifo_path)
+	local win = vim.api.nvim_get_current_win()
+	vim.w[win].plan_fifo = fifo_path
+
+	local buf = vim.api.nvim_get_current_buf()
+	if vim.b[buf].opencode_plan_setup then
+		log.info("setup_buffer: reused buf=" .. buf .. " new win fifo=" .. tostring(fifo_path))
+		return
 	end
-	if debounce_timer then
-		debounce_timer:stop()
-		debounce_timer:close()
-		debounce_timer = nil
+	vim.b[buf].opencode_plan_setup = true
+	vim.b[buf].plan_provider = "opencode"
+	log.info("setup_buffer buf=" .. buf .. " fifo=" .. tostring(fifo_path))
+
+	local ok, count = pcall(comments.deserialise, buf, ns)
+	if ok then
+		log.debug("setup_buffer: deserialised " .. count .. " comments")
+	else
+		log.error("setup_buffer: deserialise failed: " .. tostring(count))
+	end
+
+	vim.bo[buf].modifiable = false
+	vim.bo[buf].readonly = true
+
+	local opts = { buffer = buf, nowait = true }
+	vim.keymap.set("n", "<leader>a", M.accept, vim.tbl_extend("force", opts, { desc = "Accept plan" }))
+	vim.keymap.set("n", "<leader>q", M.close, vim.tbl_extend("force", opts, { desc = "Close plan" }))
+	vim.keymap.set("n", "<leader>n", M.reject, vim.tbl_extend("force", opts, { desc = "Reject plan" }))
+	vim.keymap.set("n", "q", M.close, vim.tbl_extend("force", opts, { desc = "Close plan" }))
+
+	comments.setup_keymaps(buf, ns)
+
+	for _, key in ipairs({ "i", "I", "A", "o", "O", "s", "S", "r", "R" }) do
+		vim.keymap.set("n", key, "<Nop>", { buffer = buf })
 	end
 end
 

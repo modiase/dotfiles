@@ -190,4 +190,37 @@ function M.setup_keymaps(buf, ns, extra_keymaps)
 	end
 end
 
+function M.write_fifo(fifo_path, response)
+	if not fifo_path then
+		return
+	end
+	-- Writing to a FIFO blocks until a reader opens it; use jobstart to avoid blocking nvim
+	local escaped_response = response:gsub("'", "'\\''")
+	vim.fn.jobstart({ "sh", "-c", "printf '%s\\n' '" .. escaped_response .. "' > " .. vim.fn.shellescape(fifo_path) }, {
+		detach = true,
+	})
+end
+
+function M.serialise_comments(buf, ns)
+	buf = buf or vim.api.nvim_get_current_buf()
+	if not vim.api.nvim_buf_is_valid(buf) or not vim.b[buf].plan_provider then
+		return 0
+	end
+
+	local marks = vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, {})
+	if #marks == 0 then
+		return 0
+	end
+
+	vim.bo[buf].modifiable = true
+	vim.bo[buf].readonly = false
+	local count = M.serialise(buf, ns)
+	vim.api.nvim_buf_call(buf, function()
+		vim.cmd("silent write")
+	end)
+	vim.bo[buf].modifiable = false
+	vim.bo[buf].readonly = true
+	return count
+end
+
 return M

@@ -16,17 +16,6 @@ local function is_plan_file(path, plans_dir)
 	return path and path:match("^" .. vim.pesc(plans_dir) .. "/.*%.md$")
 end
 
-local function write_fifo(fifo_path, response)
-	if not fifo_path then
-		log.warning("write_fifo: no fifo path")
-		return
-	end
-	log.info("write_fifo: " .. response .. " -> " .. fifo_path)
-	vim.fn.jobstart({ "sh", "-c", string.format("echo '%s' > %s", response, vim.fn.shellescape(fifo_path)) }, {
-		detach = true,
-	})
-end
-
 local function find_win_by_fifo(fifo_path)
 	for _, t in ipairs(vim.api.nvim_list_tabpages()) do
 		local win = vim.api.nvim_tabpage_get_win(t)
@@ -66,34 +55,10 @@ function M.close_by_fifo(fifo_path)
 	local buf = vim.api.nvim_win_get_buf(win)
 	log.debug("close_by_fifo: buf=" .. buf .. " tab=" .. tostring(tab))
 
-	M.serialise_comments(buf)
+	comments.serialise_comments(buf, ns)
 
 	vim.api.nvim_set_current_tabpage(tab)
 	close_plan_tab(buf, win)
-end
-
-function M.serialise_comments(buf)
-	buf = buf or vim.api.nvim_get_current_buf()
-	if not vim.api.nvim_buf_is_valid(buf) or not vim.b[buf].plan_provider then
-		log.debug("serialise_comments: not a plan buffer")
-		return
-	end
-
-	local marks = vim.api.nvim_buf_get_extmarks(buf, ns, 0, -1, {})
-	if #marks == 0 then
-		return
-	end
-
-	log.debug("serialise_comments: " .. #marks .. " extmarks")
-	vim.bo[buf].modifiable = true
-	vim.bo[buf].readonly = false
-	local count = comments.serialise(buf, ns)
-	vim.api.nvim_buf_call(buf, function()
-		vim.cmd("silent write")
-	end)
-	vim.bo[buf].modifiable = false
-	vim.bo[buf].readonly = true
-	log.info("serialise_comments: wrote " .. count .. " comments")
 end
 
 function M.close()
@@ -105,26 +70,26 @@ function M.close()
 	end
 	log.debug("close: buf=" .. buf)
 
-	M.serialise_comments(buf)
+	comments.serialise_comments(buf, ns)
 	close_plan_tab(buf, win)
 end
 
 function M.accept_clear()
 	local fifo = vim.w[vim.api.nvim_get_current_win()].plan_fifo
 	M.close()
-	write_fifo(fifo, "accept_clear")
+	comments.write_fifo(fifo, "accept_clear")
 end
 
 function M.accept_auto()
 	local fifo = vim.w[vim.api.nvim_get_current_win()].plan_fifo
 	M.close()
-	write_fifo(fifo, "accept_auto")
+	comments.write_fifo(fifo, "accept_auto")
 end
 
 function M.accept_manual()
 	local fifo = vim.w[vim.api.nvim_get_current_win()].plan_fifo
 	M.close()
-	write_fifo(fifo, "accept_manual")
+	comments.write_fifo(fifo, "accept_manual")
 end
 
 function M.reject()
@@ -134,7 +99,7 @@ function M.reject()
 
 	local function do_reject(reason)
 		M.close()
-		write_fifo(fifo, "reject:" .. reason)
+		comments.write_fifo(fifo, "reject:" .. reason)
 	end
 
 	if has_comments then

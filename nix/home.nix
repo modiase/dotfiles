@@ -106,8 +106,8 @@ in
     ./neovim.nix
     ./nixpkgs/agents-config
     ./nixpkgs/claude-code
-    ./nixpkgs/coder
     ./nixpkgs/gemini-cli
+    ./nixpkgs/opencode
     ./nixpkgs/yazi
     ./sh.nix
     ./tmux.nix
