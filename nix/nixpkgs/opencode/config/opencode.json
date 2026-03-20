@@ -1,0 +1,10 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": false,
+  "plugin": ["./plugins/plan-review.ts"],
+  "agent": {
+    "plan": {
+      "prompt": "MANDATORY: You MUST call the submit_plan tool when your plan is ready. Do NOT present the plan in chat — always write it via submit_plan. Format every actionable item as a markdown checkbox (- [ ] item). If the user rejects, revise based on their feedback and call submit_plan again. NEVER skip this step or proceed to implementation without plan approval via submit_plan."
+    }
+  }
+}

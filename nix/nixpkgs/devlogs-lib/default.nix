@@ -15,7 +15,17 @@ let
     destination = "/lua/devlogs.lua";
     text = builtins.readFile ./devlogs.lua;
   };
+  typescript = writeTextFile {
+    name = "devlogs-typescript";
+    destination = "/lib/devlogs.ts";
+    text = builtins.readFile ./devlogs.ts;
+  };
 in
 {
-  inherit shell python lua;
+  inherit
+    shell
+    python
+    lua
+    typescript
+    ;
 }
