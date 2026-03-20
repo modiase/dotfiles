@@ -6,6 +6,7 @@
 }:
 let
   cfg = config.dotfiles.opencode;
+  agentsCfg = config.dotfiles.agents-config;
 
   homeDir = config.home.homeDirectory;
 
@@ -22,6 +23,29 @@ let
     ding = "${ding}/bin/ding";
   };
 
+  baseMcp = lib.mapAttrs (_name: server: {
+    type = "local";
+    command = [ server.command ] ++ server.args;
+    environment = server.env;
+    enabled = true;
+  }) agentsCfg.mcpServers;
+
+  exaMcpWrapper = pkgs.writeShellApplication {
+    name = "opencode-exa-mcp";
+    runtimeInputs = [ pkgs.pnpm ];
+    text = builtins.readFile ./exa-mcp-wrapper.sh;
+  };
+
+  darwinMcp = lib.optionalAttrs pkgs.stdenv.isDarwin {
+    exa = {
+      type = "local";
+      command = [ "opencode-exa-mcp" ];
+      enabled = true;
+    };
+  };
+
+  mcp = baseMcp // darwinMcp;
+
   opencodeConfig = pkgs.writeText "opencode.json" (
     builtins.toJSON {
       "$schema" = "https://opencode.ai/config.json";
@@ -31,6 +55,7 @@ let
         "${homeDir}/.config/opencode/plugins/notify.ts"
       ];
       agent.plan.prompt = "You may use the question tool to ask the user clarifying questions before writing a plan. Once your plan is ready, you MUST call the submit_plan tool — do NOT present the plan in chat. Format every actionable item as a markdown checkbox (- [ ] item). If the user rejects, revise based on their feedback and call submit_plan again. NEVER proceed to implementation without plan approval via submit_plan.";
+      inherit mcp;
     }
   );
 
@@ -45,7 +70,7 @@ in
 
   config = lib.mkIf cfg.enable {
     home = {
-      packages = [ pkgs.opencode ];
+      packages = [ pkgs.opencode ] ++ lib.optionals pkgs.stdenv.isDarwin [ exaMcpWrapper ];
 
       file.".config/opencode/opencode.json".source = opencodeConfig;
       file.".config/opencode/tui.json".source = tuiConfig;
