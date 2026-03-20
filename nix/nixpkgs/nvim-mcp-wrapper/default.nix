@@ -1,20 +1,30 @@
-{
-  pkgs,
-  ...
-}:
+{ pkgs, lib, ... }:
+
 let
-  devlogsLib = pkgs.callPackage ../devlogs-lib { };
+  nvimMcpUpstream = pkgs.callPackage ../nvim-mcp { };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
-in
-pkgs.writeShellApplication {
-  name = "nvim-mcp";
-  runtimeInputs = [
-    pkgs.nvim-mcp
-    tmuxNvimSelect
-    pkgs.python313
-  ];
-  text = ''
-    export PYTHONPATH="${devlogsLib.python}/lib:''${PYTHONPATH:-}"
-    exec python3 ${./nvim-mcp-proxy.py} --wrapper-id "''${WRAPPER_ID:-unknown}" "$@"
+  combinedSrc = pkgs.runCommand "nvim-mcp-src" { } ''
+    mkdir -p $out/nvim-mcp $out/devlogs-lib
+    cp -r ${./.}/* $out/nvim-mcp/
+    cp -r ${../devlogs-lib}/* $out/devlogs-lib/
   '';
+in
+pkgs.buildGoModule {
+  pname = "nvim-mcp";
+  version = "1.0.0";
+
+  src = combinedSrc;
+  sourceRoot = "${combinedSrc.name}/nvim-mcp";
+
+  vendorHash = null;
+
+  ldflags = [
+    "-X main.nvimMcpBin=${nvimMcpUpstream}/bin/nvim-mcp"
+    "-X main.tmuxNvimSelectBin=${tmuxNvimSelect}/bin/tmux-nvim-select"
+  ];
+
+  meta = with lib; {
+    description = "JSON-RPC proxy for nvim-mcp with automatic Neovim socket discovery";
+    mainProgram = "nvim-mcp";
+  };
 }
