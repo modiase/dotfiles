@@ -20,6 +20,7 @@ if set -q _flag_help
     echo ""
     echo "Settings stored in .git/gwt/settings:"
     echo "  checks=true|false    Enable/disable health checks (default: true)"
+    echo "  crypt_key=NAME       git-crypt key name (auto-detected if only one)"
     return 0
 end
 
@@ -119,6 +120,38 @@ function _gwt_health
     _gwt_set last_warned $now
 end
 
+function _gwt_crypt_key
+    set -l key_dir "$_gwt_git_dir/git-crypt/keys"
+    test -d "$key_dir"; or return
+
+    set -l keys (find "$key_dir" -type f -not -name '.*')
+    test (count $keys) -eq 0; and return
+
+    if test (count $keys) -eq 1
+        realpath "$keys[1]"
+        return
+    end
+
+    set -l saved (_gwt_setting crypt_key)
+    if test -n "$saved" -a -f "$key_dir/$saved"
+        realpath "$key_dir/$saved"
+        return
+    end
+
+    command -v gum >/dev/null; or begin
+        echo "Error: gum required to select git-crypt key" >&2
+        return 1
+    end
+    set -l names
+    for k in $keys
+        set -a names (string replace "$key_dir/" "" "$k")
+    end
+    set -l chosen (printf '%s\n' $names | gum choose --header "Select git-crypt key")
+    test -z "$chosen"; and return 1
+    _gwt_set crypt_key "$chosen"
+    realpath "$key_dir/$chosen"
+end
+
 function _gwt_new
     argparse from= -- $argv; or return
     set -l name $argv[1]
@@ -131,15 +164,25 @@ function _gwt_new
         test -z "$name"; and return 0
     end
 
+    set name (string lower -- $name | string replace -ra '\s+' '-' | string replace -ra '[^a-z0-9-]' '' | string replace -ra -- '-+' '-' | string trim -c '-')
+
+    set -l key_file (_gwt_crypt_key)
+    set -l no_checkout
+    test -n "$key_file"; and set no_checkout --no-checkout
+
     if git show-ref --verify --quiet refs/heads/$name 2>/dev/null
-        git worktree add worktrees/$name $name
+        git worktree add $no_checkout worktrees/$name $name
     else
         set -l base $_gwt_default_branch
         test -n "$_flag_from"; and set base $_flag_from
-        git worktree add -b $name worktrees/$name $base
+        git worktree add $no_checkout -b $name worktrees/$name $base
     end; or return 1
 
-    cd worktrees/$name
+    if set -q no_checkout[1]
+        set -l wt_git_dir (git rev-parse --git-common-dir)/worktrees/$name
+        ln -s ../../git-crypt "$wt_git_dir/git-crypt"
+        git -C worktrees/$name checkout HEAD -- .; or return 1
+    end
 end
 
 function _gwt_select
@@ -178,7 +221,23 @@ end
 function _gwt_remove
     argparse force -- $argv; or return
     set -l name $argv[1]
-    test -z "$name"; and echo "Usage: gwt rm NAME [-F]" >&2; and return 1
+    if test -z "$name"
+        set -l wt_names
+        for line in (git worktree list --porcelain 2>/dev/null)
+            if string match -qr '^worktree (.+)' $line
+                set -l p (string match -r '^worktree (.+)' $line)[2]
+                test "$p" = "$_gwt_toplevel"; and continue
+                set -a wt_names (basename $p)
+            end
+        end
+        test (count $wt_names) -eq 0; and echo "No worktrees to remove." >&2; and return 0
+        command -v gum >/dev/null; or begin
+            echo "Error: gum required for interactive selection" >&2
+            return 1
+        end
+        set name (printf '%s\n' $wt_names | gum choose --header "Remove worktree")
+        test -z "$name"; and return 0
+    end
 
     set -l wt_path worktrees/$name
     git worktree list --porcelain | string match -q "worktree */$wt_path"; or begin
