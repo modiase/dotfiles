@@ -132,6 +132,23 @@ is_in_worktree() {
     [[ "$script_dir" == */worktrees/main/* ]]
 }
 
+_ensure_wt_crypt() {
+    local wt_gitdir="$1"
+    local link="$wt_gitdir/git-crypt"
+    local target="../../git-crypt"
+
+    if [ -L "$link" ] && [ "$(readlink "$link")" = "$target" ]; then
+        return 0
+    fi
+
+    # Remove stale state (broken symlink, wrong target, old hard-link directory)
+    if [ -e "$link" ] || [ -L "$link" ]; then
+        rm -rf "$link"
+    fi
+
+    ln -s "$target" "$link"
+}
+
 ensure_in_worktree() {
     is_in_worktree && return 0
 
@@ -147,10 +164,7 @@ ensure_in_worktree() {
     local worktree_gitdir="$main_git_dir/worktrees/main"
 
     if [ -d "$worktree_path" ]; then
-        if [ ! -f "$worktree_gitdir/git-crypt/keys/default" ]; then
-            mkdir -p "$worktree_gitdir/git-crypt/keys"
-            ln "$main_git_dir/git-crypt/keys/default" "$worktree_gitdir/git-crypt/keys/default" 2>/dev/null || true
-        fi
+        _ensure_wt_crypt "$worktree_gitdir"
         if ! git -C "$worktree_path" crypt status &>/dev/null; then
             log_debug "git-crypt broken in worktree, recreating"
             rm -rf "$worktree_path"
@@ -166,8 +180,7 @@ ensure_in_worktree() {
     if [ ! -d "$worktree_path" ]; then
         mkdir -p "$HOME/dotfiles/worktrees"
         git -C "$HOME/dotfiles" worktree add --no-checkout --detach "$worktree_path" origin/main 2>&1 | log_debug_to_pipe "git-worktree" || return 0
-        mkdir -p "$worktree_gitdir/git-crypt/keys"
-        ln "$main_git_dir/git-crypt/keys/default" "$worktree_gitdir/git-crypt/keys/default" 2>/dev/null || true
+        _ensure_wt_crypt "$worktree_gitdir"
         git -C "$worktree_path" checkout --force HEAD 2>&1 | log_debug_to_pipe "git-checkout" || true
     fi
 
@@ -234,20 +247,20 @@ sync_and_activate() {
     wt_gitdir="$main_gitdir/worktrees/main"
 
     if [ -d worktrees/main ]; then
-        [ ! -f "$wt_gitdir/git-crypt/keys/default" ] &&
-            mkdir -p "$wt_gitdir/git-crypt/keys" &&
-            ln "$main_gitdir/git-crypt/keys/default" "$wt_gitdir/git-crypt/keys/default" 2>/dev/null
+        _ensure_wt_crypt "$wt_gitdir"
         git -C worktrees/main reset --hard origin/main
     else
-        git worktree add --no-checkout --detach worktrees/main origin/main &&
-            mkdir -p "$wt_gitdir/git-crypt/keys" &&
-            ln "$main_gitdir/git-crypt/keys/default" "$wt_gitdir/git-crypt/keys/default" &&
-            git -C worktrees/main checkout --force HEAD
+        git worktree add --no-checkout --detach worktrees/main origin/main || return 1
+        _ensure_wt_crypt "$wt_gitdir"
+        git -C worktrees/main checkout --force HEAD
     fi
 
     ./worktrees/main/bin/activate
 }
-DEPLOY_CMD="$(declare -f sync_and_activate); sync_and_activate"
+DEPLOY_CMD="$(
+    declare -f _ensure_wt_crypt
+    declare -f sync_and_activate
+); sync_and_activate"
 
 deploy_remote() {
     local host="$1"
