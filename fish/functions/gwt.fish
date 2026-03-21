@@ -176,6 +176,7 @@ function _gwt_code_args -a branch path
     $code_cmd $path
 end
 
+
 function _gwt_new
     argparse from= -- $argv; or return
     set -l name $argv[1]
