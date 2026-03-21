@@ -1,4 +1,4 @@
-argparse h/help 'a/agent=' no-rename no-debug -- $argv
+argparse h/help 'n/name=' 'a/agent=' no-rename no-debug -- $argv
 or return
 
 if set -q _flag_help
@@ -7,6 +7,7 @@ if set -q _flag_help
     echo "Create development layout with yazi, neovim, and terminal"
     echo ""
     echo "Options:"
+    echo "  -n, --name=NAME   Override tmux window name (default: lowercased dirname)"
     echo "  -a, --agent=NAME  Add agent column (gemini, claude, open, opencode)"
     echo "  --no-rename       Don't rename tmux window"
     echo "  --no-debug        Don't add devlogs pane"
@@ -15,7 +16,7 @@ if set -q _flag_help
     return 0
 end
 
-set -l dir (test (count $argv) -gt 0; and echo $argv[1]; or echo $PWD)
+set -l dir (test (count $argv) -gt 0; and realpath $argv[1]; or echo $PWD)
 test -d "$dir"; or begin
     echo "Error: not a directory: $dir" >&2
     return 1
@@ -28,17 +29,24 @@ set -l win (tmux display-message -p '#{window_id}')
 set -l pane_count (tmux list-panes -t $win | wc -l | string trim)
 if test "$pane_count" -ne 1
     set -l cmd code
+    set -q _flag_name; and set -a cmd -n $_flag_name
     set -q _flag_agent; and set -a cmd -a $_flag_agent
     set -q _flag_no_rename; and set -a cmd --no-rename
     set -q _flag_no_debug; and set -a cmd --no-debug
     test -n "$argv[1]"; and set -a cmd $argv[1]
-    tmux new-window -c "$dir" fish -c "$cmd"
+    set -l fish_cmd (string join ' ' -- (string escape -- $cmd))
+    set -l new_win (tmux new-window -P -F '#{window_id}' -c "$dir")
+    tmux send-keys -t $new_win "$fish_cmd" Enter
     return 0
 end
 
 cd "$dir"
 
-not set -q _flag_no_rename; and tmux rename-window -t $win (string lower (basename $PWD))
+if not set -q _flag_no_rename
+    set -l win_name (string lower (basename $PWD))
+    set -q _flag_name; and set win_name $_flag_name
+    tmux rename-window -t $win $win_name
+end
 
 set -l agent_cmd
 if set -q _flag_agent

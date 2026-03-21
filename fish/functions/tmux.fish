@@ -61,6 +61,12 @@ if test (count $other_args) -eq 0
         end
     end
 else
+    if not set -q TMUX_NO_TRACE
+        set -l win ""
+        test -n "$TMUX_PANE"; and set win "(@"(command tmux $socket_opt display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null)")"
+        set -l escaped (string escape -- $socket_opt $other_args)
+        logger -t devlogs -p user.info "[devlogs] DEBUG tmux$win: $escaped"
+    end
     if test $has_custom_socket -eq 1
         command tmux $socket_opt $other_args
     else

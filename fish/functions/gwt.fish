@@ -1,4 +1,6 @@
-argparse h/help f/from= F/force -- $argv; or return
+argparse h/help f/from= F/force no-code 'c/code-args=' -- $argv; or return
+
+set -g _gwt_code_args_val "$_flag_code_args"
 
 if set -q _flag_help
     echo "Usage: gwt [COMMAND] [OPTIONS]"
@@ -14,9 +16,12 @@ if set -q _flag_help
     echo "  *             Passthrough to git worktree"
     echo ""
     echo "Options:"
-    echo "  -f, --from=REF  Base ref for new worktree (default: default branch)"
-    echo "  -F, --force     Force removal of unmerged branches (rm)"
-    echo "  -h, --help      Show this help"
+    echo "  --no-code            Don't open code layout after create/select (default: opens code)"
+    echo "  -c, --code-args=ARGS Extra args for code as key:value pairs (comma-separated)"
+    echo "                       e.g. 'agent:claude,no-debug:' → --agent claude --no-debug"
+    echo "  -f, --from=REF       Base ref for new worktree (default: default branch)"
+    echo "  -F, --force          Force removal of unmerged branches (rm)"
+    echo "  -h, --help           Show this help"
     echo ""
     echo "Settings stored in .git/gwt/settings:"
     echo "  checks=true|false    Enable/disable health checks (default: true)"
@@ -32,7 +37,7 @@ set -g _gwt_toplevel (git rev-parse --show-toplevel 2>/dev/null)
 set -g _gwt_default_branch (get_default_branch)
 
 function _gwt_cleanup
-    set -eg _gwt_git_dir _gwt_toplevel _gwt_default_branch 2>/dev/null
+    set -eg _gwt_git_dir _gwt_toplevel _gwt_default_branch _gwt_code_args_val 2>/dev/null
 end
 
 function _gwt_setting -a key default
@@ -152,6 +157,25 @@ function _gwt_crypt_key
     realpath "$key_dir/$chosen"
 end
 
+function _gwt_code_args -a branch path
+    set -l repo (basename $_gwt_toplevel)
+    set -l code_cmd code --name "$repo""[$branch]"
+
+    if test -n "$_gwt_code_args_val"
+        for pair in (string split , $_gwt_code_args_val)
+            set -l kv (string split -m1 : $pair)
+            if test "$kv[1]" = name
+                test (count $kv) -ge 2 -a -n "$kv[2]"; and set code_cmd[3] $kv[2]
+                continue
+            end
+            set -a code_cmd --$kv[1]
+            test (count $kv) -ge 2 -a -n "$kv[2]"; and set -a code_cmd $kv[2]
+        end
+    end
+
+    $code_cmd $path
+end
+
 function _gwt_new
     argparse from= -- $argv; or return
     set -l name $argv[1]
@@ -166,22 +190,28 @@ function _gwt_new
 
     set name (string lower -- $name | string replace -ra '\s+' '-' | string replace -ra '[^a-z0-9-]' '' | string replace -ra -- '-+' '-' | string trim -c '-')
 
-    set -l key_file (_gwt_crypt_key)
-    set -l no_checkout
-    test -n "$key_file"; and set no_checkout --no-checkout
+    if not test -d worktrees/$name
+        set -l key_file (_gwt_crypt_key)
+        set -l no_checkout
+        test -n "$key_file"; and set no_checkout --no-checkout
 
-    if git show-ref --verify --quiet refs/heads/$name 2>/dev/null
-        git worktree add $no_checkout worktrees/$name $name
-    else
-        set -l base $_gwt_default_branch
-        test -n "$_flag_from"; and set base $_flag_from
-        git worktree add $no_checkout -b $name worktrees/$name $base
-    end; or return 1
+        if git show-ref --verify --quiet refs/heads/$name 2>/dev/null
+            git worktree add $no_checkout worktrees/$name $name
+        else
+            set -l base $_gwt_default_branch
+            test -n "$_flag_from"; and set base $_flag_from
+            git worktree add $no_checkout -b $name worktrees/$name $base
+        end; or return 1
 
-    if set -q no_checkout[1]
-        set -l wt_git_dir (git rev-parse --git-common-dir)/worktrees/$name
-        ln -s ../../git-crypt "$wt_git_dir/git-crypt"
-        git -C worktrees/$name checkout HEAD -- .; or return 1
+        if set -q no_checkout[1]
+            set -l wt_git_dir (git rev-parse --git-common-dir)/worktrees/$name
+            ln -s ../../git-crypt "$wt_git_dir/git-crypt"
+            git -C worktrees/$name checkout HEAD -- .; or return 1
+        end
+    end
+
+    if not set -q _flag_no_code
+        _gwt_code_args $name "$_gwt_toplevel/worktrees/$name"
     end
 end
 
@@ -213,6 +243,9 @@ function _gwt_select
     for i in (seq (count $entries))
         if test (string trim -- $entries[$i]) = "$clean"
             cd $paths[$i]
+            if not set -q _flag_no_code
+                _gwt_code_args (basename $paths[$i]) $paths[$i]
+            end
             return
         end
     end
@@ -294,7 +327,7 @@ switch "$argv[1]"
         _gwt_tidy
     case new
         _gwt_health
-        set -l _gwt_new_args $argv[2]
+        set -l _gwt_new_args $argv[2..]
         set -q _flag_from; and set -a _gwt_new_args --from=$_flag_from
         _gwt_new $_gwt_new_args
     case ''

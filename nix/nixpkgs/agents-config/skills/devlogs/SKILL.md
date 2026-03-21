@@ -1,11 +1,11 @@
 ---
 name: devlogs
-description: How to use the devlogs logging library (shell, Python, Lua, Go) for unified syslog logging.
+description: How to use the devlogs logging library (shell, Fish, Python, Lua, Go, TypeScript) for unified syslog logging.
 ---
 
 # Devlogs Logging Library
 
-Unified logging library for shell, Python, Lua (Neovim), and Go that logs to the devlogs syslog stream.
+Unified logging library for shell, Fish, Python, Lua (Neovim), Go, and TypeScript that logs to the devlogs syslog stream.
 
 ## Shell
 
@@ -38,6 +38,29 @@ writeShellApplication {
 ```
 
 The `.sh` file uses `clog` directly — no boilerplate needed.
+
+## Fish
+
+The `clog` function is available in all fish sessions:
+
+```fish
+clog info "something happened"
+clog debug "detail=$value"
+clog error "something broke"
+```
+
+Set `DEVLOGS_COMPONENT` to tag messages with a component name (defaults to `fish`):
+
+```fish
+set -l DEVLOGS_COMPONENT my-component
+clog info "tagged message"
+```
+
+The tmux fish wrapper logs every command to devlogs at debug level by default. Set `TMUX_NO_TRACE` to suppress:
+
+```fish
+set -gx TMUX_NO_TRACE 1
+```
 
 ## Python
 
@@ -115,6 +138,35 @@ pkgs.buildGoModule {
 }
 ```
 
+## TypeScript
+
+```typescript
+import { createLogger } from "./devlogs";
+
+const log = createLogger("my-component");
+
+log.info("something happened");
+log.debug(`detail=${value}`);
+log.error("something broke");
+```
+
+Methods: `debug`, `info`, `warning`, `error` — each takes a single string.
+
+### Nix integration
+
+Copy the library alongside your TypeScript source:
+
+```nix
+devlogsLib = pkgs.callPackage ../devlogs-lib { };
+
+# Copy devlogs.ts into your plugin/source directory
+postPatch = ''
+  cp ${devlogsLib.typescript}/lib/devlogs.ts plugins/devlogs.ts
+'';
+```
+
+Import with a relative path — no package manager needed.
+
 ## Log format
 
 ```
@@ -156,4 +208,4 @@ macOS unified logging does not persist `user.debug` to disk — debug messages o
 
 ## Important
 
-**Always use this library** for logging in shell, Python, and Go — never call `logger` or `log/syslog` directly. This ensures consistent log format, automatic tmux window tagging, and correct syslog priorities.
+**Always use this library** for logging in shell, Fish, Python, Lua, Go, and TypeScript — never call `logger` or `log/syslog` directly. This ensures consistent log format, automatic tmux window tagging, and correct syslog priorities.
