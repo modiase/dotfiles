@@ -54,9 +54,11 @@ Usage: $0 [-h] [-l LEVEL] [-c CORES] [-t TIMEOUT] [-s SYSTEM]
 Activate dotfiles configuration for Darwin or NixOS systems.
 
 Subcommands:
-    deploy [HOST]  Deploy from origin/main
+    deploy [HOST]  Deploy from origin/main (hangup-resilient)
                    HOST defaults to localhost
                    Use 'all' for all manageable hosts in parallel
+                   Deploys survive terminal/SSH disconnects.
+                   Re-run to re-attach to a running deploy.
     show [HOST]    Show activation status
 
 Options:
@@ -93,6 +95,8 @@ else
 fi
 SYSTEM_STATE="$STATE_DIR/system-activated"
 HOME_STATE="$STATE_DIR/home-activated"
+DEPLOY_PID_FILE="$STATE_DIR/deploy.pid"
+DEPLOY_EXIT_FILE="$STATE_DIR/deploy-exit"
 
 is_activated() {
     local state_file="$1" target_hash="$2"
@@ -118,6 +122,64 @@ log_unchanged() {
     [ "$(uname -s)" = "Darwin" ] && sys_label="darwin-rebuild"
     printf "${COLOR_GREEN}✓${COLOR_RESET}  %s\n" "$sys_label (unchanged)" >&2
     printf "${COLOR_GREEN}✓${COLOR_RESET}  %s\n" "home-manager (unchanged)" >&2
+}
+
+_stream_activate_logs() {
+    if [ "$(uname -s)" = "Darwin" ]; then
+        /usr/bin/log stream --predicate 'eventMessage CONTAINS "[dotfiles-activate]"' --info --style compact |
+            sed '/^Filtering/d; s/^[^ ]* \([0-9:]*\)\.[^ ]* .*\[dotfiles-activate\] /\1 /'
+    else
+        journalctl -t dotfiles-activate -f -n 0 --no-pager -o short-iso |
+            sed -u 's/^[^ ]*T\([0-9:]*\)[^ ]* .*\[dotfiles-activate\] /\1 /'
+    fi
+}
+
+# shellcheck disable=SC2016
+_REMOTE_LOG_STREAM='
+if [ "$(uname -s)" = "Darwin" ]; then
+    /usr/bin/log stream --predicate '"'"'eventMessage CONTAINS "[dotfiles-activate]"'"'"' --info --style compact \
+        | sed "/^Filtering/d; s/^[^ ]* \([0-9:]*\)\.[^ ]* .*\[dotfiles-activate\] /\1 /"
+else
+    journalctl -t dotfiles-activate -f -n 0 --no-pager -o short-iso \
+        | sed -u "s/^[^ ]*T\([0-9:]*\)[^ ]* .*\[dotfiles-activate\] /\1 /"
+fi'
+
+_is_deploy_running() {
+    [ -f "$DEPLOY_PID_FILE" ] && kill -0 "$(cat "$DEPLOY_PID_FILE")" 2>/dev/null
+}
+
+_run_detached() {
+    mkdir -p "$STATE_DIR"
+    (
+        trap '' HUP
+        exec </dev/null >/dev/null 2>&1
+        rc=0
+        "$@" || rc=$?
+        echo "$rc" >"$DEPLOY_EXIT_FILE"
+        rm -f "$DEPLOY_PID_FILE"
+    ) &
+    echo $! >"$DEPLOY_PID_FILE"
+    disown
+}
+
+_wait_for_deploy() {
+    local deploy_pid="$1"
+    _stream_activate_logs &
+    local tail_pid=$!
+
+    while kill -0 "$deploy_pid" 2>/dev/null; do
+        sleep 1
+    done
+
+    sleep 2
+    kill "$tail_pid" 2>/dev/null || true
+    wait "$tail_pid" 2>/dev/null || true
+
+    local exit_code
+    exit_code=$(cat "$DEPLOY_EXIT_FILE" 2>/dev/null || echo 1)
+    rm -f "$DEPLOY_EXIT_FILE"
+
+    return "$exit_code"
 }
 
 if [ "$(uname -s)" = "Darwin" ]; then
@@ -225,15 +287,20 @@ do_show() {
 }
 
 deploy_local() {
-    local origin_main
-    origin_main=$(get_flake_hash "$REPO_ROOT")
+    if _is_deploy_running; then
+        echo "Re-attaching to running deploy..." >&2
+    else
+        local origin_main
+        origin_main=$(get_flake_hash "$REPO_ROOT")
+        if is_activated "$SYSTEM_STATE" "$origin_main" && is_activated "$HOME_STATE" "$origin_main"; then
+            log_unchanged
+            return 0
+        fi
+        rm -f "$DEPLOY_EXIT_FILE"
+        _run_detached do_activate
+    fi
 
-    is_activated "$SYSTEM_STATE" "$origin_main" && is_activated "$HOME_STATE" "$origin_main" && {
-        log_unchanged
-        return 0
-    }
-
-    do_activate
+    _wait_for_deploy "$(cat "$DEPLOY_PID_FILE")"
 }
 
 sync_and_activate() {
@@ -257,15 +324,57 @@ sync_and_activate() {
 
     ./worktrees/main/bin/activate
 }
-DEPLOY_CMD="$(
+# shellcheck disable=SC2016
+_DETACH_BODY='
+set -euo pipefail
+_sd="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
+_pf="$_sd/deploy.pid"
+_ef="$_sd/deploy-exit"
+mkdir -p "$_sd"
+
+if [ -f "$_pf" ] && kill -0 "$(cat "$_pf")" 2>/dev/null; then
+    echo "REATTACH:$(cat "$_pf")"
+else
+    rm -f "$_ef"
+    (
+        trap '"'"''"'"' HUP
+        exec </dev/null >/dev/null 2>&1
+        rc=0
+        sync_and_activate || rc=$?
+        echo "$rc" >"$_ef"
+        rm -f "$_pf"
+    ) &
+    echo "$!" >"$_pf"
+    disown
+    echo "STARTED:$(cat "$_pf")"
+fi'
+
+DEPLOY_CMD_DETACHED="$(
     declare -f _ensure_wt_crypt
     declare -f sync_and_activate
-); sync_and_activate"
+)
+$_DETACH_BODY"
 
 deploy_remote() {
     local host="$1"
-    # shellcheck disable=SC2029  # intentional: DEPLOY_CMD runs on remote
-    ssh "$host" "$DEPLOY_CMD"
+    local result
+    # shellcheck disable=SC2029
+    result=$(ssh "$host" "$DEPLOY_CMD_DETACHED")
+
+    local remote_pid=${result#*:}
+
+    if [[ "$result" == REATTACH:* ]]; then echo "Re-attaching to running deploy on $host..." >&2; fi
+
+    # shellcheck disable=SC2029
+    ssh "$host" "
+        ( $_REMOTE_LOG_STREAM ) &
+        _tail=\$!
+        while kill -0 $remote_pid 2>/dev/null; do sleep 1; done
+        sleep 2
+        kill \$_tail 2>/dev/null
+        wait \$_tail 2>/dev/null
+        exit \$(cat \${XDG_STATE_HOME:-\$HOME/.local/state}/dotfiles/deploy-exit 2>/dev/null || echo 1)
+    "
 }
 
 get_manage_options() {
@@ -327,12 +436,39 @@ deploy_all() {
             local prefix
             prefix=$(printf "%-16s| " "$host")
             if [ "$host" = "localhost" ]; then
-                bash -c "$DEPLOY_CMD" 2>&1 | sed "s/^/$prefix/"
+                if ! _is_deploy_running; then
+                    rm -f "$DEPLOY_EXIT_FILE"
+                    _run_detached do_activate
+                fi
+                local local_pid
+                local_pid=$(cat "$DEPLOY_PID_FILE")
+                _stream_activate_logs 2>&1 | sed "s/^/$prefix/" &
+                local tail_pid=$!
+                while kill -0 "$local_pid" 2>/dev/null; do sleep 1; done
+                sleep 2
+                kill "$tail_pid" 2>/dev/null || true
+                wait "$tail_pid" 2>/dev/null || true
+                cat "$DEPLOY_EXIT_FILE" 2>/dev/null >"$result_dir/$host" || echo 1 >"$result_dir/$host"
             else
-                # shellcheck disable=SC2029  # intentional: DEPLOY_CMD runs on remote
-                ssh "$host" "$DEPLOY_CMD" 2>&1 | sed "s/^/$prefix/"
+                local launch
+                # shellcheck disable=SC2029
+                launch=$(ssh "$host" "$DEPLOY_CMD_DETACHED" 2>/dev/null) || {
+                    echo 1 >"$result_dir/$host"
+                    exit 1
+                }
+                local rpid=${launch#*:}
+                # shellcheck disable=SC2029
+                ssh "$host" "
+                    ( $_REMOTE_LOG_STREAM ) &
+                    _t=\$!
+                    while kill -0 $rpid 2>/dev/null; do sleep 1; done
+                    sleep 2
+                    kill \$_t 2>/dev/null
+                    wait \$_t 2>/dev/null
+                    exit \$(cat \${XDG_STATE_HOME:-\$HOME/.local/state}/dotfiles/deploy-exit 2>/dev/null || echo 1)
+                " 2>&1 | sed "s/^/$prefix/"
+                echo "${PIPESTATUS[0]}" >"$result_dir/$host"
             fi
-            echo "${PIPESTATUS[0]}" >"$result_dir/$host"
         ) &
     done
 
@@ -352,7 +488,10 @@ deploy_all() {
     done
 
     echo ""
-    [ "$failed" -eq 0 ] && echo "Remote deployment complete: all hosts succeeded" && return 0
+    if [ "$failed" -eq 0 ]; then
+        echo "Remote deployment complete: all hosts succeeded"
+        return 0
+    fi
     echo "Remote deployment complete: some hosts failed"
     return 1
 }
