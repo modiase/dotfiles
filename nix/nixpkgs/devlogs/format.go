@@ -8,6 +8,9 @@ func formatEntry(e LogEntry) string {
 	s += e.Level + " "
 	if e.Component != "" {
 		s += e.Component
+		if e.Instance != "" {
+			s += "{" + e.Instance + "}"
+		}
 		if e.Window != "" {
 			s += "(@" + e.Window + ")"
 		}

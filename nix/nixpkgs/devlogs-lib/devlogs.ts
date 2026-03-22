@@ -24,8 +24,11 @@ if (pane) {
   } catch {}
 }
 
-function log(level: Level, component: string, msg: string) {
-  const tag = _window ? `${component}(@${_window})` : component;
+function log(level: Level, component: string, instance: string, msg: string) {
+  let tag = `${component}{${instance}}`;
+  if (_window) {
+    tag = `${component}{${instance}}(@${_window})`;
+  }
   const formatted = `[devlogs] ${level.toUpperCase()} ${tag}: ${msg}`;
   try {
     spawnSync("logger", ["-t", "devlogs", "-p", PRIORITY_MAP[level], formatted], {
@@ -41,11 +44,13 @@ export interface Logger {
   error(msg: string): void;
 }
 
-export function createLogger(component: string): Logger {
+export function createLogger(component?: string, instance?: string): Logger {
+  const comp = component || process.env.DEVLOGS_COMPONENT || "unknown";
+  const inst = instance || process.env.DEVLOGS_INSTANCE || "-";
   return {
-    debug: (msg) => log("debug", component, msg),
-    info: (msg) => log("info", component, msg),
-    warning: (msg) => log("warning", component, msg),
-    error: (msg) => log("error", component, msg),
+    debug: (msg) => log("debug", comp, inst, msg),
+    info: (msg) => log("info", comp, inst, msg),
+    warning: (msg) => log("warning", comp, inst, msg),
+    error: (msg) => log("error", comp, inst, msg),
   };
 }
