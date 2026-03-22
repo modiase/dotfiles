@@ -301,21 +301,60 @@ def image_up_to_date(local_path: str, dest_uri: str, project_id: str) -> bool:
     return local_hash == remote_hash
 
 
+def _format_bytes(n: int) -> str:
+    if n >= 1 << 30:
+        return f"{n / (1 << 30):.1f} GiB"
+    if n >= 1 << 20:
+        return f"{n / (1 << 20):.1f} MiB"
+    if n >= 1 << 10:
+        return f"{n / (1 << 10):.1f} KiB"
+    return f"{n} B"
+
+
+class _ProgressFileWrapper:
+    """Wraps a file object to log upload progress on read()."""
+
+    def __init__(self, fobj, total_size: int, step_pct: int = 5):
+        self._fobj = fobj
+        self._total = total_size
+        self._read_bytes = 0
+        self._step_pct = step_pct
+        self._last_reported_pct = -step_pct
+
+    def read(self, size: int = -1) -> bytes:
+        data = self._fobj.read(size)
+        self._read_bytes += len(data)
+
+        pct = int(self._read_bytes * 100 / self._total) if self._total else 100
+        if pct >= self._last_reported_pct + self._step_pct:
+            self._last_reported_pct = pct - (pct % self._step_pct)
+            logger.info(
+                f"Upload progress: {pct}% ({_format_bytes(self._read_bytes)}/{_format_bytes(self._total)})"
+            )
+        return data
+
+    def seek(self, *args, **kwargs):
+        return self._fobj.seek(*args, **kwargs)
+
+    def tell(self) -> int:
+        return self._fobj.tell()
+
+
 def upload_to_gcs(local_path: str, dest_uri: str, project_id: str) -> None:
     """Upload a file to Google Cloud Storage."""
     bucket_name, object_name = parse_gcs_uri(dest_uri)
 
-    file_size = subprocess.run(
-        ["du", "-h", local_path], capture_output=True, text=True
-    ).stdout.split()[0]
-    logger.info(f"Uploading {file_size} tarball to {dest_uri}")
+    file_size = os.path.getsize(local_path)
+    logger.info(f"Uploading {_format_bytes(file_size)} tarball to {dest_uri}")
 
     try:
         client = storage.Client(project=project_id)
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(object_name)
 
-        blob.upload_from_filename(local_path)
+        with open(local_path, "rb") as f:
+            wrapped = _ProgressFileWrapper(f, file_size)
+            blob.upload_from_file(wrapped, size=file_size)
         logger.info(f"Upload completed: {dest_uri}")
 
     except Exception as e:
