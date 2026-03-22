@@ -140,9 +140,14 @@
       "Bash(ps:*)"
       "Bash(pgrep:*)"
       "Bash(lsof:*)"
+      "Bash(test:*)"
+      "Bash([:*)"
 
       # MCP tools (read-only)
       "mcp__exa__*"
+      "mcp__lsp-lua__*"
+      "mcp__lsp-nix__*"
+      "mcp__lsp-typescript__*"
       "mcp__nixos__*"
       "mcp__nvim__*"
 
