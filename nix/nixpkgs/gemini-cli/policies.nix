@@ -117,6 +117,7 @@ let
     "sed"
     "stat"
     "tail"
+    "test"
     "tree"
     "wc"
     # keep-sorted end
