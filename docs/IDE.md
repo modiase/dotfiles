@@ -23,8 +23,8 @@ The wrapper ID reaches child processes through two mechanisms:
   CLI spawns (hooks, MCP servers) where we cannot control the invocation
 
 Both mechanisms ensure the ID appears in process argv for `pgrep`. The ID is
-also embedded in `DEVLOGS_COMPONENT` (e.g. `claude[<id>]`) so every log line
-carries it automatically.
+also exported as `DEVLOGS_INSTANCE`, so every log line carries it in the
+`{instance}` field (e.g. `claude{<id>}`).
 
 opencode uses a third-party wrapper with no `WRAPPER_ID` integration. Its
 Neovim plugin (`opencode.nvim`) handles plan display via a file watcher
@@ -139,8 +139,8 @@ gemini (wrapper)
 
 ## Observability
 
-All processes log through devlogs. Component names follow the format
-`name[wrapper-id](@window)`.
+All processes log through devlogs. Log lines follow the format
+`name{instance}(@window)`, where `instance` is the wrapper UUID.
 
 ```bash
 devlogs                                         # live TUI

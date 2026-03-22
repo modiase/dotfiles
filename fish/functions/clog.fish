@@ -17,5 +17,6 @@ test "$level" = debug; and set priority "user.info"
 
 set -l label (string upper $level)
 set -l component (test -n "$DEVLOGS_COMPONENT"; and echo $DEVLOGS_COMPONENT; or echo "fish")
+set -l instance (test -n "$DEVLOGS_INSTANCE"; and echo $DEVLOGS_INSTANCE; or echo "-")
 
-logger -t devlogs -p "$priority" "[devlogs] $label $component$win: $msg"
+logger -t devlogs -p "$priority" "[devlogs] $label $component{$instance}$win: $msg"

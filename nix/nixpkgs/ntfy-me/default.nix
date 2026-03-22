@@ -34,9 +34,9 @@ let
       # keep-sorted end
     ];
     text = ''
-      export DEVLOGS_COMPONENT="ntfy-listen"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
+      devlogs_init ntfy-listen
       ${builtins.readFile ./ntfy-listen.sh}
     '';
   };
