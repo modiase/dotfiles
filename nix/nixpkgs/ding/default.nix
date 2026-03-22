@@ -10,9 +10,9 @@ writeShellApplication {
   name = "ding";
   runtimeInputs = [ coreutils ];
   text = ''
-    export DEVLOGS_COMPONENT="ding"
     # shellcheck source=/dev/null
     source ${devlogsLib.shell}/lib/devlogs.sh
+    devlogs_init ding
     ${builtins.readFile ./ding.sh}
   '';
 }

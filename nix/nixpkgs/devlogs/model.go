@@ -17,8 +17,8 @@ var (
 	warnStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
 	infoStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("12"))
 	debugStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	dimStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	helpStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	dimStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+	helpStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 )
 
 type model struct {
@@ -256,16 +256,8 @@ func renderEntry(e LogEntry, width int) string {
 	}
 
 	ts := dimStyle.Render(e.Timestamp)
-	pid := ""
-	if e.PID != "" {
-		pid = dimStyle.Render("["+e.PID+"]") + " "
-	}
-	comp := ""
-	if e.Component != "" {
-		comp = lipgloss.NewStyle().Bold(true).Render(e.Component) + ": "
-	}
 
-	line := fmt.Sprintf("%s %s%s %s%s", ts, pid, levelStr, comp, e.Message)
+	line := fmt.Sprintf("%s %s %s", ts, levelStr, e.Message)
 	if width > 0 && lipgloss.Width(line) > width {
 		runes := []rune(line)
 		if len(runes) > width-1 {

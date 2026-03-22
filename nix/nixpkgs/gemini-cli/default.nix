@@ -32,9 +32,9 @@ let
     name = "gemini-nvim-plan";
     runtimeInputs = planScriptInputs;
     text = ''
-      export DEVLOGS_COMPONENT="gemini-nvim-plan''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
+      devlogs_init gemini-nvim-plan
       ${builtins.readFile ./scripts/nvim-plan.sh}
     '';
   };
@@ -43,9 +43,9 @@ let
     name = "gemini-close-plan";
     runtimeInputs = planScriptInputs;
     text = ''
-      export DEVLOGS_COMPONENT="gemini-close-plan''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
+      devlogs_init gemini-close-plan
       ${builtins.readFile ./scripts/close-plan.sh}
     '';
   };
@@ -58,9 +58,9 @@ let
       pkgs.jq
     ];
     text = ''
-      export DEVLOGS_COMPONENT="gemini-hook''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
+      devlogs_init gemini-hook
       ${builtins.readFile ./scripts/hook.sh}
     '';
   };
@@ -90,9 +90,9 @@ let
       pkgs.neovim
     ];
     text = ''
-      export DEVLOGS_COMPONENT="gemini-editor''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
+      devlogs_init gemini-editor
       exec gemini-editor-go "$@"
     '';
   };
@@ -104,9 +104,9 @@ let
       pkgs.lsof
     ];
     text = ''
-      export DEVLOGS_COMPONENT="get-gemini-ide-env''${WRAPPER_ID:+[$WRAPPER_ID]}"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
+      devlogs_init get-gemini-ide-env
       ${builtins.readFile ./scripts/get-gemini-ide-env.sh}
     '';
   };
@@ -124,9 +124,10 @@ let
       WRAPPER_ID="$(uuidgen | tr '[:upper:]' '[:lower:]')"
       export EDITOR=gemini-editor
       export GEMINI_SYSTEM_MD="$HOME/.gemini/system.md"
-      export DEVLOGS_COMPONENT="gemini[$WRAPPER_ID]"
+      export DEVLOGS_INSTANCE="$WRAPPER_ID"
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh
+      devlogs_init gemini
       ide_env=$(get-gemini-ide-env 2>/dev/null) || true
       if [ -n "$ide_env" ]; then
           eval "$ide_env"
