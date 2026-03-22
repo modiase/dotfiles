@@ -109,6 +109,7 @@ in
     ./nixpkgs/gemini-cli
     ./nixpkgs/opencode
     ./nixpkgs/yazi
+    ./obsidian.nix
     ./sh.nix
     ./tmux.nix
     # keep-sorted end
