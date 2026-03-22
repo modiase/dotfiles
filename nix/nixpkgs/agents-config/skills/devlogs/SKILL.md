@@ -9,16 +9,18 @@ Unified logging library for shell, Fish, Python, Lua (Neovim), Go, and TypeScrip
 
 ## Shell
 
-Set `DEVLOGS_COMPONENT` and source the library before calling `clog`:
+Source the library and call `devlogs_init` with the component name before calling `clog`:
 
 ```bash
-export DEVLOGS_COMPONENT="my-script"
 source ${devlogsLib.shell}/lib/devlogs.sh
+devlogs_init my-script
 
 clog info "something happened"
 clog debug "detail=$value"
 clog error "something broke"
 ```
+
+`devlogs_init [component]` sets the component from: arg → `$DEVLOGS_COMPONENT` → `"unknown"`, and instance from `$DEVLOGS_INSTANCE` → `"-"`.
 
 ### Nix integration
 
@@ -29,9 +31,9 @@ writeShellApplication {
   name = "my-script";
   runtimeInputs = [ ... ];
   text = ''
-    export DEVLOGS_COMPONENT="my-script"
     # shellcheck source=/dev/null
     source ${devlogsLib.shell}/lib/devlogs.sh
+    devlogs_init my-script
     ${builtins.readFile ./my-script.sh}
   '';
 };
@@ -49,10 +51,11 @@ clog debug "detail=$value"
 clog error "something broke"
 ```
 
-Set `DEVLOGS_COMPONENT` to tag messages with a component name (defaults to `fish`):
+Set `DEVLOGS_COMPONENT` and optionally `DEVLOGS_INSTANCE` to tag messages:
 
 ```fish
-set -l DEVLOGS_COMPONENT my-component
+set -gx DEVLOGS_COMPONENT my-component
+set -gx DEVLOGS_INSTANCE (uuidgen)
 clog info "tagged message"
 ```
 
@@ -170,11 +173,12 @@ Import with a relative path — no package manager needed.
 ## Log format
 
 ```
-[devlogs] LEVEL component(@window): message
+[devlogs] LEVEL component{instance}(@window): message
 ```
 
 - `LEVEL`: DEBUG, INFO, WARNING, ERROR (uppercase)
-- `component`: value of `DEVLOGS_COMPONENT` (shell), argument to `setup_logging` (Python), `new` (Lua), or `NewLogger` (Go)
+- `component`: value from init arg, `DEVLOGS_COMPONENT` env, or `"unknown"`
+- `{instance}`: value from `DEVLOGS_INSTANCE` env or `"-"` sentinel (always present)
 - `(@window)`: tmux window index, included automatically when `TMUX_PANE` (shell/Lua) or `TARGET_WINDOW` (Python) is set
 
 ## Available levels

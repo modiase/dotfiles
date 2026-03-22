@@ -28,13 +28,22 @@ class SyslogHandler(logging.Handler):
             )
 
 
-def setup_logging(component: str) -> logging.Logger:
+def setup_logging(component: str = "", instance: str = "") -> logging.Logger:
     """Create a logger that writes to syslog in devlogs format.
 
-    Reads TARGET_WINDOW env var for tmux window context.
+    Args:
+        component: Log component name. Falls back to DEVLOGS_COMPONENT env, then "unknown".
+        instance: Instance identifier. Falls back to DEVLOGS_INSTANCE env, then "-".
     """
+    if not component:
+        component = os.environ.get("DEVLOGS_COMPONENT", "unknown")
+    if not instance:
+        instance = os.environ.get("DEVLOGS_INSTANCE", "-")
+
     window = os.environ.get("TARGET_WINDOW", "")
-    tag = f"{component}(@{window})" if window else component
+    tag = f"{component}{{{instance}}}"
+    if window:
+        tag = f"{component}{{{instance}}}(@{window})"
     logger = logging.getLogger(f"devlogs.{component}")
     logger.setLevel(logging.DEBUG)
     handler = SyslogHandler()

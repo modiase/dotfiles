@@ -9,8 +9,8 @@ if pane then
 	end
 end
 
-local function log(level, component, msg)
-	local tag = component
+local function log(level, component, instance, msg)
+	local tag = component .. "{" .. instance .. "}"
 	if window ~= "" then
 		tag = tag .. "(@" .. window .. ")"
 	end
@@ -20,10 +20,12 @@ local function log(level, component, msg)
 end
 
 function M.new(component)
+	component = component or vim.env.DEVLOGS_COMPONENT or "unknown"
+	local instance = vim.env.DEVLOGS_INSTANCE or "-"
 	local logger = {}
 	for _, level in ipairs({ "debug", "info", "warning", "error" }) do
 		logger[level] = function(msg)
-			log(level, component, msg)
+			log(level, component, instance, msg)
 		end
 	end
 	return logger

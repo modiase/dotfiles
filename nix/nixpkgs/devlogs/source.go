@@ -11,6 +11,7 @@ type LogEntry struct {
 	Timestamp string
 	Level     string
 	Component string
+	Instance  string
 	Window    string
 	PID       string
 	Message   string
@@ -47,6 +48,16 @@ func extractPID(prefix string) string {
 	return ""
 }
 
+// extractInstance splits "component{instance}" into component and instance.
+func extractInstance(comp string) (string, string) {
+	if i := strings.LastIndex(comp, "{"); i >= 0 {
+		if strings.HasSuffix(comp, "}") {
+			return comp[:i], comp[i+1 : len(comp)-1]
+		}
+	}
+	return comp, ""
+}
+
 func parseLogEntry(line string) LogEntry {
 	entry := LogEntry{}
 
@@ -78,6 +89,7 @@ func parseLogEntry(line string) LogEntry {
 				comp = comp[:i]
 			}
 		}
+		comp, entry.Instance = extractInstance(comp)
 		entry.Component = comp
 		entry.Message = rest[colonIdx+2:]
 	} else {

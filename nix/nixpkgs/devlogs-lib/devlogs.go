@@ -9,11 +9,22 @@ import (
 
 type Logger struct {
 	component string
+	instance  string
 	window    string
 }
 
 func NewLogger(component string) *Logger {
-	l := &Logger{component: component}
+	if component == "" {
+		component = os.Getenv("DEVLOGS_COMPONENT")
+	}
+	if component == "" {
+		component = "unknown"
+	}
+	instance := os.Getenv("DEVLOGS_INSTANCE")
+	if instance == "" {
+		instance = "-"
+	}
+	l := &Logger{component: component, instance: instance}
 	if pane := os.Getenv("TMUX_PANE"); pane != "" {
 		out, err := exec.Command("tmux", "display-message", "-t", pane, "-p", "#{window_index}").Output()
 		if err == nil {
@@ -31,9 +42,9 @@ func (l *Logger) Error(msg string) { l.log("err", msg) }
 
 func (l *Logger) log(level, msg string) { l.logWithPriority(level, level, msg) }
 func (l *Logger) logWithPriority(level, priority, msg string) {
-	tag := l.component
+	tag := fmt.Sprintf("%s{%s}", l.component, l.instance)
 	if l.window != "" {
-		tag = fmt.Sprintf("%s(@%s)", l.component, l.window)
+		tag = fmt.Sprintf("%s{%s}(@%s)", l.component, l.instance, l.window)
 	}
 	formatted := fmt.Sprintf("[devlogs] %s %s: %s", strings.ToUpper(level), tag, msg)
 	_ = exec.Command("logger", "-t", "devlogs", "-p", "user."+priority, formatted).Run()

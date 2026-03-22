@@ -11,9 +11,9 @@ pkgs.writeShellApplication {
     tmux
   ];
   text = ''
-    export DEVLOGS_COMPONENT="tmux-nvim-select"
     # shellcheck source=/dev/null
     source ${devlogsLib.shell}/lib/devlogs.sh
+    devlogs_init tmux-nvim-select
     ${builtins.readFile ./tmux-nvim-select.sh}
   '';
 }
