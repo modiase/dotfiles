@@ -14,7 +14,6 @@ Hermes is a GCE VM (e2-micro, europe-west2) running multiple web services.
 | Nginx | 80, 443 | Reverse proxy, TLS termination (Cloudflare Origin SSL) |
 | Authelia | 9091 | Authentication/authorization |
 | ntfy.sh | 8080 | Push notifications (GCS-backed) |
-| MongoDB | 27017 | Database (localhost only) |
 | Redis | 6379 | Session storage for Authelia |
 | fail2ban | - | Intrusion prevention |
 | CVE Scanner | - | Security scanning (6-hourly watchlist, weekly packages) |
