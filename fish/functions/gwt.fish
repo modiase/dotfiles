@@ -33,12 +33,20 @@ set -g _gwt_git_dir (git rev-parse --git-dir 2>/dev/null); or begin
     echo "Error: not in a git repository" >&2
     return 1
 end
-set -g _gwt_toplevel (git rev-parse --show-toplevel 2>/dev/null)
-set -g _gwt_default_branch (get_default_branch)
-
 function _gwt_cleanup
     set -eg _gwt_git_dir _gwt_toplevel _gwt_default_branch _gwt_code_args_val 2>/dev/null
 end
+
+set -l common_dir (realpath (git rev-parse --git-common-dir 2>/dev/null))
+set -l actual_git_dir (realpath "$_gwt_git_dir")
+if test "$common_dir" != "$actual_git_dir"
+    set -l main_toplevel (git -C "$common_dir/.." rev-parse --show-toplevel 2>/dev/null)
+    _gwt_cleanup
+    env -C "$main_toplevel" fish -c "gwt $argv"
+    return $status
+end
+set -g _gwt_toplevel (git rev-parse --show-toplevel 2>/dev/null)
+set -g _gwt_default_branch (get_default_branch)
 
 function _gwt_setting -a key default
     set -l file $_gwt_git_dir/gwt/settings
@@ -176,7 +184,6 @@ function _gwt_code_args -a branch path
     $code_cmd $path
 end
 
-
 function _gwt_new
     argparse from= -- $argv; or return
     set -l name $argv[1]
@@ -191,23 +198,23 @@ function _gwt_new
 
     set name (string lower -- $name | string replace -ra '\s+' '-' | string replace -ra '[^a-z0-9-]' '' | string replace -ra -- '-+' '-' | string trim -c '-')
 
-    if not test -d worktrees/$name
+    if not test -d $_gwt_toplevel/worktrees/$name
         set -l key_file (_gwt_crypt_key)
         set -l no_checkout
         test -n "$key_file"; and set no_checkout --no-checkout
 
         if git show-ref --verify --quiet refs/heads/$name 2>/dev/null
-            git worktree add $no_checkout worktrees/$name $name
+            git -C $_gwt_toplevel worktree add $no_checkout worktrees/$name $name
         else
             set -l base $_gwt_default_branch
             test -n "$_flag_from"; and set base $_flag_from
-            git worktree add $no_checkout -b $name worktrees/$name $base
+            git -C $_gwt_toplevel worktree add $no_checkout -b $name worktrees/$name $base
         end; or return 1
 
         if set -q no_checkout[1]
             set -l wt_git_dir (git rev-parse --git-common-dir)/worktrees/$name
             ln -s ../../git-crypt "$wt_git_dir/git-crypt"
-            git -C worktrees/$name checkout HEAD -- .; or return 1
+            git -C $_gwt_toplevel/worktrees/$name checkout HEAD -- .; or return 1
         end
     end
 
@@ -243,7 +250,6 @@ function _gwt_select
     set -l clean (string trim -- $selected)
     for i in (seq (count $entries))
         if test (string trim -- $entries[$i]) = "$clean"
-            cd $paths[$i]
             if not set -q _flag_no_code
                 _gwt_code_args (basename $paths[$i]) $paths[$i]
             end
@@ -273,8 +279,8 @@ function _gwt_remove
         test -z "$name"; and return 0
     end
 
-    set -l wt_path worktrees/$name
-    git worktree list --porcelain | string match -q "worktree */$wt_path"; or begin
+    set -l wt_path $_gwt_toplevel/worktrees/$name
+    git worktree list --porcelain | string match -q "worktree $wt_path"; or begin
         echo "Error: worktree '$name' not found" >&2
         return 1
     end
@@ -312,7 +318,7 @@ function _gwt_tidy
 
     for pick in $chosen
         set -l branch (string match -r '^(\S+)' $pick)[2]
-        git worktree remove worktrees/$branch
+        git worktree remove $_gwt_toplevel/worktrees/$branch
     end
 end
 
@@ -335,7 +341,7 @@ switch "$argv[1]"
         _gwt_health
         _gwt_select
     case '*'
-        git worktree $argv
+        git -C $_gwt_toplevel worktree $argv
 end
 
 set -l _gwt_status $status
