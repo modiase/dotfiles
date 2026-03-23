@@ -66,6 +66,20 @@ func TestGlobMatch(t *testing.T) {
 		{"git status*", "git log", false},
 		{"echo hello", "echo hello", true},
 		{"echo hello", "echo hello world", false},
+		// Mid-string wildcards
+		{"git -C * show*", "git -C /Users/moye/dotfiles show HEAD --stat", true},
+		{"git -C * show*", "git -C /tmp/repo show abc123", true},
+		{"git -C * show*", "git log --oneline", false},
+		{"git*status*", "git -C /foo status --short", true},
+		// Multiple wildcards
+		{"a*b*c", "aXbYc", true},
+		{"a*b*c", "abc", true},
+		{"a*b*c", "aXYc", false},
+		{"a*b*c", "aXbY", false},
+		// Trailing empty after split
+		{"git*", "git status", true},
+		{"*git", "sudo git", true},
+		{"*git", "sudo git status", false},
 	}
 
 	for _, tt := range tests {

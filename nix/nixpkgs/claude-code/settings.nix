@@ -7,54 +7,51 @@
   };
   permissions = {
     deny = [
-      "Bash(gcloud secrets versions access:*)"
+      # Secret access
+      "Bash(gcloud secrets:*)"
       "Bash(secrets get:*)"
-      "Bash(sed -i *)"
-      "Bash(sed --in-place *)"
       "Read(~/.ssh/*)"
+
+      # Destructive file edits
+      "Bash(sed -i:*)"
+      "Bash(sed -i':*)"
+      "Bash(sed --in-place:*)"
+
+      # Destructive git
+      "Bash(git push:*)"
+      "Bash(git commit:*)"
+      "Bash(git reset --hard:*)"
+      "Bash(git clean:*)"
+      "Bash(git rebase:*)"
+      "Bash(git merge:*)"
+
+      # Destructive nix
+      "Bash(nix-collect-garbage:*)"
+      "Bash(nix store delete:*)"
+      "Bash(nix store gc:*)"
+
+      # Destructive gcloud
+      "Bash(gcloud iam:*)"
+      "Bash(gcloud storage cp:*)"
+      "Bash(gcloud storage mv:*)"
+      "Bash(gcloud storage rm:*)"
+      "Bash(gcloud compute instances delete:*)"
+      "Bash(gcloud compute instances create:*)"
     ];
     allow = [
-      # Nix
-      "Bash(nix eval:*)"
-      "Bash(nix build:*)"
-      "Bash(nix flake show:*)"
-      "Bash(nix flake metadata:*)"
-      "Bash(nix flake check:*)"
+      # Broad tool groups (deny list gates destructive subcommands)
+      "Bash(git:*)"
+      "Bash(nix:*)"
       "Bash(nix-instantiate:*)"
       "Bash(nix-build:*)"
       "Bash(nix-store:*)"
-      "Bash(nix path-info:*)"
+      "Bash(nix-prefetch-url:*)"
       "Bash(nixos-option:*)"
+      "Bash(gcloud:*)"
+      "Bash(go:*)"
+      "Bash(gh:*)"
 
-      # Git (read-only)
-      "Bash(git status:*)"
-      "Bash(git log:*)"
-      "Bash(git diff:*)"
-      "Bash(git show:*)"
-      "Bash(git branch:*)"
-      "Bash(git remote:*)"
-      "Bash(git rev-parse:*)"
-      "Bash(git ls-files:*)"
-      "Bash(git ls-tree:*)"
-      "Bash(git stash list:*)"
-      "Bash(git tag:*)"
-      "Bash(git describe:*)"
-      "Bash(git shortlog:*)"
-      "Bash(git config:*)"
-      "Bash(git blame:*)"
-      "Bash(git reflog:*)"
-      "Bash(git worktree list:*)"
-      "Bash(git -C :* status:*)"
-      "Bash(git -C :* log:*)"
-      "Bash(git -C :* diff:*)"
-      "Bash(git -C :* show:*)"
-      "Bash(git -C :* branch:*)"
-      "Bash(git -C :* remote:*)"
-      "Bash(git -C :* rev-parse:*)"
-      "Bash(git -C :* ls-files:*)"
-      "Bash(git -C :* ls-tree:*)"
-
-      # Filesystem (read-only)
+      # Filesystem
       "Bash(ls:*)"
       "Bash(cat:*)"
       "Bash(head:*)"
@@ -76,47 +73,22 @@
       "Bash(echo:*)"
       "Bash(printf:*)"
 
-      # Build/lint (read-only)
-      "Bash(go build:*)"
-      "Bash(go vet:*)"
-      "Bash(go test:*)"
-      "Bash(go list:*)"
-      "Bash(go mod tidy:*)"
+      # Text processing / utilities
+      "Bash(awk:*)"
+      "Bash(sort:*)"
+      "Bash(uniq:*)"
+      "Bash(xargs:*)"
+      "Bash(date:*)"
+      "Bash(timeout:*)"
+      "Bash(tmux:*)"
+
+      # Build/lint
       "Bash(make:*)"
       "Bash(pre-commit:*)"
       "Bash(jq:*)"
       "Bash(yq:*)"
       "Bash(curl:*)"
       "Bash(wget:*)"
-
-      # GCloud logging (read-only)
-      "Bash(gcloud logging read:*)"
-      "Bash(gcloud logging logs list:*)"
-      "Bash(gcloud logging buckets list:*)"
-      "Bash(gcloud logging buckets describe:*)"
-      "Bash(gcloud logging locations list:*)"
-      "Bash(gcloud logging locations describe:*)"
-      "Bash(gcloud logging metrics list:*)"
-      "Bash(gcloud logging metrics describe:*)"
-      "Bash(gcloud logging operations list:*)"
-      "Bash(gcloud logging operations describe:*)"
-      "Bash(gcloud logging resource-descriptors list:*)"
-      "Bash(gcloud logging scopes list:*)"
-      "Bash(gcloud logging scopes describe:*)"
-      "Bash(gcloud logging settings describe:*)"
-      "Bash(gcloud logging sinks list:*)"
-      "Bash(gcloud logging sinks describe:*)"
-      "Bash(gcloud logging views list:*)"
-      "Bash(gcloud logging views describe:*)"
-      "Bash(gcloud logging links list:*)"
-      "Bash(gcloud logging links describe:*)"
-
-      # GCloud other (read-only)
-      "Bash(gcloud compute instances list:*)"
-      "Bash(gcloud compute instances describe:*)"
-      "Bash(gcloud projects describe:*)"
-      "Bash(gcloud config list:*)"
-      "Bash(gcloud storage ls:*)"
 
       # System inspection
       "Bash(systemctl status:*)"
@@ -143,7 +115,12 @@
       "Bash(test:*)"
       "Bash([:*)"
 
-      # MCP tools (read-only)
+      # macOS-specific
+      "Bash(launchctl list:*)"
+      "Bash(/usr/bin/log show:*)"
+      "Bash(mdfind:*)"
+
+      # MCP tools
       "mcp__exa__*"
       "mcp__lsp-lua__*"
       "mcp__lsp-nix__*"
