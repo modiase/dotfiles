@@ -34,6 +34,10 @@ lib.mkIf (isDev && pkgs.stdenv.isDarwin) {
     };
   };
 
+  home.activation.obsidian-app-link = lib.hm.dag.entryAfter [ "installPackages" ] ''
+    $DRY_RUN_CMD ln -sfn "$HOME/.nix-profile/Applications/Obsidian.app" "/Applications/Obsidian.app"
+  '';
+
   home.activation.obsidian-livesync-secret = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
     PLUGIN_DIR="$(dirname "${dataJson}")"
     if [ ! -d "$PLUGIN_DIR" ]; then
