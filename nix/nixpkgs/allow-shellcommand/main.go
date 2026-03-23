@@ -19,7 +19,6 @@ type Decision struct {
 
 func allow() *Decision { return &Decision{Action: "allow"} }
 
-//nolint:unused // part of the Decision API, not yet referenced
 func deny() *Decision    { return &Decision{Action: "deny"} }
 func abstain() *Decision { return nil }
 
@@ -73,10 +72,22 @@ func extractPatterns(settings *settingsFile, key string) []string {
 }
 
 func globMatch(pattern, s string) bool {
-	if strings.HasSuffix(pattern, "*") {
-		return strings.HasPrefix(s, pattern[:len(pattern)-1])
+	parts := strings.Split(pattern, "*")
+	if len(parts) == 1 {
+		return pattern == s
 	}
-	return pattern == s
+	if !strings.HasPrefix(s, parts[0]) {
+		return false
+	}
+	s = s[len(parts[0]):]
+	for _, part := range parts[1 : len(parts)-1] {
+		idx := strings.Index(s, part)
+		if idx < 0 {
+			return false
+		}
+		s = s[idx+len(part):]
+	}
+	return strings.HasSuffix(s, parts[len(parts)-1])
 }
 
 func loadSettings() (*settingsFile, error) {
@@ -119,10 +130,6 @@ func run(log *devlogs.Logger) *Decision {
 
 	log.Debug("checking cmd=" + cmd)
 
-	if !strings.Contains(cmd, "/dev/null") && !strings.Contains(cmd, ">&") {
-		return abstain()
-	}
-
 	clean := stripRedirects(cmd)
 	if clean == "" {
 		return abstain()
@@ -136,7 +143,8 @@ func run(log *devlogs.Logger) *Decision {
 
 	for _, pattern := range extractPatterns(settings, "deny") {
 		if globMatch(pattern, clean) {
-			return abstain()
+			log.Info("denied cmd=" + clean)
+			return deny()
 		}
 	}
 
