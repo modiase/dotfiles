@@ -2,11 +2,18 @@
 
 let
   colors = import ../../colors.nix;
+  devlogsLib = pkgs.callPackage ../devlogs-lib { };
+  nvr = pkgs.callPackage ../nvr { };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
   yaziNvim = pkgs.writeShellScript "yazi-nvim" (
-    builtins.replaceStrings [ "@TMUX_NVIM_SELECT@" ] [ "${tmuxNvimSelect}/bin/tmux-nvim-select" ] (
-      builtins.readFile ./yazi-nvim.sh
-    )
+    builtins.replaceStrings
+      [ "@DEVLOGS_SOURCE@" "@NVR@" "@TMUX_NVIM_SELECT@" ]
+      [
+        "# shellcheck source=/dev/null\nsource ${devlogsLib.shell}/lib/devlogs.sh\ndevlogs_init yazi-nvim"
+        "${nvr}/bin/nvr"
+        "${tmuxNvimSelect}/bin/tmux-nvim-select"
+      ]
+      (builtins.readFile ./yazi-nvim.sh)
   );
   pastelGrayTheme = pkgs.writeText "pastel-gray.tmTheme" (builtins.readFile ./pastel-gray.tmTheme);
 in
