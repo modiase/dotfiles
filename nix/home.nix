@@ -49,6 +49,7 @@ let
     duf
     dust
     eternal-terminal
+    evans
     eza
     fd
     fzf
