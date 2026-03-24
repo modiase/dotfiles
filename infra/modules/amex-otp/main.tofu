@@ -94,3 +94,19 @@ resource "google_service_account_iam_member" "invoker_wif" {
   role               = "roles/iam.workloadIdentityUser"
   member             = "principal://iam.googleapis.com/${var.workload_identity_pool}/subject/amex-otp"
 }
+
+resource "google_secret_manager_secret" "session_cookies" {
+  project   = var.project_id
+  secret_id = "amex-session-cookies"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_iam_member" "session_cookies_invoker" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.session_cookies.secret_id
+  role      = "roles/secretmanager.secretVersionAdder"
+  member    = "serviceAccount:${google_service_account.invoker.email}"
+}
