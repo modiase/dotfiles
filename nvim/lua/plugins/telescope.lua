@@ -183,5 +183,10 @@ return {
 
 		pcall(require("telescope").load_extension, "noice")
 		vim.api.nvim_set_keymap("n", "<leader>fn", "<cmd>Telescope noice<CR>", { noremap = true })
+
+		require("utils.plan-history").setup()
+		vim.keymap.set("n", "<leader>fp", function()
+			require("utils.plan-history").picker()
+		end, { desc = "Plan history" })
 	end,
 }
