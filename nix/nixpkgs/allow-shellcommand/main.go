@@ -15,12 +15,12 @@ import (
 
 type Decision struct {
 	Action string `json:"permissionDecision,omitempty"`
+	Reason string `json:"permissionDecisionReason,omitempty"`
 }
 
-func allow() *Decision { return &Decision{Action: "allow"} }
-
-func deny() *Decision    { return &Decision{Action: "deny"} }
-func abstain() *Decision { return nil }
+func allow() *Decision             { return &Decision{Action: "allow"} }
+func deny(reason string) *Decision { return &Decision{Action: "deny", Reason: reason} }
+func abstain() *Decision           { return nil }
 
 type hookInput struct {
 	ToolName  string `json:"tool_name"`
@@ -29,10 +29,15 @@ type hookInput struct {
 	} `json:"tool_input"`
 }
 
+type denyRule struct {
+	Pattern string
+	Reason  string
+}
+
 type settingsFile struct {
 	Permissions struct {
-		Allow []string `json:"allow"`
-		Deny  []string `json:"deny"`
+		Allow   []string          `json:"allow"`
+		DenyRaw []json.RawMessage `json:"deny"`
 	} `json:"permissions"`
 }
 
@@ -51,24 +56,50 @@ func stripRedirects(cmd string) string {
 	return strings.TrimRight(cmd, " ")
 }
 
-func extractPatterns(settings *settingsFile, key string) []string {
-	var raw []string
-	if key == "allow" {
-		raw = settings.Permissions.Allow
-	} else {
-		raw = settings.Permissions.Deny
+func bashPattern(entry string) (string, bool) {
+	if !strings.HasPrefix(entry, "Bash(") || !strings.HasSuffix(entry, ")") {
+		return "", false
 	}
+	p := entry[5 : len(entry)-1]
+	p = strings.ReplaceAll(p, ":*", "*")
+	return p, true
+}
 
+func extractAllowPatterns(settings *settingsFile) []string {
 	var patterns []string
-	for _, entry := range raw {
-		if !strings.HasPrefix(entry, "Bash(") || !strings.HasSuffix(entry, ")") {
-			continue
+	for _, entry := range settings.Permissions.Allow {
+		if p, ok := bashPattern(entry); ok {
+			patterns = append(patterns, p)
 		}
-		p := entry[5 : len(entry)-1]
-		p = strings.ReplaceAll(p, ":*", "*")
-		patterns = append(patterns, p)
 	}
 	return patterns
+}
+
+func extractDenyRules(settings *settingsFile) []denyRule {
+	var rules []denyRule
+	for _, raw := range settings.Permissions.DenyRaw {
+		var str string
+		if err := json.Unmarshal(raw, &str); err == nil {
+			if p, ok := bashPattern(str); ok {
+				rules = append(rules, denyRule{Pattern: p, Reason: "Command denied by policy."})
+			}
+			continue
+		}
+		var obj struct {
+			Rule   string `json:"rule"`
+			Reason string `json:"reason"`
+		}
+		if err := json.Unmarshal(raw, &obj); err == nil && obj.Rule != "" {
+			if p, ok := bashPattern(obj.Rule); ok {
+				reason := obj.Reason
+				if reason == "" {
+					reason = "Command denied by policy."
+				}
+				rules = append(rules, denyRule{Pattern: p, Reason: reason})
+			}
+		}
+	}
+	return rules
 }
 
 func globMatch(pattern, s string) bool {
@@ -141,14 +172,14 @@ func run(log *devlogs.Logger) *Decision {
 		return abstain()
 	}
 
-	for _, pattern := range extractPatterns(settings, "deny") {
-		if globMatch(pattern, clean) {
+	for _, rule := range extractDenyRules(settings) {
+		if globMatch(rule.Pattern, clean) {
 			log.Info("denied cmd=" + clean)
-			return deny()
+			return deny(rule.Reason)
 		}
 	}
 
-	for _, pattern := range extractPatterns(settings, "allow") {
+	for _, pattern := range extractAllowPatterns(settings) {
 		if globMatch(pattern, clean) {
 			log.Info("allowed cmd=" + clean)
 			return allow()
