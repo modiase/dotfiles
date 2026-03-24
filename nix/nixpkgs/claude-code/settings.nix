@@ -8,35 +8,135 @@
   permissions = {
     deny = [
       # Secret access
-      "Bash(gcloud secrets:*)"
-      "Bash(secrets get:*)"
+      {
+        rule = "Bash(gcloud secrets:*)";
+        reason = "Secret access denied for security.";
+      }
+      {
+        rule = "Bash(secrets get:*)";
+        reason = "Secret access denied for security.";
+      }
       "Read(~/.ssh/*)"
 
       # Destructive file edits
-      "Bash(sed -i:*)"
-      "Bash(sed -i':*)"
-      "Bash(sed --in-place:*)"
+      {
+        rule = "Bash(sed -i:*)";
+        reason = "In-place file editing denied. Use the Edit tool instead.";
+      }
+      {
+        rule = "Bash(sed -i':*)";
+        reason = "In-place file editing denied. Use the Edit tool instead.";
+      }
+      {
+        rule = "Bash(sed --in-place:*)";
+        reason = "In-place file editing denied. Use the Edit tool instead.";
+      }
 
       # Destructive git
-      "Bash(git push:*)"
-      "Bash(git commit:*)"
-      "Bash(git reset --hard:*)"
-      "Bash(git clean:*)"
-      "Bash(git rebase:*)"
-      "Bash(git merge:*)"
+      {
+        rule = "Bash(git push:*)";
+        reason = "Destructive git operation. Ask the user to run this manually.";
+      }
+      {
+        rule = "Bash(git commit:*)";
+        reason = "Use the Skill tool with /commit instead, or ask the user.";
+      }
+      {
+        rule = "Bash(git reset --hard:*)";
+        reason = "Destructive git operation. Ask the user to run this manually.";
+      }
+      {
+        rule = "Bash(git clean:*)";
+        reason = "Destructive git operation. Ask the user to run this manually.";
+      }
+      {
+        rule = "Bash(git rebase:*)";
+        reason = "Destructive git operation. Ask the user to run this manually.";
+      }
+      {
+        rule = "Bash(git merge:*)";
+        reason = "Destructive git operation. Ask the user to run this manually.";
+      }
 
       # Destructive nix
-      "Bash(nix-collect-garbage:*)"
-      "Bash(nix store delete:*)"
-      "Bash(nix store gc:*)"
+      {
+        rule = "Bash(nix-collect-garbage:*)";
+        reason = "Destructive nix operation denied.";
+      }
+      {
+        rule = "Bash(nix store delete:*)";
+        reason = "Destructive nix operation denied.";
+      }
+      {
+        rule = "Bash(nix store gc:*)";
+        reason = "Destructive nix operation denied.";
+      }
 
       # Destructive gcloud
-      "Bash(gcloud iam:*)"
-      "Bash(gcloud storage cp:*)"
-      "Bash(gcloud storage mv:*)"
-      "Bash(gcloud storage rm:*)"
-      "Bash(gcloud compute instances delete:*)"
-      "Bash(gcloud compute instances create:*)"
+      {
+        rule = "Bash(gcloud iam:*)";
+        reason = "Destructive gcloud operation denied.";
+      }
+      {
+        rule = "Bash(gcloud storage cp:*)";
+        reason = "Destructive gcloud storage operation denied.";
+      }
+      {
+        rule = "Bash(gcloud storage mv:*)";
+        reason = "Destructive gcloud storage operation denied.";
+      }
+      {
+        rule = "Bash(gcloud storage rm:*)";
+        reason = "Destructive gcloud storage operation denied.";
+      }
+      {
+        rule = "Bash(gcloud compute instances delete:*)";
+        reason = "Destructive gcloud compute operation denied.";
+      }
+      {
+        rule = "Bash(gcloud compute instances create:*)";
+        reason = "Destructive gcloud compute operation denied.";
+      }
+
+      # macOS defaults
+      {
+        rule = "Bash(defaults write:*)";
+        reason = "Writing macOS defaults is denied.";
+      }
+      {
+        rule = "Bash(defaults delete:*)";
+        reason = "Deleting macOS defaults is denied.";
+      }
+
+      # Turing-complete interpreters
+      {
+        rule = "Bash(python3:*)";
+        reason = "Turing-complete interpreter denied. Use dedicated tools or ask the user.";
+      }
+      {
+        rule = "Bash(python:*)";
+        reason = "Turing-complete interpreter denied. Use dedicated tools or ask the user.";
+      }
+      {
+        rule = "Bash(node:*)";
+        reason = "Turing-complete interpreter denied. Use dedicated tools or ask the user.";
+      }
+      {
+        rule = "Bash(ruby:*)";
+        reason = "Turing-complete interpreter denied. Use dedicated tools or ask the user.";
+      }
+      {
+        rule = "Bash(perl:*)";
+        reason = "Turing-complete interpreter denied. Use dedicated tools or ask the user.";
+      }
+      {
+        rule = "Bash(lua:*)";
+        reason = "Turing-complete interpreter denied. Use dedicated tools or ask the user.";
+      }
+      {
+        rule = "Bash(go run:*)";
+        reason = "Turing-complete interpreter denied. Use dedicated tools or ask the user.";
+      }
     ];
     allow = [
       # Broad tool groups (deny list gates destructive subcommands)
@@ -51,7 +151,7 @@
       "Bash(go:*)"
       "Bash(gh:*)"
 
-      # Filesystem
+      # Filesystem (read-only)
       "Bash(ls:*)"
       "Bash(cat:*)"
       "Bash(head:*)"
@@ -73,6 +173,14 @@
       "Bash(echo:*)"
       "Bash(printf:*)"
 
+      # Filesystem (creation, low-risk)
+      "Bash(mktemp:*)"
+      "Bash(mkdir:*)"
+      "Bash(touch:*)"
+      "Bash(cp:*)"
+      "Bash(mv:*)"
+      "Bash(chmod:*)"
+
       # Text processing / utilities
       "Bash(awk:*)"
       "Bash(sort:*)"
@@ -81,14 +189,47 @@
       "Bash(date:*)"
       "Bash(timeout:*)"
       "Bash(tmux:*)"
+      "Bash(diff:*)"
+      "Bash(cut:*)"
+      "Bash(tr:*)"
+      "Bash(paste:*)"
+      "Bash(comm:*)"
+      "Bash(column:*)"
+      "Bash(tac:*)"
+      "Bash(nl:*)"
+      "Bash(fmt:*)"
+      "Bash(fold:*)"
+      "Bash(rev:*)"
+      "Bash(expand:*)"
+      "Bash(unexpand:*)"
 
-      # Build/lint
+      # Crypto/encoding
+      "Bash(shasum:*)"
+      "Bash(md5:*)"
+      "Bash(base64:*)"
+      "Bash(xxd:*)"
+      "Bash(strings:*)"
+
+      # Shell utilities
+      "Bash(pwd:*)"
+      "Bash(true:*)"
+      "Bash(false:*)"
+      "Bash(seq:*)"
+      "Bash(tput:*)"
+      "Bash(command:*)"
+      "Bash(hash:*)"
+
+      # Build/lint/dev tools
       "Bash(make:*)"
       "Bash(pre-commit:*)"
       "Bash(jq:*)"
       "Bash(yq:*)"
       "Bash(curl:*)"
       "Bash(wget:*)"
+      "Bash(bat:*)"
+      "Bash(shellcheck:*)"
+      "Bash(tldr:*)"
+      "Bash(man:*)"
 
       # System inspection
       "Bash(systemctl status:*)"
@@ -115,10 +256,30 @@
       "Bash(test:*)"
       "Bash([:*)"
 
+      # Nix ecosystem
+      "Bash(nix-shell:*)"
+      "Bash(nix-prefetch-git:*)"
+
+      # Network diagnostics
+      "Bash(dig:*)"
+      "Bash(nslookup:*)"
+      "Bash(host:*)"
+
+      # Archive inspection
+      "Bash(tar:*)"
+      "Bash(unzip:*)"
+      "Bash(zipinfo:*)"
+
       # macOS-specific
       "Bash(launchctl list:*)"
       "Bash(/usr/bin/log show:*)"
       "Bash(mdfind:*)"
+      "Bash(sw_vers:*)"
+      "Bash(defaults read:*)"
+      "Bash(scutil:*)"
+
+      # Terminal image viewer
+      "Bash(chafa:*)"
 
       # MCP tools
       "mcp__exa__*"
