@@ -1,4 +1,5 @@
 # shellcheck shell=bash
+@DEVLOGS_SOURCE@
 cmd="$1"
 shift
 
@@ -14,20 +15,24 @@ case "$cmd" in
     open)
         get_nvim_socket || exec nvim "$@"
         if [ -d "$1" ]; then
-            nvr --remote-send "<C-\\><C-n>:cd $1<CR>"
+            clog debug "open (cd): $1"
+            @NVR@ --remote-send "<C-\\><C-n>:cd $1<CR>"
         else
-            nvr --remote-send "<C-\\><C-n>${SELECT_EDIT_WIN}:silent edit $1<CR>"
+            clog debug "open (edit): $1"
+            @NVR@ --remote-send "<C-\\><C-n>${SELECT_EDIT_WIN}:silent edit $1<CR>"
         fi
         tmux select-pane -t "$TARGET_PANE"
         ;;
     split)
         get_nvim_socket || exec nvim "$@"
-        nvr --remote-send "<C-\\><C-n>${SELECT_EDIT_WIN}:silent sp $1<CR>"
+        clog debug "split: $1"
+        @NVR@ --remote-send "<C-\\><C-n>${SELECT_EDIT_WIN}:silent sp $1<CR>"
         tmux select-pane -t "$TARGET_PANE"
         ;;
     vsplit)
         get_nvim_socket || exec nvim "$@"
-        nvr --remote-send "<C-\\><C-n>${SELECT_EDIT_WIN}:silent vs $1<CR>"
+        clog debug "vsplit: $1"
+        @NVR@ --remote-send "<C-\\><C-n>${SELECT_EDIT_WIN}:silent vs $1<CR>"
         tmux select-pane -t "$TARGET_PANE"
         ;;
     cd)
@@ -37,7 +42,8 @@ case "$cmd" in
         [ -f "$path" ] && path="$(dirname "$path")"
         [ ! -d "$path" ] && echo "Error: not a directory: $path" >&2 && exit 1
         get_nvim_socket || exit 0
-        nvr --remote-send "<C-\\><C-n>:cd $path<CR>"
+        clog debug "cd: $path"
+        @NVR@ --remote-send "<C-\\><C-n>:cd $path<CR>"
         ;;
     *)
         echo "Usage: yazi-nvim {open|cd|split|vsplit} [args...]" >&2
