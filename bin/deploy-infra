@@ -6,26 +6,62 @@ _SED=$(command -v gsed 2>/dev/null || command -v sed 2>/dev/null) || _SED="nix s
 _GREP=$(command -v grep 2>/dev/null) || _GREP="nix shell nixpkgs#gnugrep -c grep"
 _AWK=$(command -v gawk 2>/dev/null || command -v awk 2>/dev/null) || _AWK="nix shell nixpkgs#gawk -c awk"
 
+subcommand="deploy"
+if [[ ${1:-} == "import" ]]; then
+    subcommand="import"
+    shift
+    [[ $# -ge 2 ]] || {
+        echo "Usage: deploy-infra import ADDR ID [-p|--project PROJECT]" >&2
+        exit 1
+    }
+    import_addr="$1"
+    import_id="$2"
+    shift 2
+fi
+
 auto_approve=false
 force_unlock=false
 auto_upgrade=false
 project="modiase-infra"
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -y|--yes) auto_approve=true; shift ;;
-        -f|--force-unlock) force_unlock=true; shift ;;
-        -a|--auto-upgrade) auto_upgrade=true; shift ;;
-        -p|--project) project="$2"; shift 2 ;;
-        *) echo "Usage: deploy-infra [-y|--yes] [-f|--force-unlock] [-a|--auto-upgrade] [-p|--project PROJECT]" >&2; exit 1 ;;
+        -y | --yes)
+            auto_approve=true
+            shift
+            ;;
+        -f | --force-unlock)
+            force_unlock=true
+            shift
+            ;;
+        -a | --auto-upgrade)
+            auto_upgrade=true
+            shift
+            ;;
+        -p | --project)
+            project="$2"
+            shift 2
+            ;;
+        *)
+            echo "Usage: deploy-infra [import ADDR ID] [-y|--yes] [-f|--force-unlock] [-a|--auto-upgrade] [-p|--project PROJECT]" >&2
+            exit 1
+            ;;
     esac
 done
 
 export TF_VAR_project_id="$project"
 
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+COMMON_ROOT="$(cd "$(git rev-parse --git-common-dir)/.." && pwd -P)"
 INFRA_DIR="$REPO_ROOT/infra"
 
 cd "$INFRA_DIR"
+
+COMMON_INFRA="$COMMON_ROOT/infra"
+VAR_FILE="$COMMON_INFRA/tofu.tfvars"
+
+if [[ "$REPO_ROOT" != "$COMMON_ROOT" && -d "$COMMON_INFRA/.terraform" && ! -e .terraform ]]; then
+    ln -s "$COMMON_INFRA/.terraform" .terraform
+fi
 
 if [[ ! -d .terraform ]]; then
     echo "Initialising tofu..."
@@ -35,8 +71,15 @@ elif [[ "$auto_upgrade" == "true" ]]; then
     $_TOFU init -upgrade
 fi
 
+if [[ "$subcommand" == "import" ]]; then
+    echo "Importing $import_addr ($import_id)..."
+    $_TOFU import -var-file="$VAR_FILE" "$import_addr" "$import_id"
+    exit 0
+fi
+
 if [[ "$force_unlock" == "true" ]]; then
-    lock_id=$($_TOFU plan -var-file=tofu.tfvars 2>&1 | $_SED 's/\x1b\[[0-9;]*m//g' | $_GREP -A1 'Lock Info' | $_GREP 'ID:' | $_AWK -F': +' '{print $2}' || true)
+    # shellcheck disable=SC2016
+    lock_id=$($_TOFU plan -var-file="$VAR_FILE" 2>&1 | $_SED 's/\x1b\[[0-9;]*m//g' | $_GREP -A1 'Lock Info' | $_GREP 'ID:' | $_AWK -F': +' '{print $2}' || true)
     if [[ -n "$lock_id" ]]; then
         echo "Force unlocking state (ID: $lock_id)..."
         $_TOFU force-unlock -force "$lock_id"
@@ -47,7 +90,7 @@ planfile=$(mktemp)
 trap 'rm -f "$planfile"' EXIT
 
 echo "Planning..."
-$_TOFU plan -var-file=tofu.tfvars -out="$planfile"
+$_TOFU plan -var-file="$VAR_FILE" -out="$planfile"
 
 if [[ "$auto_approve" == "false" ]]; then
     read -rp "Apply? [y/N] " confirm
