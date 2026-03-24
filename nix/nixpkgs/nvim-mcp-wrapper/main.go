@@ -182,7 +182,7 @@ func (p *Proxy) discoverSocket() string {
 	ctx, cancel := context.WithTimeout(p.ctx, 5*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, tmuxNvimSelectBin)
+	cmd := exec.CommandContext(ctx, tmuxNvimSelectBin, "-q")
 	output, err := cmd.Output()
 	if err != nil {
 		return ""
@@ -401,10 +401,12 @@ func (p *Proxy) healthCheckAndReconnect() {
 	if discovered == "" {
 		if lastHealth != "no_socket" {
 			p.logger.Info("no socket found")
-			p.mu.Lock()
-			p.lastHealth = "no_socket"
-			p.mu.Unlock()
+		} else {
+			p.logger.Debug("no socket found")
 		}
+		p.mu.Lock()
+		p.lastHealth = "no_socket"
+		p.mu.Unlock()
 		return
 	}
 
