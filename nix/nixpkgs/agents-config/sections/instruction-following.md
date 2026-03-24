@@ -25,6 +25,29 @@ Before taking any action each turn, you must reason through the following in you
 
 After reasoning through the above, proceed with ONLY the action described in (3).
 
+### Action-Intent Declaration (MANDATORY)
+
+**Before every tool call, you MUST output the following declaration in your visible response (NOT in thinking tokens):**
+
+> I am **[action]** so that I can **[goal]**
+
+This is non-negotiable. Every tool call must be preceded by this declaration. It links your immediate action to its purpose, keeping execution aligned with the user's intent. **Do NOT include the declaration when responding with only a text message** — it applies exclusively to tool calls.
+
+**Examples:**
+
+- "I am reading `src/auth.py` so that I can understand the current session handling before modifying it."
+- "I am running `nix build` so that I can verify the package compiles after my changes."
+- "I am creating a new TODO so that I can track the remaining migration steps."
+
+**Rules:**
+
+- The declaration must appear **before** each tool call in your visible response
+- The **[action]** must name the specific tool or operation you are about to invoke
+- The **[goal]** must connect to the active TODO or user request — not a generic restatement
+- Keep each declaration to a **single concise sentence** — avoid verbose elaboration to minimise per-turn token overhead
+- If a turn involves multiple sequential tool calls, declare each one before performing it
+- **Skip the declaration entirely** for text-only responses (questions, status updates, explanations) — never prepend it to a message with no tool call
+
 ### Interrupt Handling
 
 When a user message arrives mid-TODO that introduces a new request, classify it on two axes — **size** (quick vs substantial) and **urgency** (urgent vs deferrable). Bare requests without deferral markers default to urgent.
