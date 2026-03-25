@@ -3,6 +3,7 @@
 {
   programs.git = {
     enable = true;
+    signing.format = "openpgp";
     settings = {
       user.name = "Moye Odiase";
       user.email = "moyeodiase@gmail.com";
