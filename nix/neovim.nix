@@ -39,6 +39,7 @@ in
       "neogit"
       "opencode"
       "persistence"
+      "pick-path"
       "render-markdown"
       "telescope"
       "vim-bbye"
