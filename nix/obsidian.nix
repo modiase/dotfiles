@@ -1,8 +1,6 @@
 {
   lib,
   pkgs,
-  lib,
-  isDev ? false,
   ...
 }:
 let
@@ -14,7 +12,7 @@ let
   gcpProject = "modiase-infra";
   dataJson = "$HOME/Documents/notes/.obsidian/plugins/obsidian-livesync/data.json";
 in
-lib.mkIf (isDev && pkgs.stdenv.isDarwin) {
+{
   programs.obsidian = {
     enable = true;
 
