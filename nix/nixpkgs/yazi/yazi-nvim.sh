@@ -15,25 +15,25 @@ case "$cmd" in
     open)
         get_nvim_socket || exec nvim "$@"
         if [ -d "$1" ]; then
-            clog debug "open (cd): $1"
+            clog info "opening directory: $1"
             @NVR@ --remote-send "<C-\\><C-n>:cd $1<CR>"
         else
-            clog debug "open (edit): $1"
+            clog info "opening file: $1"
             @NVR@ --remote-send "<C-\\><C-n>${SELECT_EDIT_WIN}:silent edit $1<CR>"
         fi
-        tmux select-pane -t "$TARGET_PANE"
+        tmux select-pane -q -t "$TARGET_PANE"
         ;;
     split)
         get_nvim_socket || exec nvim "$@"
-        clog debug "split: $1"
+        clog info "opening file (split): $1"
         @NVR@ --remote-send "<C-\\><C-n>${SELECT_EDIT_WIN}:silent sp $1<CR>"
-        tmux select-pane -t "$TARGET_PANE"
+        tmux select-pane -q -t "$TARGET_PANE"
         ;;
     vsplit)
         get_nvim_socket || exec nvim "$@"
-        clog debug "vsplit: $1"
+        clog info "opening file (vsplit): $1"
         @NVR@ --remote-send "<C-\\><C-n>${SELECT_EDIT_WIN}:silent vs $1<CR>"
-        tmux select-pane -t "$TARGET_PANE"
+        tmux select-pane -q -t "$TARGET_PANE"
         ;;
     cd)
         path="$1"
@@ -42,7 +42,7 @@ case "$cmd" in
         [ -f "$path" ] && path="$(dirname "$path")"
         [ ! -d "$path" ] && echo "Error: not a directory: $path" >&2 && exit 1
         get_nvim_socket || exit 0
-        clog debug "cd: $path"
+        clog info "cd: $path"
         @NVR@ --remote-send "<C-\\><C-n>:cd $path<CR>"
         ;;
     *)
