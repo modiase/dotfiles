@@ -67,7 +67,10 @@ CONSTRAINTS (mandatory for this turn):
 - When the task is complete, stop. Do not suggest or begin additional work.
 - If the user's request contains ambiguity or could be interpreted multiple ways, ask for clarification. State the ambiguity explicitly.
 - If the user makes a claim that conflicts with evidence you have seen (code, logs, tool output), state the conflicting evidence before proceeding.
-- Proactively validate assumptions that are easy to check — run a command with --help, query an available MCP resource, or fetch a web resource rather than guessing."
+- Proactively validate assumptions that are easy to check — run a command with --help, query an available MCP resource, or fetch a web resource rather than guessing.
+
+ACTION-INTENT (mandatory):
+Before every tool call, declare in your visible response: I am [action] so that I can [goal]. Skip for text-only responses."
 
     if [[ "$PWD" == */google/src/cloud/* ]]; then
         ctx+=$'\n\n'"REMINDER: You are in google3. For codebase search and exploration, use codesearch MCP tools — not find, fd, rg, or grep (they cannot index google3). These tools are fine only for specific known file paths."
