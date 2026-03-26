@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -19,33 +20,55 @@ var (
 	debugStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 	dimStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 	helpStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+
+	historyPresets = []string{"30m", "1h", "6h", "1d", "2d", "7d"}
+	levelCycle     = []string{"debug", "info", "warn", "error"}
 )
 
+type historyEntriesMsg []LogEntry
+
 type model struct {
-	entries      []LogEntry
-	filtered     []int
-	filter       textinput.Model
-	filtering    bool
-	follow       bool
-	offset       int
-	width        int
-	height       int
-	logCh        chan LogEntry
-	levelFilter  string
-	windowFilter string
+	entries         []LogEntry
+	filtered        []int
+	filter          textinput.Model
+	filtering       bool
+	follow          bool
+	offset          int
+	width           int
+	height          int
+	logCh           chan LogEntry
+	levelFilter     string
+	windowFilter    string
+	historyIdx      int
+	fetchingHistory bool
+	spinner         spinner.Model
 }
 
-func newModel(ch chan LogEntry, windowFilter string, levelFilter string, historyMode bool) model {
+func newModel(ch chan LogEntry, windowFilter string, levelFilter string, historyDuration string) model {
 	ti := textinput.New()
 	ti.Placeholder = "type to filter..."
 	ti.CharLimit = 256
 
+	historyIdx := -1
+	for i, p := range historyPresets {
+		if p == historyDuration {
+			historyIdx = i
+			break
+		}
+	}
+
+	sp := spinner.New()
+	sp.Spinner = spinner.Dot
+	sp.Style = dimStyle
+
 	return model{
 		filter:       ti,
-		follow:       !historyMode,
+		follow:       historyDuration == "",
 		levelFilter:  levelFilter,
 		logCh:        ch,
 		windowFilter: windowFilter,
+		historyIdx:   historyIdx,
+		spinner:      sp,
 	}
 }
 
@@ -130,6 +153,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case streamDoneMsg:
 		return m, nil
 
+	case spinner.TickMsg:
+		if m.fetchingHistory {
+			var cmd tea.Cmd
+			m.spinner, cmd = m.spinner.Update(msg)
+			return m, cmd
+		}
+		return m, nil
+
+	case historyEntriesMsg:
+		m.fetchingHistory = false
+		m.entries = []LogEntry(msg)
+		m.refilter()
+		m.follow = false
+		m.offset = 0
+		return m, nil
+
 	case logLineMsg:
 		entry := LogEntry(msg)
 		m.entries = append(m.entries, entry)
@@ -196,6 +235,36 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.scrollToBottom()
 			}
 			return m, nil
+		case "c":
+			m.entries = m.entries[:0]
+			m.filtered = m.filtered[:0]
+			m.offset = 0
+			m.historyIdx = -1
+			return m, nil
+		case "l":
+			for i, lv := range levelCycle {
+				if lv == m.levelFilter {
+					m.levelFilter = levelCycle[(i+1)%len(levelCycle)]
+					m.refilter()
+					if m.follow {
+						m.scrollToBottom()
+					}
+					return m, nil
+				}
+			}
+			m.levelFilter = levelCycle[0]
+			m.refilter()
+			if m.follow {
+				m.scrollToBottom()
+			}
+			return m, nil
+		case "H":
+			if m.fetchingHistory {
+				return m, nil
+			}
+			m.historyIdx = (m.historyIdx + 1) % len(historyPresets)
+			m.fetchingHistory = true
+			return m, tea.Batch(fetchHistory(historyPresets[m.historyIdx]), m.spinner.Tick)
 		case "f":
 			m.follow = !m.follow
 			if m.follow {
@@ -282,8 +351,29 @@ func (m model) View() string {
 	if m.windowFilter != "" {
 		titleName = fmt.Sprintf("devlogs(@%s)", m.windowFilter)
 	}
+	levelTag := ""
+	if m.levelFilter != "" {
+		levelTag = dimStyle.Render("[" + strings.ToUpper(m.levelFilter) + "+]")
+	}
+
+	historyTag := ""
+	if m.historyIdx >= 0 {
+		ht := historyPresets[m.historyIdx]
+		if m.fetchingHistory {
+			ht += " " + m.spinner.View()
+		}
+		historyTag = dimStyle.Render("[" + ht + "]")
+	}
+
+	tags := followTag
+	for _, t := range []string{levelTag, historyTag} {
+		if t != "" {
+			tags += " " + t
+		}
+	}
+
 	titleLine := fmt.Sprintf(" %s %s %d entries (%d shown)",
-		titleStyle.Render(titleName), followTag, len(m.entries), len(m.filtered))
+		titleStyle.Render(titleName), tags, len(m.entries), len(m.filtered))
 	b.WriteString(titleLine)
 	b.WriteByte('\n')
 
@@ -322,9 +412,9 @@ func (m model) View() string {
 		b.WriteString(m.filter.View())
 	} else if m.filter.Value() != "" {
 		b.WriteString(helpStyle.Render(fmt.Sprintf(" / %s", m.filter.Value())))
-		b.WriteString(helpStyle.Render("    esc clear  ↑↓ scroll  a all/window  f follow  q quit"))
+		b.WriteString(helpStyle.Render("    esc reset  ↑↓ scroll  a all/window  l level  H history  c clear  f follow  q quit"))
 	} else {
-		b.WriteString(helpStyle.Render(" / filter  ↑↓ scroll  a all/window  f follow  q quit"))
+		b.WriteString(helpStyle.Render(" / filter  ↑↓ scroll  a all/window  l level  H history  c clear  f follow  q quit"))
 	}
 
 	return b.String()
