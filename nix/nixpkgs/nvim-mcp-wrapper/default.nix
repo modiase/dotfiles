@@ -3,6 +3,7 @@
 let
   nvimMcpUpstream = pkgs.callPackage ../nvim-mcp { };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
+  nvr = pkgs.callPackage ../nvr { };
   combinedSrc = pkgs.runCommand "nvim-mcp-src" { } ''
     mkdir -p $out/nvim-mcp $out/devlogs-lib
     cp -r ${./.}/* $out/nvim-mcp/
@@ -21,6 +22,7 @@ pkgs.buildGoModule {
   ldflags = [
     "-X main.nvimMcpBin=${nvimMcpUpstream}/bin/nvim-mcp"
     "-X main.tmuxNvimSelectBin=${tmuxNvimSelect}/bin/tmux-nvim-select"
+    "-X main.nvrBin=${nvr}/bin/nvr"
   ];
 
   meta = with lib; {

@@ -1,20 +1,26 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/neovim/go-client/nvim"
 )
 
-var component string
+var (
+	component         string
+	tmuxNvimSelectBin = "tmux-nvim-select"
+)
 
 func init() {
 	win := os.Getenv("TARGET_WINDOW")
@@ -56,19 +62,110 @@ type DiscoveryConfig struct {
 }
 
 type Bridge struct {
-	nvim       *nvim.Nvim
+	nvimClient *nvim.Nvim
 	socketPath string
 	port       int
 	authToken  string
+	mu         sync.RWMutex
 }
 
-func (b *Bridge) connectNvim() error {
-	v, err := nvim.Dial(b.socketPath)
+func (b *Bridge) connectNvim(socketPath string) error {
+	v, err := nvim.Dial(socketPath)
 	if err != nil {
 		return err
 	}
-	b.nvim = v
+	b.mu.Lock()
+	if b.nvimClient != nil {
+		_ = b.nvimClient.Close()
+	}
+	b.nvimClient = v
+	b.socketPath = socketPath
+	b.mu.Unlock()
 	return nil
+}
+
+func (b *Bridge) getNvim() (*nvim.Nvim, error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	if b.nvimClient == nil {
+		return nil, fmt.Errorf("nvim not connected")
+	}
+	return b.nvimClient, nil
+}
+
+func (b *Bridge) discoverSocket() string {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, tmuxNvimSelectBin, "-q")
+	output, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		if strings.HasPrefix(line, "NVIM_SOCKET=") {
+			return strings.TrimPrefix(line, "NVIM_SOCKET=")
+		}
+	}
+	return ""
+}
+
+func (b *Bridge) connectLoop() {
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+	for range ticker.C {
+		b.healthCheckAndReconnect()
+	}
+}
+
+func (b *Bridge) pingNvim(v *nvim.Nvim) bool {
+	ch := make(chan error, 1)
+	go func() {
+		var result int
+		ch <- v.Eval("1", &result)
+	}()
+	select {
+	case err := <-ch:
+		return err == nil
+	case <-time.After(2 * time.Second):
+		return false
+	}
+}
+
+func (b *Bridge) healthCheckAndReconnect() {
+	b.mu.RLock()
+	v := b.nvimClient
+	socket := b.socketPath
+	b.mu.RUnlock()
+
+	if v != nil {
+		if fileExists(socket) && b.pingNvim(v) {
+			return
+		}
+		clog("info", fmt.Sprintf("nvim disconnected socket=%s", socket))
+		b.mu.Lock()
+		if b.nvimClient == v {
+			_ = b.nvimClient.Close()
+			b.nvimClient = nil
+			b.socketPath = ""
+		}
+		b.mu.Unlock()
+	}
+
+	discovered := b.discoverSocket()
+	if discovered == "" {
+		return
+	}
+
+	if err := b.connectNvim(discovered); err != nil {
+		clog("warn", fmt.Sprintf("dial failed socket=%s err=%v", discovered, err))
+		return
+	}
+	clog("info", fmt.Sprintf("connected socket=%s", discovered))
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 func (b *Bridge) handleSSE(w http.ResponseWriter, r *http.Request) {
@@ -132,7 +229,7 @@ func (b *Bridge) handleMCP(w http.ResponseWriter, r *http.Request) {
 			"capabilities":    map[string]any{},
 			"serverInfo": map[string]string{
 				"name":    "gemini-nvim-ide-bridge",
-				"version": "0.1.0",
+				"version": "0.2.0",
 			},
 		}
 	case "tools/list":
@@ -178,6 +275,19 @@ func (b *Bridge) handleMCP(w http.ResponseWriter, r *http.Request) {
 						"required": []string{"filePath"},
 					},
 				},
+				{
+					"name":        "get_diagnostics",
+					"description": "Get LSP diagnostics (errors and warnings) from the editor",
+					"inputSchema": map[string]any{
+						"type": "object",
+						"properties": map[string]any{
+							"uri": map[string]any{
+								"type":        "string",
+								"description": "File path to filter diagnostics for. Omit for all files.",
+							},
+						},
+					},
+				},
 			},
 		}
 	case "tools/call":
@@ -196,6 +306,8 @@ func (b *Bridge) handleMCP(w http.ResponseWriter, r *http.Request) {
 				result, err = b.openDiff(params.Arguments)
 			case "closeDiff":
 				result, err = b.closeDiff(params.Arguments)
+			case "get_diagnostics":
+				result, err = b.getDiagnostics(params.Arguments)
 			default:
 				err = fmt.Errorf("tool not found: %s", params.Name)
 			}
@@ -228,7 +340,20 @@ func (b *Bridge) handleMCP(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+func toolResult(text string) map[string]any {
+	return map[string]any{
+		"content": []map[string]any{
+			{"type": "text", "text": text},
+		},
+	}
+}
+
 func (b *Bridge) getActiveEditorContext() (any, error) {
+	v, err := b.getNvim()
+	if err != nil {
+		return nil, err
+	}
+
 	var ctx struct {
 		ActiveFilePath string   `json:"activeFilePath"`
 		CursorLine     int      `json:"cursorLine"`
@@ -237,33 +362,33 @@ func (b *Bridge) getActiveEditorContext() (any, error) {
 		RecentFiles    []string `json:"recentFiles"`
 	}
 
-	buf, err := b.nvim.CurrentBuffer()
+	buf, err := v.CurrentBuffer()
 	if err != nil {
 		return nil, err
 	}
 
-	name, err := b.nvim.BufferName(buf)
+	name, err := v.BufferName(buf)
 	if err != nil {
 		return nil, err
 	}
 	ctx.ActiveFilePath = name
 
-	win, err := b.nvim.CurrentWindow()
+	win, err := v.CurrentWindow()
 	if err != nil {
 		return nil, err
 	}
 
-	pos, err := b.nvim.WindowCursor(win)
+	pos, err := v.WindowCursor(win)
 	if err != nil {
 		return nil, err
 	}
 	ctx.CursorLine = pos[0]
 	ctx.CursorColumn = pos[1]
 
-	mode, err := b.nvim.Mode()
+	mode, err := v.Mode()
 	if err == nil && (mode.Mode == "v" || mode.Mode == "V" || mode.Mode == "\x16") {
 		var sel any
-		err = b.nvim.Eval(`join(getregion(getpos("v"), getpos(".")), "\n")`, &sel)
+		err = v.Eval(`join(getregion(getpos("v"), getpos(".")), "\n")`, &sel)
 		if err == nil {
 			if s, ok := sel.(string); ok {
 				ctx.SelectedText = s
@@ -271,32 +396,57 @@ func (b *Bridge) getActiveEditorContext() (any, error) {
 		}
 	}
 
+	bufs, err := v.Buffers()
+	if err == nil {
+		for _, b := range bufs {
+			if b == buf {
+				continue
+			}
+			bname, err := v.BufferName(b)
+			if err != nil || bname == "" {
+				continue
+			}
+			if strings.HasPrefix(bname, "term://") || strings.Contains(bname, "[") {
+				continue
+			}
+			if !fileExists(bname) {
+				continue
+			}
+			ctx.RecentFiles = append(ctx.RecentFiles, bname)
+			if len(ctx.RecentFiles) >= 10 {
+				break
+			}
+		}
+	}
+
 	data, _ := json.Marshal(ctx)
-	return map[string]any{
-		"content": []map[string]any{
-			{
-				"type": "text",
-				"text": string(data),
-			},
-		},
-	}, nil
+	return toolResult(string(data)), nil
 }
 
 func (b *Bridge) openFile(args json.RawMessage) (any, error) {
+	v, err := b.getNvim()
+	if err != nil {
+		return nil, err
+	}
+
 	var p struct {
 		Path string `json:"path"`
 	}
 	if err := json.Unmarshal(args, &p); err != nil {
 		return nil, err
 	}
-	err := b.nvim.Command("edit " + p.Path)
-	if err != nil {
+	if err := v.Command("edit " + p.Path); err != nil {
 		return nil, err
 	}
-	return map[string]any{"content": []map[string]any{{"type": "text", "text": "OK"}}}, nil
+	return toolResult("OK"), nil
 }
 
 func (b *Bridge) openDiff(args json.RawMessage) (any, error) {
+	v, err := b.getNvim()
+	if err != nil {
+		return nil, err
+	}
+
 	var p struct {
 		FilePath   string `json:"filePath"`
 		NewContent string `json:"newContent"`
@@ -305,9 +455,9 @@ func (b *Bridge) openDiff(args json.RawMessage) (any, error) {
 		return nil, err
 	}
 
-	_ = b.nvim.Command("edit " + p.FilePath)
+	_ = v.Command("edit " + p.FilePath)
 
-	newBuf, err := b.nvim.CreateBuffer(false, true)
+	newBuf, err := v.CreateBuffer(false, true)
 	if err != nil {
 		return nil, err
 	}
@@ -318,22 +468,69 @@ func (b *Bridge) openDiff(args json.RawMessage) (any, error) {
 		byteLines[i] = []byte(l)
 	}
 
-	_ = b.nvim.SetBufferLines(newBuf, 0, -1, true, byteLines)
-	_ = b.nvim.SetBufferOption(newBuf, "buftype", "nofile")
-	_ = b.nvim.SetBufferName(newBuf, "Proposed Changes")
+	_ = v.SetBufferLines(newBuf, 0, -1, true, byteLines)
+	_ = v.SetBufferOption(newBuf, "buftype", "nofile")
+	_ = v.SetBufferName(newBuf, "Proposed Changes")
 
-	_ = b.nvim.Command("tabnew")
-	_ = b.nvim.SetCurrentBuffer(newBuf)
-	_ = b.nvim.Command("diffthis")
-	_ = b.nvim.Command("vsplit " + p.FilePath)
-	_ = b.nvim.Command("diffthis")
+	_ = v.Command("tabnew")
+	_ = v.SetCurrentBuffer(newBuf)
+	_ = v.Command("diffthis")
+	_ = v.Command("vsplit " + p.FilePath)
+	_ = v.Command("diffthis")
 
-	return map[string]any{"content": []map[string]any{{"type": "text", "text": "Diff opened in new tab"}}}, nil
+	return toolResult("Diff opened in new tab"), nil
 }
 
 func (b *Bridge) closeDiff(args json.RawMessage) (any, error) {
-	_ = b.nvim.Command("tabclose")
-	return map[string]any{"content": []map[string]any{{"type": "text", "text": "OK"}}}, nil
+	v, err := b.getNvim()
+	if err != nil {
+		return nil, err
+	}
+
+	_ = v.Command("tabclose")
+	return toolResult("OK"), nil
+}
+
+func (b *Bridge) getDiagnostics(args json.RawMessage) (any, error) {
+	v, err := b.getNvim()
+	if err != nil {
+		return nil, err
+	}
+
+	var p struct {
+		URI string `json:"uri"`
+	}
+	_ = json.Unmarshal(args, &p)
+
+	luaCode := `
+local bufnr = nil
+local uri = ...
+if uri and uri ~= '' then
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_get_name(b) == uri then bufnr = b; break end
+  end
+  if not bufnr then return '[]' end
+end
+local diags = vim.diagnostic.get(bufnr, {severity = {min = vim.diagnostic.severity.WARN}})
+local result = {}
+for _, d in ipairs(diags) do
+  table.insert(result, {
+    file = vim.api.nvim_buf_get_name(d.bufnr),
+    line = d.lnum + 1,
+    col = d.col + 1,
+    severity = d.severity == 1 and 'error' or 'warning',
+    message = d.message,
+    source = d.source or '',
+  })
+end
+return vim.json.encode(result)
+`
+	var resultJSON string
+	if err := v.ExecLua(luaCode, &resultJSON, p.URI); err != nil {
+		return nil, fmt.Errorf("diagnostics lua: %w", err)
+	}
+
+	return toolResult(resultJSON), nil
 }
 
 func main() {
@@ -348,11 +545,6 @@ func main() {
 		*socketPath = os.Getenv("NVIM_SOCKET")
 	}
 
-	if *socketPath == "" {
-		clog("error", "neovim socket path required")
-		os.Exit(1)
-	}
-
 	if *workspace == "" {
 		cwd, _ := os.Getwd()
 		*workspace = cwd
@@ -365,16 +557,21 @@ func main() {
 	authToken := "nvim-mcp-token"
 
 	bridge := &Bridge{
-		socketPath: *socketPath,
-		port:       *port,
-		authToken:  authToken,
+		port:      *port,
+		authToken: authToken,
 	}
 
-	clog("info", fmt.Sprintf("connecting socket=%s port=%d", *socketPath, *port))
-	if err := bridge.connectNvim(); err != nil {
-		clog("error", fmt.Sprintf("connect failed err=%v", err))
-		os.Exit(1)
+	if *socketPath != "" {
+		if err := bridge.connectNvim(*socketPath); err != nil {
+			clog("info", fmt.Sprintf("initial connect failed socket=%s err=%v", *socketPath, err))
+		} else {
+			clog("info", fmt.Sprintf("connected socket=%s", *socketPath))
+		}
+	} else {
+		clog("info", "no initial socket, waiting for discovery")
 	}
+
+	go bridge.connectLoop()
 
 	var discoveryFiles []string
 	if *idePidsStr != "" {

@@ -22,6 +22,7 @@ var (
 	component         string
 	nvimMcpBin        = "nvim-mcp"
 	tmuxNvimSelectBin = "tmux-nvim-select"
+	nvrBin            = "nvr"
 )
 
 func init() {
@@ -75,6 +76,7 @@ type Proxy struct {
 	autoCounter  int
 	pending      map[any]*pendingConnect
 	autoIDs      map[any]bool
+	toolsListIDs map[any]bool
 	child        *exec.Cmd
 	childStdin   *bufio.Writer
 	childStdout  *bufio.Scanner
@@ -82,6 +84,7 @@ type Proxy struct {
 	lastHealth   string
 	passthrough  []string
 	mu           sync.Mutex
+	outMu        sync.Mutex
 	logger       *devlogs.Logger
 	ctx          context.Context
 	cancel       context.CancelFunc
@@ -91,12 +94,13 @@ type Proxy struct {
 func NewProxy(passthrough []string) *Proxy {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Proxy{
-		pending:     make(map[any]*pendingConnect),
-		autoIDs:     make(map[any]bool),
-		passthrough: passthrough,
-		logger:      devlogs.NewLogger("nvim-mcp"),
-		ctx:         ctx,
-		cancel:      cancel,
+		pending:      make(map[any]*pendingConnect),
+		autoIDs:      make(map[any]bool),
+		toolsListIDs: make(map[any]bool),
+		passthrough:  passthrough,
+		logger:       devlogs.NewLogger("nvim-mcp"),
+		ctx:          ctx,
+		cancel:       cancel,
 	}
 }
 
@@ -117,6 +121,8 @@ func (p *Proxy) writeChild(msg string) error {
 }
 
 func (p *Proxy) writeStdout(msg string) {
+	p.outMu.Lock()
+	defer p.outMu.Unlock()
 	_, _ = fmt.Fprintln(os.Stdout, msg)
 }
 
@@ -341,6 +347,17 @@ func (p *Proxy) relayStdout() {
 			continue
 		}
 
+		p.mu.Lock()
+		isToolsList := p.toolsListIDs[msgID]
+		if isToolsList {
+			delete(p.toolsListIDs, msgID)
+		}
+		p.mu.Unlock()
+
+		if isToolsList && msg.Error == nil {
+			line = p.injectDiagnosticsTool(line)
+		}
+
 		p.writeStdout(line)
 	}
 }
@@ -355,6 +372,92 @@ func (p *Proxy) relayStderr() {
 		}
 		p.logger.Debug(p.childStderr.Text())
 	}
+}
+
+var diagnosticsToolDef = map[string]any{
+	"name":        "get_diagnostics",
+	"description": "Get LSP diagnostics (errors and warnings) from the editor",
+	"inputSchema": map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"uri": map[string]any{
+				"type":        "string",
+				"description": "File path to filter diagnostics for. Omit for all files.",
+			},
+		},
+	},
+}
+
+func (p *Proxy) injectDiagnosticsTool(line string) string {
+	var raw map[string]any
+	if err := json.Unmarshal([]byte(line), &raw); err != nil {
+		return line
+	}
+
+	result, ok := raw["result"].(map[string]any)
+	if !ok {
+		return line
+	}
+
+	tools, ok := result["tools"].([]any)
+	if !ok {
+		return line
+	}
+
+	result["tools"] = append(tools, diagnosticsToolDef)
+	raw["result"] = result
+
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return line
+	}
+	return string(data)
+}
+
+func (p *Proxy) handleGetDiagnostics(reqID any, args map[string]any) {
+	p.mu.Lock()
+	socket := p.socket
+	p.mu.Unlock()
+
+	if socket == "" || !fileExists(socket) {
+		p.writeStdout(p.errorResponse(reqID, -32000, "No Neovim connection"))
+		return
+	}
+
+	luaCode := `vim.json.encode(vim.tbl_map(function(d) return {file=vim.api.nvim_buf_get_name(d.bufnr), line=d.lnum+1, col=d.col+1, severity=d.severity<=1 and 'error' or 'warning', message=d.message, source=d.source or ''} end, vim.diagnostic.get(nil, {severity={min=vim.diagnostic.severity.WARN}})))`
+	expr := fmt.Sprintf(`luaeval("%s")`, luaCode)
+
+	ctx, cancel := context.WithTimeout(p.ctx, 10*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, nvrBin, "--servername", socket, "--remote-expr", expr)
+	output, err := cmd.Output()
+	if err != nil {
+		p.logger.Warn(fmt.Sprintf("diagnostics failed: %v", err))
+		p.writeStdout(p.errorResponse(reqID, -32000, "Failed to get diagnostics: "+err.Error()))
+		return
+	}
+
+	result := strings.TrimSpace(string(output))
+
+	if uri, ok := args["uri"].(string); ok && uri != "" {
+		var diags []map[string]any
+		if err := json.Unmarshal([]byte(result), &diags); err == nil {
+			var filtered []map[string]any
+			for _, d := range diags {
+				if f, _ := d["file"].(string); f == uri {
+					filtered = append(filtered, d)
+				}
+			}
+			if filtered == nil {
+				filtered = []map[string]any{}
+			}
+			data, _ := json.Marshal(filtered)
+			result = string(data)
+		}
+	}
+
+	p.writeStdout(p.successResponse(reqID, result))
 }
 
 func (p *Proxy) autoDetectLoop() {
@@ -457,6 +560,9 @@ func (p *Proxy) handleAutoConnect(msg jsonRequest, reqID any) {
 		p.writeStdout(p.errorResponse(reqID, -32602, "Invalid params"))
 		return
 	}
+	if params.Arguments == nil {
+		params.Arguments = make(map[string]any)
+	}
 	params.Arguments["target"] = resolved
 
 	newParams := map[string]any{
@@ -499,6 +605,15 @@ func (p *Proxy) ensureConnected() {
 }
 
 func (p *Proxy) handleMessage(msg jsonRequest) {
+	if msg.Method == "tools/list" {
+		p.mu.Lock()
+		p.toolsListIDs[msg.ID] = true
+		p.mu.Unlock()
+		data, _ := json.Marshal(msg)
+		_ = p.writeChild(string(data))
+		return
+	}
+
 	if msg.Method != "tools/call" {
 		data, _ := json.Marshal(msg)
 		_ = p.writeChild(string(data))
@@ -523,6 +638,11 @@ func (p *Proxy) handleMessage(msg jsonRequest) {
 		p.registerPending(reqID)
 		data, _ := json.Marshal(msg)
 		_ = p.writeChild(string(data))
+		return
+	}
+
+	if params.Name == "get_diagnostics" {
+		go p.handleGetDiagnostics(reqID, params.Arguments)
 		return
 	}
 
