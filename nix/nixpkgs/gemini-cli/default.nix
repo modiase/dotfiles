@@ -131,10 +131,25 @@ let
       ide_env=$(get-gemini-ide-env 2>/dev/null) || true
       if [ -n "$ide_env" ]; then
           eval "$ide_env"
-          clog info "IDE integration found port=$GEMINI_CLI_IDE_SERVER_PORT"
+          clog info "IDE integration found port=$GEMINI_CLI_IDE_SERVER_PORT socket=$NVIM_LISTEN_ADDRESS"
           gemini-nvim-ide-bridge -socket "$NVIM_LISTEN_ADDRESS" -port "$GEMINI_CLI_IDE_SERVER_PORT" -ide-pids "$IDE_PIDS" -workspace "$(pwd)" -wrapper-id "$WRAPPER_ID" 2>&1 | logger -t devlogs &
       else
-          clog info "no IDE integration"
+          clog info "IDE integration (no initial nvim)"
+          IDE_PORT=$((RANDOM % 16384 + 49152))
+          all_pids="$$"
+          current_pid=$$
+          for _ in {1..5}; do
+              parent_pid=$(ps -o ppid= -p "$current_pid" 2>/dev/null | tr -d ' ') || true
+              if [[ -n "$parent_pid" && "$parent_pid" -gt 1 ]]; then
+                  all_pids="$all_pids $parent_pid"
+                  current_pid=$parent_pid
+              else
+                  break
+              fi
+          done
+          export GEMINI_CLI_IDE_SERVER_PORT="$IDE_PORT"
+          export ENABLE_IDE_INTEGRATION=true
+          gemini-nvim-ide-bridge -port "$IDE_PORT" -ide-pids "$all_pids" -workspace "$(pwd)" -wrapper-id "$WRAPPER_ID" 2>&1 | logger -t devlogs &
       fi
       exec ${cfg.executable} "$@"
     '';
