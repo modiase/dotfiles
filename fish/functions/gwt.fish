@@ -1,6 +1,9 @@
 argparse h/help f/from= F/force no-code 'c/code-args=' -- $argv; or return
 
 set -g _gwt_code_args_val "$_flag_code_args"
+if set -q _flag_no_code
+    set -g _gwt_no_code 1
+end
 
 if set -q _flag_help
     echo "Usage: gwt [COMMAND] [OPTIONS]"
@@ -12,6 +15,7 @@ if set -q _flag_help
     echo "  new [NAME]    Create a new worktree (prompts if NAME omitted)"
     echo "  rm NAME       Remove a worktree and delete its branch"
     echo "  tidy          Interactively remove merged/stale worktrees"
+    echo "  merge [BRANCH] Rebase, fast-forward merge, and remove a worktree"
     echo "  detect        List cleanup candidates (merged or stale >7d)"
     echo "  *             Passthrough to git worktree"
     echo ""
@@ -34,15 +38,19 @@ set -g _gwt_git_dir (git rev-parse --git-dir 2>/dev/null); or begin
     return 1
 end
 function _gwt_cleanup
-    set -eg _gwt_git_dir _gwt_toplevel _gwt_default_branch _gwt_code_args_val 2>/dev/null
+    set -eg _gwt_git_dir _gwt_toplevel _gwt_default_branch _gwt_code_args_val _gwt_no_code 2>/dev/null
 end
 
 set -l common_dir (realpath (git rev-parse --git-common-dir 2>/dev/null))
 set -l actual_git_dir (realpath "$_gwt_git_dir")
 if test "$common_dir" != "$actual_git_dir"
     set -l main_toplevel (git -C "$common_dir/.." rev-parse --show-toplevel 2>/dev/null)
+    set -l reinvoke_argv $argv
+    if test "$argv[1]" = merge -a (count $argv) -le 1
+        set -a reinvoke_argv (git branch --show-current)
+    end
     _gwt_cleanup
-    env -C "$main_toplevel" fish -c "gwt $argv"
+    env -C "$main_toplevel" fish -c 'gwt $argv' -- $reinvoke_argv
     return $status
 end
 set -g _gwt_toplevel (git rev-parse --show-toplevel 2>/dev/null)
@@ -151,15 +159,11 @@ function _gwt_crypt_key
         return
     end
 
-    command -v gum >/dev/null; or begin
-        echo "Error: gum required to select git-crypt key" >&2
-        return 1
-    end
     set -l names
     for k in $keys
         set -a names (string replace "$key_dir/" "" "$k")
     end
-    set -l chosen (printf '%s\n' $names | gum choose --header "Select git-crypt key")
+    set -l chosen (printf '%s\n' $names | fzf --prompt="Git-crypt key> " --height=40% --reverse)
     test -z "$chosen"; and return 1
     _gwt_set crypt_key "$chosen"
     realpath "$key_dir/$chosen"
@@ -218,7 +222,7 @@ function _gwt_new
         end
     end
 
-    if not set -q _flag_no_code
+    if not set -q _gwt_no_code
         _gwt_code_args $name "$_gwt_toplevel/worktrees/$name"
     end
 end
@@ -250,7 +254,7 @@ function _gwt_select
     set -l clean (string trim -- $selected)
     for i in (seq (count $entries))
         if test (string trim -- $entries[$i]) = "$clean"
-            if not set -q _flag_no_code
+            if not set -q _gwt_no_code
                 _gwt_code_args (basename $paths[$i]) $paths[$i]
             end
             return
@@ -271,11 +275,7 @@ function _gwt_remove
             end
         end
         test (count $wt_names) -eq 0; and echo "No worktrees to remove." >&2; and return 0
-        command -v gum >/dev/null; or begin
-            echo "Error: gum required for interactive selection" >&2
-            return 1
-        end
-        set name (printf '%s\n' $wt_names | gum choose --header "Remove worktree")
+        set name (printf '%s\n' $wt_names | fzf --prompt="Remove worktree> " --height=40% --reverse)
         test -z "$name"; and return 0
     end
 
@@ -302,24 +302,65 @@ function _gwt_tidy
     set -l candidates (_gwt_detect)
     test (count $candidates) -eq 0; and echo "No cleanup candidates found."; and return
 
-    command -v gum >/dev/null; or begin
-        echo "Error: gum required for interactive selection" >&2
-        return 1
-    end
-
     set -l labels
     for c in $candidates
         set -l parts (string split \t $c)
         set -a labels "$parts[1] ($parts[2])"
     end
 
-    set -l chosen (printf '%s\n' $labels | gum choose --no-limit --header "Select worktrees to remove")
+    set -l chosen (printf '%s\n' $labels | fzf --multi --prompt="Tidy worktrees> " --height=40% --reverse --header "enter: toggle select | c: confirm" --bind 'enter:toggle+down,c:accept')
     test (count $chosen) -eq 0; and return 0
 
     for pick in $chosen
         set -l branch (string match -r '^(\S+)' $pick)[2]
         git worktree remove $_gwt_toplevel/worktrees/$branch
     end
+end
+
+function _gwt_merge
+    set -l name $argv[1]
+    if test -z "$name"
+        set -l wt_names
+        for line in (git worktree list --porcelain 2>/dev/null)
+            if string match -qr '^worktree (.+)' $line
+                set -l p (string match -r '^worktree (.+)' $line)[2]
+                test "$p" = "$_gwt_toplevel"; and continue
+                set -a wt_names (basename $p)
+            end
+        end
+        test (count $wt_names) -eq 0; and echo "No worktrees to merge." >&2; and return 0
+        set name (printf '%s\n' $wt_names | fzf --prompt="Merge worktree> " --height=40% --reverse)
+        test -z "$name"; and return 0
+    end
+
+    set -l wt_path $_gwt_toplevel/worktrees/$name
+    git worktree list --porcelain | string match -q "worktree $wt_path"; or begin
+        echo "Error: worktree '$name' not found" >&2
+        return 1
+    end
+
+    if test -n "$(git -C $wt_path status --porcelain | string collect)"
+        echo "Error: worktree '$name' has uncommitted changes" >&2
+        return 1
+    end
+
+    if test -n "$(git -C $_gwt_toplevel status --porcelain | string collect)"
+        echo "Error: main worktree has uncommitted changes" >&2
+        return 1
+    end
+
+    git -C $wt_path rebase $_gwt_default_branch; or return 1
+
+    set -l orig_branch (git -C $_gwt_toplevel branch --show-current)
+    git -C $_gwt_toplevel checkout $_gwt_default_branch; or return 1
+
+    if not git -C $_gwt_toplevel merge --ff-only $name
+        git -C $_gwt_toplevel checkout $orig_branch 2>/dev/null
+        return 1
+    end
+
+    git worktree remove $wt_path; or return 1
+    git branch -d $name
 end
 
 switch "$argv[1]"
@@ -332,6 +373,8 @@ switch "$argv[1]"
     case tidy
         _gwt_health
         _gwt_tidy
+    case merge
+        _gwt_merge $argv[2]
     case new
         _gwt_health
         set -l _gwt_new_args $argv[2..]
