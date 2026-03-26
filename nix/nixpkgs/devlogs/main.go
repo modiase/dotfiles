@@ -61,7 +61,7 @@ func main() {
 		return
 	}
 
-	p := tea.NewProgram(newModel(ch, winFilter, *level, *history != ""), tea.WithAltScreen())
+	p := tea.NewProgram(newModel(ch, winFilter, *level, *history), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)

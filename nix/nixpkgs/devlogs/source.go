@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type LogEntry struct {
@@ -120,6 +122,25 @@ func buildHistoryCmd(duration string) *exec.Cmd {
 }
 
 type logLineMsg LogEntry
+
+func fetchHistory(duration string) tea.Cmd {
+	return func() tea.Msg {
+		cmd := buildHistoryCmd(duration)
+		out, err := cmd.Output()
+		if err != nil {
+			return historyEntriesMsg(nil)
+		}
+		var entries []LogEntry
+		for _, line := range strings.Split(string(out), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || !strings.Contains(line, "[devlogs]") {
+				continue
+			}
+			entries = append(entries, parseLogEntry(line))
+		}
+		return historyEntriesMsg(entries)
+	}
+}
 
 func streamLogs(history string, live bool, ch chan<- LogEntry) {
 	defer close(ch)
