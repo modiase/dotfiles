@@ -249,8 +249,8 @@ send_action_dialog() {
     button_list="\"${action_csv//,/\", \"}\""
 
     local script
-    printf -v script 'display alert "%s" message "%s" buttons {%s} giving up after 60' \
-        "$escaped_title" "$escaped_msg" "$button_list"
+    printf -v script 'display dialog "%s" with title "%s" buttons {%s} giving up after 60' \
+        "$escaped_msg" "$escaped_title" "$button_list"
 
     local result
     result=$(timeout 65 osascript -e "$script" 2>/dev/null) || true

@@ -81,7 +81,7 @@ on_permission() {
     fi
 
     local result actions='Allow,Show'
-    if [[ "$tool_name" == "ExitPlanMode" ]]; then actions='Show'; fi
+    if [[ "$tool_name" == "ExitPlanMode" || "$tool_name" == "AskUserQuestion" ]]; then actions='Show'; fi
     result=$(ding -i 'Claude Code' -m "$msg" --actions "$actions")
     case "$result" in
         Allow)
