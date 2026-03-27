@@ -334,8 +334,14 @@ function _gwt_merge
     end
 
     set -l wt_path $_gwt_toplevel/worktrees/$name
-    git worktree list --porcelain | string match -q "worktree $wt_path"; or begin
+    if not test -d "$wt_path"; or not git -C "$wt_path" rev-parse --is-inside-work-tree &>/dev/null
         echo "Error: worktree '$name' not found" >&2
+        return 1
+    end
+
+    set -l branch (git -C "$wt_path" branch --show-current)
+    if test -z "$branch"
+        echo "Error: worktree '$name' is in detached HEAD state" >&2
         return 1
     end
 
@@ -349,18 +355,25 @@ function _gwt_merge
         return 1
     end
 
-    git -C $wt_path rebase $_gwt_default_branch; or return 1
+    if not git -C "$wt_path" rebase $_gwt_default_branch
+        echo "Error: rebase failed — aborting" >&2
+        git -C "$wt_path" rebase --abort 2>/dev/null
+        return 1
+    end
 
     set -l orig_branch (git -C $_gwt_toplevel branch --show-current)
     git -C $_gwt_toplevel checkout $_gwt_default_branch; or return 1
 
-    if not git -C $_gwt_toplevel merge --ff-only $name
-        git -C $_gwt_toplevel checkout $orig_branch 2>/dev/null
+    if not git -C $_gwt_toplevel merge --ff-only "$branch"
+        echo "Error: fast-forward merge of '$branch' into $_gwt_default_branch failed" >&2
+        if not git -C $_gwt_toplevel checkout "$orig_branch" 2>/dev/null
+            echo "Warning: could not restore branch '$orig_branch'" >&2
+        end
         return 1
     end
 
-    git worktree remove $wt_path; or return 1
-    git branch -d $name
+    git worktree remove "$wt_path"; or return 1
+    git branch -d "$branch"
 end
 
 switch "$argv[1]"
