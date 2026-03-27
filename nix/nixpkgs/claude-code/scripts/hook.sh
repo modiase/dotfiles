@@ -31,14 +31,70 @@ notify() {
     ding "${args[@]}" >/dev/null
 }
 
+focus_pane() {
+    osascript -e 'tell app "Ghostty" to activate' 2>/dev/null || true
+    if [[ -n "${TMUX_PANE:-}" ]]; then
+        local win_idx
+        win_idx=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
+        local pane_idx
+        pane_idx=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_index}' 2>/dev/null) || true
+        if [[ -n "${win_idx:-}" && -n "${pane_idx:-}" ]]; then
+            tmux select-window -t ":$win_idx" 2>/dev/null || true
+            tmux select-pane -t ":$win_idx.$pane_idx" 2>/dev/null || true
+        fi
+    fi
+}
+
 on_stop() {
     clog debug "stop: agent stopped"
     notify '#{t_window_name}' 'Agent stopped'
 }
 
 on_permission() {
-    clog debug "permission: request received"
-    notify 'Claude Code' 'Permission needed' request
+    local input
+    input=$(cat)
+    clog debug "permission: request received input=$input"
+
+    local tool_name msg detail
+    tool_name=$(echo "$input" | jq -r '.tool_name // empty' 2>/dev/null) || tool_name=""
+    detail=""
+
+    case "$tool_name" in
+        Bash)
+            detail=$(echo "$input" | jq -r '.tool_input.command // empty' 2>/dev/null) || detail=""
+            ;;
+        Read | Write | Edit)
+            detail=$(echo "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null) || detail=""
+            ;;
+    esac
+
+    if [[ -n "$tool_name" ]]; then
+        msg="$tool_name"
+        if [[ -n "$detail" ]]; then
+            if [[ ${#detail} -gt 100 ]]; then
+                detail="${detail:0:97}..."
+            fi
+            msg="$tool_name: $detail"
+        fi
+    else
+        msg="Permission needed"
+    fi
+
+    (
+        local result
+        result=$(ding -i 'Claude Code' -m "$msg" --actions 'Allow,Show')
+        case "$result" in
+            Allow)
+                focus_pane
+                if [[ -n "${TMUX_PANE:-}" ]]; then
+                    tmux send-keys -t "$TMUX_PANE" y 2>/dev/null || true
+                fi
+                ;;
+            Show)
+                focus_pane
+                ;;
+        esac
+    ) &
 }
 
 event="${1:-}"

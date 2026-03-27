@@ -13,6 +13,7 @@ Options:
   -i, --title TEXT        Notification title
   -m, --message TEXT      Notification message
   -t, --type TYPE         Accepted for compatibility (unused locally)
+  --actions "A,B"         Show dialog with buttons; print clicked label to stdout
   --focus-pane            Capture tmux pane; click notification to focus
   --no-bell               Disable terminal bell
   --no-sound              Disable alert sound
@@ -35,6 +36,7 @@ EOF
 command=""
 message=""
 title=""
+actions=""
 
 focus_pane=""
 force=0
@@ -90,6 +92,14 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --type=*)
+            shift
+            ;;
+        --actions)
+            actions="$2"
+            shift 2
+            ;;
+        --actions=*)
+            actions="${1#--actions=}"
             shift
             ;;
         -c | --command)
@@ -194,7 +204,7 @@ ghostty_tab_is_active() {
 }
 
 send_bell() {
-    [[ $no_bell -eq 1 ]] && return 0
+    if [[ $no_bell -eq 1 ]]; then return 0; fi
     if [[ -n "${TMUX_PANE:-}" ]]; then
         local tty_path
         tty_path=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_tty}' 2>/dev/null) || true
@@ -218,6 +228,45 @@ send_osc9() {
     fi
 }
 
+escape_applescript() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    printf '%s' "$s"
+}
+
+send_action_dialog() {
+    local alert_title="$1" msg="$2" action_csv="$3"
+    send_bell
+
+    local escaped_title escaped_msg
+    escaped_title=$(escape_applescript "$alert_title")
+    escaped_msg=$(escape_applescript "$msg")
+
+    local button_list
+    button_list="\"${action_csv//,/\", \"}\""
+
+    local script
+    printf -v script 'display alert "%s" message "%s" buttons {%s} giving up after 60' \
+        "$escaped_title" "$escaped_msg" "$button_list"
+
+    local result
+    result=$(osascript -e "$script" 2>/dev/null) || true
+
+    if [[ "$result" == *"gave up:true"* ]]; then
+        return 0
+    fi
+
+    local clicked
+    clicked="${result#*button returned:}"
+    clicked="${clicked%%,*}"
+    if [[ -n "$clicked" ]]; then
+        echo "$clicked"
+    fi
+}
+
 send_alert() {
     local alert_title="$1" msg="$2"
     send_bell
@@ -232,13 +281,15 @@ send_alert() {
     fi
 
     if [[ -z "$notifier" ]]; then
-        [[ -n "$msg" ]] && osascript -e "display alert \"$alert_title\" message \"$msg\"" >/dev/null &
+        if [[ -n "$msg" ]]; then
+            osascript -e "display alert \"$alert_title\" message \"$msg\"" >/dev/null &
+        fi
         return 0
     fi
 
     local args=(-title "$alert_title")
-    [[ -n "$msg" ]] && args+=(-message "$msg")
-    [[ $no_sound -eq 0 ]] && args+=(-sound default)
+    if [[ -n "$msg" ]]; then args+=(-message "$msg"); fi
+    if [[ $no_sound -eq 0 ]]; then args+=(-sound default); fi
 
     if [[ -n "$focus_pane" ]]; then
         local win="${focus_pane%:*}"
@@ -260,6 +311,9 @@ if [[ $is_ssh -eq 1 ]] || [[ $has_osascript -eq 0 ]]; then
     clog info "osc9 — title='${title:-ding}' message='$message'"
     send_bell
     send_osc9 "$osc_msg"
+elif [[ -n "$actions" ]]; then
+    clog info "action dialog — title='${title:-ding}' message='$message' actions='$actions'"
+    send_action_dialog "${title:-ding}" "$message" "$actions"
 elif [[ $force -eq 0 ]] && ghostty_is_focused && ghostty_tab_is_active && tmux_window_is_active; then
     clog debug "suppressed — focused, tab active, window active"
     send_bell
