@@ -190,7 +190,8 @@ return {
 		end, { desc = "Plan history" })
 
 		vim.keymap.set("n", "<leader>fc", function()
-			require("telescope.builtin").git_status()
+			-- pcall: plenary oneshot channel race in async pipe EOF handling
+			pcall(require("telescope.builtin").git_status)
 		end, { desc = "Changed files" })
 	end,
 }
