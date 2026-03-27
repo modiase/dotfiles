@@ -253,7 +253,7 @@ send_action_dialog() {
         "$escaped_title" "$escaped_msg" "$button_list"
 
     local result
-    result=$(osascript -e "$script" 2>/dev/null) || true
+    result=$(timeout 65 osascript -e "$script" 2>/dev/null) || true
 
     if [[ "$result" == *"gave up:true"* ]]; then
         return 0
