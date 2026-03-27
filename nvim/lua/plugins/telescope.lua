@@ -188,5 +188,9 @@ return {
 		vim.keymap.set("n", "<leader>fp", function()
 			require("utils.plan-history").picker()
 		end, { desc = "Plan history" })
+
+		vim.keymap.set("n", "<leader>fc", function()
+			require("telescope.builtin").git_status()
+		end, { desc = "Changed files" })
 	end,
 }
