@@ -19,6 +19,28 @@ in
     defaultSettings = {
       themes = [ obsidian-minimal-theme ];
       communityPlugins = [ obsidian-livesync ];
+      corePlugins = [
+        "backlink"
+        "bases"
+        "bookmarks"
+        "canvas"
+        "command-palette"
+        "daily-notes"
+        "editor-status"
+        "file-explorer"
+        "file-recovery"
+        "global-search"
+        "graph"
+        "note-composer"
+        "outgoing-link"
+        "outline"
+        "page-preview"
+        "properties"
+        "switcher"
+        "tag-pane"
+        "templates"
+        "word-count"
+      ];
     };
 
     vaults.notes = {
