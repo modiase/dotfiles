@@ -311,12 +311,12 @@ if [[ $is_ssh -eq 1 ]] || [[ $has_osascript -eq 0 ]]; then
     clog info "osc9 — title='${title:-ding}' message='$message'"
     send_bell
     send_osc9 "$osc_msg"
-elif [[ -n "$actions" ]]; then
-    clog info "action dialog — title='${title:-ding}' message='$message' actions='$actions'"
-    send_action_dialog "${title:-ding}" "$message" "$actions"
 elif [[ $force -eq 0 ]] && ghostty_is_focused && ghostty_tab_is_active && tmux_window_is_active; then
     clog debug "suppressed — focused, tab active, window active"
     send_bell
+elif [[ -n "$actions" ]]; then
+    clog info "action dialog — title='${title:-ding}' message='$message' actions='$actions'"
+    send_action_dialog "${title:-ding}" "$message" "$actions"
 else
     clog info "alert — title='${title:-ding}' message='$message'"
     send_alert "${title:-ding}" "$message"
