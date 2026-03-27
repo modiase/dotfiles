@@ -189,5 +189,9 @@ post-checkout:
     #!/usr/bin/env bash
     set -euo pipefail
     if [ "$(git branch --show-current)" = "main" ]; then
-        git branch --merged main | grep -v main | xargs -r git branch -d
+        wt_branches=$(git worktree list --porcelain | sed -n 's|^branch refs/heads/||p')
+        git branch --merged main | sed 's/^[*+[:space:]]*//' | grep -vx main | while read -r b; do
+            echo "$wt_branches" | grep -qx "$b" && continue
+            git branch -d "$b" 2>/dev/null || true
+        done
     fi
