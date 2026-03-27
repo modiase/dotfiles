@@ -2,28 +2,41 @@ package main
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
+
+	devlogs "devlogs-lib"
 )
 
-func TestStripRedirects(t *testing.T) {
+func TestRedirectsExcludedFromExtraction(t *testing.T) {
 	tests := []struct {
 		input string
-		want  string
+		want  []string
 	}{
-		{"git status 2>/dev/null", "git status"},
-		{"git status 2>&1", "git status"},
-		{"cmd &>/dev/null", "cmd"},
-		{"cmd &>>/dev/null", "cmd"},
-		{"cmd >/dev/null 2>&1", "cmd"},
-		{"cmd >>/dev/null", "cmd"},
-		{"echo hello", "echo hello"},
-		{"", ""},
+		{"git status 2>/dev/null", []string{"git status"}},
+		{"git status 2>&1", []string{"git status"}},
+		{"cmd &>/dev/null", []string{"cmd"}},
+		{"cmd >/dev/null 2>&1", []string{"cmd"}},
+		{"echo hello", []string{"echo hello"}},
+		{"git status > /tmp/out", []string{"git status"}},
+		{"echo '2>/dev/null'", []string{"echo 2>/dev/null"}},
 	}
 
 	for _, tt := range tests {
-		got := stripRedirects(tt.input)
-		if got != tt.want {
-			t.Errorf("stripRedirects(%q) = %q, want %q", tt.input, got, tt.want)
+		got, err := extractCommands(tt.input)
+		if err != nil {
+			t.Errorf("extractCommands(%q) error: %v", tt.input, err)
+			continue
+		}
+		if len(got) != len(tt.want) {
+			t.Errorf("extractCommands(%q) = %v, want %v", tt.input, got, tt.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tt.want[i] {
+				t.Errorf("extractCommands(%q)[%d] = %q, want %q", tt.input, i, got[i], tt.want[i])
+			}
 		}
 	}
 }
@@ -147,6 +160,475 @@ func TestAllowDecisionNoReason(t *testing.T) {
 	want := `{"permissionDecision":"allow"}`
 	if string(out) != want {
 		t.Errorf("json = %s, want %s", out, want)
+	}
+}
+
+func TestFirstSeparator(t *testing.T) {
+	tests := []struct {
+		input   string
+		wantIdx int
+		wantSep string
+	}{
+		{"foo && bar", 4, "&&"},
+		{"foo; bar", 3, ";"},
+		{"foo || bar", 4, "||"},
+		{"foo; bar && baz", 3, ";"},
+		{"foo && bar; baz", 4, "&&"},
+		{"foo || bar && baz", 4, "||"},
+		{"no separators here", -1, ""},
+	}
+	for _, tt := range tests {
+		idx, sep := firstSeparator(tt.input)
+		if idx != tt.wantIdx || sep != tt.wantSep {
+			t.Errorf("firstSeparator(%q) = (%d, %q), want (%d, %q)", tt.input, idx, sep, tt.wantIdx, tt.wantSep)
+		}
+	}
+}
+
+func TestStripCdPrefix(t *testing.T) {
+	log := devlogs.NewLogger("test")
+
+	t.Run("non-cd command passes through", func(t *testing.T) {
+		cmd, d := stripCdPrefix("git status", log)
+		if d != nil {
+			t.Fatal("expected nil decision")
+		}
+		if cmd != "git status" {
+			t.Errorf("cmd = %q, want %q", cmd, "git status")
+		}
+	})
+
+	t.Run("cd to cwd with trailing command", func(t *testing.T) {
+		cwd, _ := os.Getwd()
+		input := "cd " + cwd + " && git log --oneline -5"
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision, got", d)
+		}
+		if cmd != "git log --oneline -5" {
+			t.Errorf("cmd = %q, want %q", cmd, "git log --oneline -5")
+		}
+	})
+
+	t.Run("cd to subdirectory with trailing command", func(t *testing.T) {
+		cwd, _ := os.Getwd()
+		sub := filepath.Join(cwd, "subdir")
+		input := "cd " + sub + " && ls -la"
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision, got", d)
+		}
+		if cmd != "ls -la" {
+			t.Errorf("cmd = %q, want %q", cmd, "ls -la")
+		}
+	})
+
+	t.Run("bare cd to cwd is allowed", func(t *testing.T) {
+		cwd, _ := os.Getwd()
+		input := "cd " + cwd
+		cmd, d := stripCdPrefix(input, log)
+		if d == nil || d.Action != "allow" {
+			t.Fatalf("expected allow decision, got cmd=%q d=%v", cmd, d)
+		}
+	})
+
+	t.Run("cd outside cwd passes through unchanged", func(t *testing.T) {
+		input := "cd /tmp && git log"
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision (abstain), got", d)
+		}
+		if cmd != input {
+			t.Errorf("cmd = %q, want %q (unchanged)", cmd, input)
+		}
+	})
+
+	t.Run("cd to parent passes through unchanged", func(t *testing.T) {
+		input := "cd .. && git status"
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision (abstain), got", d)
+		}
+		if cmd != input {
+			t.Errorf("cmd = %q, want %q (unchanged)", cmd, input)
+		}
+	})
+
+	t.Run("cd with quoted path", func(t *testing.T) {
+		cwd, _ := os.Getwd()
+		input := `cd "` + cwd + `" && echo hello`
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision, got", d)
+		}
+		if cmd != "echo hello" {
+			t.Errorf("cmd = %q, want %q", cmd, "echo hello")
+		}
+	})
+
+	t.Run("cd with single-quoted path", func(t *testing.T) {
+		cwd, _ := os.Getwd()
+		input := "cd '" + cwd + "' && echo hello"
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision, got", d)
+		}
+		if cmd != "echo hello" {
+			t.Errorf("cmd = %q, want %q", cmd, "echo hello")
+		}
+	})
+
+	t.Run("cd with semicolon separator", func(t *testing.T) {
+		cwd, _ := os.Getwd()
+		input := "cd " + cwd + "; git log"
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision, got", d)
+		}
+		if cmd != "git log" {
+			t.Errorf("cmd = %q, want %q", cmd, "git log")
+		}
+	})
+
+	t.Run("bare cd with no args abstains", func(t *testing.T) {
+		input := "cd "
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision (abstain), got", d)
+		}
+		if cmd != input {
+			t.Errorf("cmd = %q, want %q (unchanged)", cmd, input)
+		}
+	})
+
+	t.Run("cd with tilde abstains", func(t *testing.T) {
+		input := "cd ~ && ls"
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision (abstain), got", d)
+		}
+		if cmd != input {
+			t.Errorf("cmd = %q, want %q (unchanged)", cmd, input)
+		}
+	})
+
+	t.Run("cd with shell variable abstains", func(t *testing.T) {
+		input := "cd $HOME && ls"
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision (abstain), got", d)
+		}
+		if cmd != input {
+			t.Errorf("cmd = %q, want %q (unchanged)", cmd, input)
+		}
+	})
+
+	t.Run("cd with command substitution abstains", func(t *testing.T) {
+		input := "cd $(pwd) && ls"
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision (abstain), got", d)
+		}
+		if cmd != input {
+			t.Errorf("cmd = %q, want %q (unchanged)", cmd, input)
+		}
+	})
+
+	t.Run("cd with || separator", func(t *testing.T) {
+		input := "cd /nonexistent || echo fallback"
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision (abstain), got", d)
+		}
+		if cmd != input {
+			t.Errorf("cmd = %q, want %q (unchanged)", cmd, input)
+		}
+	})
+
+	t.Run("semicolon before && picks semicolon", func(t *testing.T) {
+		cwd, _ := os.Getwd()
+		input := "cd " + cwd + "; echo a && echo b"
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision, got", d)
+		}
+		if cmd != "echo a && echo b" {
+			t.Errorf("cmd = %q, want %q", cmd, "echo a && echo b")
+		}
+	})
+
+	t.Run("cd to relative dot", func(t *testing.T) {
+		input := "cd . && ls"
+		cmd, d := stripCdPrefix(input, log)
+		if d != nil {
+			t.Fatal("expected nil decision, got", d)
+		}
+		if cmd != "ls" {
+			t.Errorf("cmd = %q, want %q", cmd, "ls")
+		}
+	})
+}
+
+func TestExtractCommands(t *testing.T) {
+	tests := []struct {
+		input string
+		want  []string
+	}{
+		{"git status", []string{"git status"}},
+		{"git diff | head -5", []string{"git diff", "head -5"}},
+		{"git diff && git log", []string{"git diff", "git log"}},
+		{"echo a; echo b", []string{"echo a", "echo b"}},
+		{"echo a |& cat", []string{"echo a", "cat"}},
+		{"echo $(whoami)", []string{"whoami", "echo $(whoami)"}},
+		{"git diff | rm -rf /", []string{"git diff", "rm -rf /"}},
+		{"echo 'a | b'", []string{"echo a | b"}},
+		{"cmd1 && cmd2 | cmd3 ; cmd4", []string{"cmd1", "cmd2", "cmd3", "cmd4"}},
+		{"git diff <(git show HEAD)", []string{"git show HEAD", "git diff <(git show HEAD)"}},
+		{"git log & rm -rf /", []string{"git log", "rm -rf /"}},
+
+		// if/elif/else
+		{"if true; then echo a; fi", []string{"true", "echo a"}},
+		{"if true; then echo a; elif false; then echo b; else echo c; fi", []string{"true", "echo a", "false", "echo b", "echo c"}},
+
+		// while/for/case
+		{"while true; do echo a; done", []string{"true", "echo a"}},
+		{"for x in a; do echo $x; done", []string{"echo $x"}},
+		{"case x in x) echo matched;; esac", []string{"echo matched"}},
+
+		// function declarations
+		{"f() { echo a; }", []string{"echo a"}},
+
+		// time/coproc
+		{"time echo a", []string{"echo a"}},
+
+		// subshell and brace group
+		{"(echo a; echo b)", []string{"echo a", "echo b"}},
+		{"{ echo a; echo b; }", []string{"echo a", "echo b"}},
+
+		// double-quoted command substitution
+		{`echo "$(whoami)"`, []string{"whoami", `echo "$(whoami)"`}},
+		{`git log "$(rm -rf /)"`, []string{"rm -rf /", `git log "$(rm -rf /)"`}},
+
+		// backtick command substitution
+		// printer normalises backticks to $()
+		{"echo `whoami`", []string{"whoami", "echo $(whoami)"}},
+
+		// nested substitutions
+		{"echo $(echo $(whoami))", []string{"whoami", "echo $(whoami)", "echo $(echo $(whoami))"}},
+
+		// assignment with command substitution
+		{"FOO=$(rm -rf /)", []string{"rm -rf /"}},
+		{"export FOO=$(rm -rf /)", []string{"rm -rf /"}},
+
+		// redirect with command substitution
+		{"echo foo > $(rm -rf /)", []string{"rm -rf /", "echo foo"}},
+
+		// for-loop iteration list with command substitution
+		{"for x in $(whoami); do echo $x; done", []string{"whoami", "echo $x"}},
+
+		// case subject with command substitution
+		{"case $(whoami) in root) echo yes;; esac", []string{"whoami", "echo yes"}},
+
+		// parameter expansion: replacement, slice, index
+		{`echo ${x/$(whoami)/y}`, []string{"whoami", `echo ${x/$(whoami)/y}`}},
+		{`echo ${x:0:$(whoami)}`, []string{"whoami", `echo ${x:0:$(whoami)}`}},
+		{`echo ${arr[$(whoami)]}`, []string{"whoami", `echo ${arr[$(whoami)]}`}},
+
+		// array assignment with command substitution
+		{"x=($(whoami))", []string{"whoami"}},
+		{"declare -a arr=($(whoami))", []string{"whoami"}},
+
+		// quoting is stripped for simple words (bypass prevention)
+		{`'rm' '-rf' '/'`, []string{"rm -rf /"}},
+		{`"rm" "-rf" "/"`, []string{"rm -rf /"}},
+		{`'rm' -rf /`, []string{"rm -rf /"}},
+
+		// multi-part word concatenation (quote splicing)
+		{`r""m -rf /`, []string{"rm -rf /"}},
+		{`r''m -rf /`, []string{"rm -rf /"}},
+		{`'r'"m" -rf /`, []string{"rm -rf /"}},
+		{`r'm' -rf /`, []string{"rm -rf /"}},
+		{`r"m" -rf /`, []string{"rm -rf /"}},
+
+		// backslash escape stripping
+		{`r\m -rf /`, []string{"rm -rf /"}},
+		{`\r\m -rf /`, []string{"rm -rf /"}},
+		{`gi\t status`, []string{"git status"}},
+
+		// redirect on piped command (BinaryCmd child stmt)
+		{"echo foo > $(whoami) | cat", []string{"whoami", "echo foo", "cat"}},
+
+		// quoting with embedded expansions preserved
+		{`echo "hello $(whoami)"`, []string{"whoami", `echo "hello $(whoami)"`}},
+
+		// ANSI-C quoting ($'...') falls back to printed form
+		{`$'\x72\x6d' -rf /`, []string{`$'\x72\x6d' -rf /`}},
+		{`$'\162\155' -rf /`, []string{`$'\162\155' -rf /`}},
+		{`r$'\x6d' -rf /`, []string{`r$'\x6d' -rf /`}},
+		{`$'\u0072\u006d' -rf /`, []string{`$'\u0072\u006d' -rf /`}},
+
+		// env var prefix: both full form and args-only form extracted
+		{"PATH=/evil git status", []string{"PATH=/evil git status", "git status"}},
+		{"FOO=bar BAZ=qux rm -rf /", []string{"FOO=bar BAZ=qux rm -rf /", "rm -rf /"}},
+		{"LD_PRELOAD=/evil.so git status", []string{"LD_PRELOAD=/evil.so git status", "git status"}},
+	}
+	for _, tt := range tests {
+		got, err := extractCommands(tt.input)
+		if err != nil {
+			t.Errorf("extractCommands(%q) error: %v", tt.input, err)
+			continue
+		}
+		if len(got) != len(tt.want) {
+			t.Errorf("extractCommands(%q) = %v, want %v", tt.input, got, tt.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tt.want[i] {
+				t.Errorf("extractCommands(%q)[%d] = %q, want %q", tt.input, i, got[i], tt.want[i])
+			}
+		}
+	}
+}
+
+func TestPipeSmuggling(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+	settings := `{
+		"permissions": {
+			"allow": ["Bash(git*)"],
+			"deny": ["Bash(rm -rf*)"]
+		}
+	}`
+	_ = os.WriteFile(settingsPath, []byte(settings), 0o644)
+	t.Setenv("CLAUDE_CONFIG_DIR", dir)
+
+	tests := []struct {
+		cmd  string
+		want string
+	}{
+		{"git status", "allow"},
+		{"git diff | rm -rf /", "deny"},
+		{"git diff | head -5", "abstain"},
+		{"git diff && git log", "allow"},
+		{"git diff; rm -rf /", "deny"},
+		{"git log || rm -rf /", "deny"},
+		{"echo $(rm -rf /)", "deny"},
+		{"git diff <(git show HEAD)", "allow"},
+		{"git log & rm -rf /", "deny"},
+
+		// control flow smuggling
+		{"if true; then rm -rf /; fi", "deny"},
+		{"while true; do rm -rf /; done", "deny"},
+		{"for x in a; do rm -rf /; done", "deny"},
+		{"case x in x) rm -rf /;; esac", "deny"},
+		{"git status; if true; then rm -rf /; fi", "deny"},
+
+		// function smuggling
+		{"f() { rm -rf /; }; f", "deny"},
+
+		// time/coproc smuggling
+		{"time rm -rf /", "deny"},
+
+		// double-quoted substitution smuggling
+		{`git log "$(rm -rf /)"`, "deny"},
+
+		// assignment smuggling
+		{"FOO=$(rm -rf /)", "deny"},
+		{"export FOO=$(rm -rf /)", "deny"},
+
+		// redirect smuggling
+		{"git status > $(rm -rf /)", "deny"},
+
+		// nested substitution smuggling
+		{"echo $(echo $(rm -rf /))", "deny"},
+
+		// process substitution with denied command
+		{"git diff <(rm -rf /)", "deny"},
+
+		// for-loop iteration smuggling
+		{"for x in $(rm -rf /); do git status; done", "deny"},
+
+		// case subject smuggling
+		{"case $(rm -rf /) in *) git status;; esac", "deny"},
+
+		// parameter expansion smuggling
+		{`echo ${x/$(rm -rf /)/y}`, "deny"},
+		{`echo ${x:0:$(rm -rf /)}`, "deny"},
+
+		// array assignment smuggling
+		{"x=($(rm -rf /))", "deny"},
+		{"declare -a arr=($(rm -rf /))", "deny"},
+
+		// quoting bypass
+		{`'rm' '-rf' '/'`, "deny"},
+		{`"rm" "-rf" "/"`, "deny"},
+		{`'rm' -rf /`, "deny"},
+
+		// quote splicing bypass
+		{`r""m -rf /`, "deny"},
+		{`r''m -rf /`, "deny"},
+		{`'r'"m" -rf /`, "deny"},
+
+		// backslash escape bypass
+		{`r\m -rf /`, "deny"},
+		{`\r\m -rf /`, "deny"},
+
+		// backslash escape on allowed command
+		{`gi\t status`, "allow"},
+
+		// redirect on BinaryCmd child
+		{"echo foo > $(rm -rf /) | git status", "deny"},
+
+		// ANSI-C quoting bypass (hex/octal/unicode encoding of command name)
+		{`$'\x72\x6d' -rf /`, "abstain"},
+		{`$'\162\155' -rf /`, "abstain"},
+		{`r$'\x6d' -rf /`, "abstain"},
+		{`$'\u0072\u006d' -rf /`, "abstain"},
+		{`$'\x67\x69\x74' status`, "abstain"},
+
+		// redirects should not interfere with allow matching
+		{"git status 2>/dev/null", "allow"},
+		{"git log > /tmp/out", "allow"},
+
+		// env var prefix smuggling — assigns must be part of the match
+		{"PATH=/evil git status", "abstain"},
+		{"LD_PRELOAD=/evil.so git status", "abstain"},
+		{"FOO=bar rm -rf /", "deny"},
+
+		// parse failure → abstain (not fallback to whole-string match)
+		{"git status '", "abstain"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.cmd, func(t *testing.T) {
+			input := hookInput{}
+			input.ToolInput.Command = tt.cmd
+			data, _ := json.Marshal(input)
+
+			r, w, _ := os.Pipe()
+			_, _ = w.Write(data)
+			_ = w.Close()
+			origStdin := os.Stdin
+			os.Stdin = r
+			defer func() { os.Stdin = origStdin }()
+
+			log := devlogs.NewLogger("test")
+			got := run(log)
+
+			var action string
+			switch {
+			case got == nil:
+				action = "abstain"
+			case got.Action == "allow":
+				action = "allow"
+			case got.Action == "deny":
+				action = "deny"
+			}
+
+			if action != tt.want {
+				t.Errorf("run(%q) = %s, want %s", tt.cmd, action, tt.want)
+			}
+		})
 	}
 }
 

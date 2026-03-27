@@ -127,7 +127,7 @@ pre-commit-typescript:
 pre-commit-shell:
     #!/usr/bin/env bash
     set -euo pipefail
-    mapfile -t files < <(git diff --cached --name-only --diff-filter d | grep -E '\.(sh|bash)$|^bin/')
+    mapfile -t files < <(git diff --cached --name-only --diff-filter d | grep -E '\.(sh|bash)$|^bin/' | grep -v '/vendor/')
     [[ ${#files[@]} -eq 0 ]] && exit 0
     export STAGED_SH="${files[*]}"
     nix-shell -p shfmt shellcheck --run 'set -euo pipefail

@@ -34,16 +34,18 @@ func NewLogger(component string) *Logger {
 	return l
 }
 
-func (l *Logger) Debug(msg string) { l.log("debug", msg) }
+// macOS unified logging drops user.debug from history; promote so log show works
+func (l *Logger) Debug(msg string) { l.logWithPriority("debug", "info", msg) }
 func (l *Logger) Info(msg string)  { l.log("info", msg) }
 func (l *Logger) Warn(msg string)  { l.log("warning", msg) }
 func (l *Logger) Error(msg string) { l.log("err", msg) }
 
-func (l *Logger) log(level, msg string) {
+func (l *Logger) log(level, msg string) { l.logWithPriority(level, level, msg) }
+func (l *Logger) logWithPriority(level, priority, msg string) {
 	tag := fmt.Sprintf("%s{%s}", l.component, l.instance)
 	if l.window != "" {
 		tag = fmt.Sprintf("%s{%s}(@%s)", l.component, l.instance, l.window)
 	}
 	formatted := fmt.Sprintf("[devlogs] %s %s: %s", strings.ToUpper(level), tag, msg)
-	_ = exec.Command("logger", "-t", "devlogs", "-p", "user."+level, formatted).Run()
+	_ = exec.Command("logger", "-t", "devlogs", "-p", "user."+priority, formatted).Run()
 }

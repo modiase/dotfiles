@@ -14,8 +14,14 @@ devlogs_init() {
 
 clog() {
     local level="$1"
-    shift
+    case "$level" in
+        debug | info | warning | error) shift ;;
+        *) level="info" ;;
+    esac
     local win=""
     if [[ -n "$_DEVLOGS_WIN" ]]; then win="(@$_DEVLOGS_WIN)"; fi
-    logger -t devlogs -p "user.$level" "[devlogs] ${level^^} ${_DEVLOGS_COMPONENT}{${_DEVLOGS_INSTANCE}}${win}: $*"
+    local priority="user.$level"
+    # macOS unified logging drops user.debug from history; promote so log show works
+    if [[ "$level" == "debug" ]]; then priority="user.info"; fi
+    logger -t devlogs -p "$priority" "[devlogs] ${level^^} ${_DEVLOGS_COMPONENT}{${_DEVLOGS_INSTANCE}}${win}: $*"
 }

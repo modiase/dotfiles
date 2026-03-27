@@ -139,8 +139,31 @@
       }
     ];
     allow = [
-      # Broad tool groups (deny list gates destructive subcommands)
-      "Bash(git:*)"
+      # Git (read-only subcommands only)
+      "Bash(git status:*)"
+      "Bash(git diff:*)"
+      "Bash(git log:*)"
+      "Bash(git show:*)"
+      "Bash(git blame:*)"
+      "Bash(git shortlog:*)"
+      "Bash(git grep:*)"
+      "Bash(git branch:*)"
+      "Bash(git tag:*)"
+      "Bash(git remote:*)"
+      "Bash(git rev-parse:*)"
+      "Bash(git rev-list:*)"
+      "Bash(git describe:*)"
+      "Bash(git ls-files:*)"
+      "Bash(git ls-tree:*)"
+      "Bash(git ls-remote:*)"
+      "Bash(git cat-file:*)"
+      "Bash(git name-rev:*)"
+      "Bash(git reflog:*)"
+      "Bash(git stash list:*)"
+      "Bash(git worktree list:*)"
+      "Bash(git config --get:*)"
+      "Bash(git config --list:*)"
+      "Bash(git config -l:*)"
       "Bash(nix:*)"
       "Bash(nix-instantiate:*)"
       "Bash(nix-build:*)"
