@@ -16,7 +16,10 @@ let
 
   hookScript = pkgs.writeShellApplication {
     name = "claude-hook";
-    runtimeInputs = [ ding ];
+    runtimeInputs = [
+      ding
+      pkgs.jq
+    ];
     text = ''
       # shellcheck source=/dev/null
       source ${devlogsLib.shell}/lib/devlogs.sh

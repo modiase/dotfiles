@@ -41,7 +41,7 @@ notify() {
 }
 
 focus_pane() {
-    osascript -e 'tell app "Ghostty" to activate' 2>/dev/null || true
+    osascript -e 'tell app "Ghostty" to activate' >/dev/null 2>/dev/null || true
     if [[ -n "${TMUX_PANE:-}" ]]; then
         local win_idx
         win_idx=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
@@ -100,7 +100,7 @@ on_before_plan_write() {
     local input
     input=$(cat)
     local file_path
-    file_path=$(echo "$input" | jq -r '.tool_input.file_path // empty')
+    file_path=$(printf '%s\n' "$input" | jq -r '.tool_input.file_path // empty')
     clog debug "before-plan-write: file_path=$file_path"
 
     if [[ "$file_path" != */.gemini/*/plans/*.md ]]; then
@@ -132,15 +132,15 @@ on_permission() {
     clog debug "permission: request received input=$input"
 
     local tool_name msg detail
-    tool_name=$(echo "$input" | jq -r '.tool_name // empty' 2>/dev/null) || tool_name=""
+    tool_name=$(printf '%s\n' "$input" | jq -r '.tool_name // empty' 2>/dev/null) || tool_name=""
     detail=""
 
     case "$tool_name" in
         Bash | shell)
-            detail=$(echo "$input" | jq -r '.tool_input.command // empty' 2>/dev/null) || detail=""
+            detail=$(printf '%s\n' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null) || detail=""
             ;;
         Read | Write | Edit)
-            detail=$(echo "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null) || detail=""
+            detail=$(printf '%s\n' "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null) || detail=""
             ;;
     esac
 
@@ -161,7 +161,7 @@ on_permission() {
         result=$(ding -i 'Gemini CLI' -m "$msg" --actions 'Allow,Show')
         case "$result" in
             Allow)
-                focus_pane
+                clog info "permission: sending approval keystroke"
                 if [[ -n "${TMUX_PANE:-}" ]]; then
                     tmux send-keys -t "$TMUX_PANE" y 2>/dev/null || true
                 fi
