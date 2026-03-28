@@ -30,6 +30,8 @@ let
 
     set -g monitor-bell on
     set -g bell-action other
+
+    set-hook -g client-focus-in 'run-shell "osascript -e \"tell app \\\"Ghostty\\\" to return id of selected tab of front window\" 2>/dev/null | xargs -I{} tmux set-environment GHOSTTY_TAB_ID {}"'
   '';
 in
 {
