@@ -14,6 +14,16 @@
 - Apply ALL guidelines during the compacting process
 - Verify compliance after completion
 
+## Worktree Awareness
+
+**CRITICAL: When the working directory is a git worktree, ALL operations (file reads, edits, searches, agent prompts) MUST use the worktree path — NEVER the main repo path.**
+
+- The working directory is shown in the system prompt as "Primary working directory"
+- If it contains `/worktrees/`, you are in a worktree — use that path exclusively
+- When spawning subagents, pass the **worktree path** in prompts, not the main repo path
+- Example: if working in `/Users/moye/dotfiles/worktrees/my-branch/`, never reference `/Users/moye/dotfiles/` directly
+- Editing files in the main repo accidentally commits changes to `main`
+
 ## Activation and Deployment
 
 When asked use `bin/activate` to apply configuration changes. Do **not** call
@@ -153,7 +163,6 @@ Compare log timestamps against your last message to determine if activation ran 
   ```
 
   This is especially dangerous for:
-
   - Top-level code executed when sourcing files
   - Last statements in functions (function returns non-zero)
 
@@ -213,6 +222,7 @@ Compare log timestamps against your last message to determine if activation ran 
 - **Mark constants with `Final`**: Use `from typing import Final` and annotate module-level constants as `CONSTANT: Final = value`
 - **Benefits**: Prevents accidental mutation, enables hashing, clearer intent, type checkers catch reassignment
 - **Use `contextlib.suppress`** instead of `try: ... except SomeError: pass`:
+
   ```python
   # Good
   with contextlib.suppress(KeyError, TypeError):
