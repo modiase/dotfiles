@@ -39,6 +39,7 @@ func main() {
 	mux.HandleFunc("GET /api/health", h.Health)
 	mux.HandleFunc("GET /api/decks", h.ListDecks)
 	mux.HandleFunc("POST /api/decks", h.CreateDeck)
+	mux.HandleFunc("DELETE /api/decks/{id}", h.DeleteDeck)
 	mux.HandleFunc("GET /api/notes", h.ListNotes)
 	mux.HandleFunc("POST /api/notes", h.CreateNote)
 	mux.HandleFunc("DELETE /api/notes/{id}", h.DeleteNote)

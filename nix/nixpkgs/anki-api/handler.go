@@ -61,6 +61,20 @@ func (h *Handler) CreateDeck(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, map[string]int64{"id": id})
 }
 
+func (h *Handler) DeleteDeck(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, `{"error":"invalid deck id"}`, http.StatusBadRequest)
+		return
+	}
+	if err := h.db.DeleteDeck(id); err != nil {
+		serverError(w, "deleting deck", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
 func (h *Handler) ListNotes(w http.ResponseWriter, r *http.Request) {
 	deck := r.URL.Query().Get("deck")
 	if deck == "" {
