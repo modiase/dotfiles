@@ -42,6 +42,10 @@ fish/fish_variables
 # git
 worktrees/
 
+# Nix build artifacts
+/result
+/result-*/
+
 # Agents
 # symlinked to AGENTS.md
 /CLAUDE.md
