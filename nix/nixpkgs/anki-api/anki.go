@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand"
 	"strings"
 	"time"
@@ -62,7 +63,124 @@ func OpenAnkiDB(path string) (*AnkiDB, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("pinging sqlite: %w", err)
 	}
-	return &AnkiDB{db: db}, nil
+	a := &AnkiDB{db: db}
+	if err := a.ensureSchema(); err != nil {
+		_ = db.Close()
+		return nil, fmt.Errorf("ensuring schema: %w", err)
+	}
+	return a, nil
+}
+
+func (a *AnkiDB) ensureSchema() error {
+	var name string
+	err := a.db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name='col'").Scan(&name)
+	if err == nil {
+		return nil
+	}
+	if err != sql.ErrNoRows {
+		return fmt.Errorf("checking for col table: %w", err)
+	}
+
+	now := time.Now()
+	crt := now.Unix()
+	modelID := now.UnixMilli()
+
+	models := map[string]any{
+		fmt.Sprintf("%d", modelID): map[string]any{
+			"id":    modelID,
+			"name":  "Basic",
+			"type":  0,
+			"mod":   crt,
+			"usn":   -1,
+			"sortf": 0,
+			"flds": []map[string]any{
+				{"name": "Front", "ord": 0, "sticky": false, "rtl": false, "font": "Arial", "size": 20, "media": []any{}},
+				{"name": "Back", "ord": 1, "sticky": false, "rtl": false, "font": "Arial", "size": 20, "media": []any{}},
+			},
+			"tmpls": []map[string]any{
+				{"name": "Card 1", "ord": 0, "qfmt": "{{Front}}", "afmt": "{{FrontSide}}<hr id=answer>{{Back}}", "did": nil, "bqfmt": "", "bafmt": ""},
+			},
+			"tags": []any{},
+			"did":  1,
+			"css":  ".card { font-family: arial; font-size: 20px; text-align: center; color: black; background-color: white; }",
+		},
+	}
+
+	decks := map[string]any{
+		"1": map[string]any{
+			"id": 1, "name": "Default", "mod": crt, "usn": -1,
+			"lrnToday": [2]int{0, 0}, "revToday": [2]int{0, 0},
+			"newToday": [2]int{0, 0}, "timeToday": [2]int{0, 0},
+			"collapsed": false, "browserCollapsed": false,
+			"desc": "", "dyn": 0, "conf": 1, "extendNew": 0, "extendRev": 0,
+		},
+	}
+
+	dconf := map[string]any{
+		"1": map[string]any{
+			"id": 1, "name": "Default", "mod": 0, "usn": 0, "maxTaken": 60,
+			"autoplay": true, "timer": 0, "replayq": true,
+			"new":   map[string]any{"delays": []float64{1, 10}, "ints": []int{1, 4, 7}, "initialFactor": 2500, "order": 1, "perDay": 20},
+			"rev":   map[string]any{"perDay": 200, "ease4": 1.3, "fuzz": 0.05, "minSpace": 1, "ivlFct": 1, "maxIvl": 36500},
+			"lapse": map[string]any{"delays": []float64{10}, "mult": 0, "minInt": 1, "leechFails": 8, "leechAction": 0},
+		},
+	}
+
+	modelsJSON, _ := json.Marshal(models)
+	decksJSON, _ := json.Marshal(decks)
+	dconfJSON, _ := json.Marshal(dconf)
+
+	schema := `
+		CREATE TABLE IF NOT EXISTS col (
+			id INTEGER PRIMARY KEY, crt INTEGER NOT NULL, mod INTEGER NOT NULL,
+			scm INTEGER NOT NULL, ver INTEGER NOT NULL, dty INTEGER NOT NULL,
+			usn INTEGER NOT NULL, ls INTEGER NOT NULL, conf TEXT NOT NULL,
+			models TEXT NOT NULL, decks TEXT NOT NULL, dconf TEXT NOT NULL, tags TEXT NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS notes (
+			id INTEGER PRIMARY KEY, guid TEXT NOT NULL, mid INTEGER NOT NULL,
+			mod INTEGER NOT NULL, usn INTEGER NOT NULL, tags TEXT NOT NULL,
+			flds TEXT NOT NULL, sfld TEXT NOT NULL, csum INTEGER NOT NULL,
+			flags INTEGER NOT NULL, data TEXT NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS cards (
+			id INTEGER PRIMARY KEY, nid INTEGER NOT NULL, did INTEGER NOT NULL,
+			ord INTEGER NOT NULL, mod INTEGER NOT NULL, usn INTEGER NOT NULL,
+			type INTEGER NOT NULL, queue INTEGER NOT NULL, due INTEGER NOT NULL,
+			ivl INTEGER NOT NULL, factor INTEGER NOT NULL, reps INTEGER NOT NULL,
+			lapses INTEGER NOT NULL, "left" INTEGER NOT NULL, odue INTEGER NOT NULL,
+			odid INTEGER NOT NULL, flags INTEGER NOT NULL, data TEXT NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS revlog (
+			id INTEGER PRIMARY KEY, cid INTEGER NOT NULL, usn INTEGER NOT NULL,
+			ease INTEGER NOT NULL, ivl INTEGER NOT NULL, lastIvl INTEGER NOT NULL,
+			factor INTEGER NOT NULL, time INTEGER NOT NULL, type INTEGER NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS graves (
+			usn INTEGER NOT NULL, oid INTEGER NOT NULL, type INTEGER NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS ix_notes_usn ON notes (usn);
+		CREATE INDEX IF NOT EXISTS ix_notes_csum ON notes (csum);
+		CREATE INDEX IF NOT EXISTS ix_cards_usn ON cards (usn);
+		CREATE INDEX IF NOT EXISTS ix_cards_nid ON cards (nid);
+		CREATE INDEX IF NOT EXISTS ix_cards_sched ON cards (did, queue, due);
+		CREATE INDEX IF NOT EXISTS ix_revlog_usn ON revlog (usn);
+		CREATE INDEX IF NOT EXISTS ix_revlog_cid ON revlog (cid);
+	`
+	if _, err := a.db.Exec(schema); err != nil {
+		return fmt.Errorf("creating tables: %w", err)
+	}
+
+	_, err = a.db.Exec(
+		`INSERT INTO col (id, crt, mod, scm, ver, dty, usn, ls, conf, models, decks, dconf, tags)
+		 VALUES (1, ?, ?, ?, 11, 0, 0, 0, '{}', ?, ?, ?, '{}')`,
+		crt, crt, crt*1000, string(modelsJSON), string(decksJSON), string(dconfJSON),
+	)
+	if err != nil {
+		return fmt.Errorf("inserting default col: %w", err)
+	}
+	log.Println("initialised empty Anki collection with Basic model and Default deck")
+	return nil
 }
 
 func (a *AnkiDB) Close() error {
