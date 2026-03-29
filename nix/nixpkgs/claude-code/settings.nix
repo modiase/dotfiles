@@ -9,8 +9,9 @@
     deny = [
       # Secret access
       {
-        rule = "Bash(gcloud secrets:*)";
-        reason = "Secret access denied for security.";
+        rule = "Bash(gcloud secrets versions access:*)";
+        reason = "Do not directly view secrets. Consider a variable or comparing hashes instead.";
+        topLevelOnly = true;
       }
       {
         rule = "Bash(secrets get:*)";

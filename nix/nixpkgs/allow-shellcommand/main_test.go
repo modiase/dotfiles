@@ -9,6 +9,14 @@ import (
 	devlogs "devlogs-lib"
 )
 
+func commandStrings(infos []commandInfo) []string {
+	out := make([]string, len(infos))
+	for i, ci := range infos {
+		out[i] = ci.Command
+	}
+	return out
+}
+
 func TestRedirectsExcludedFromExtraction(t *testing.T) {
 	tests := []struct {
 		input string
@@ -24,11 +32,12 @@ func TestRedirectsExcludedFromExtraction(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got, err := extractCommands(tt.input)
+		raw, err := extractCommands(tt.input)
 		if err != nil {
 			t.Errorf("extractCommands(%q) error: %v", tt.input, err)
 			continue
 		}
+		got := commandStrings(raw)
 		if len(got) != len(tt.want) {
 			t.Errorf("extractCommands(%q) = %v, want %v", tt.input, got, tt.want)
 			continue
@@ -473,11 +482,12 @@ func TestExtractCommands(t *testing.T) {
 		{"LD_PRELOAD=/evil.so git status", []string{"LD_PRELOAD=/evil.so git status", "git status"}},
 	}
 	for _, tt := range tests {
-		got, err := extractCommands(tt.input)
+		raw, err := extractCommands(tt.input)
 		if err != nil {
 			t.Errorf("extractCommands(%q) error: %v", tt.input, err)
 			continue
 		}
+		got := commandStrings(raw)
 		if len(got) != len(tt.want) {
 			t.Errorf("extractCommands(%q) = %v, want %v", tt.input, got, tt.want)
 			continue
@@ -661,5 +671,245 @@ func TestGlobMatch(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("globMatch(%q, %q) = %v, want %v", tt.pattern, tt.s, got, tt.want)
 		}
+	}
+}
+
+func TestExtractCommandsCaptured(t *testing.T) {
+	tests := []struct {
+		input        string
+		wantCommands []string
+		wantCaptured []bool
+	}{
+		{
+			"gcloud secrets versions access latest --secret=foo",
+			[]string{"gcloud secrets versions access latest --secret=foo"},
+			[]bool{false},
+		},
+		{
+			"x=$(gcloud secrets versions access latest)",
+			[]string{"gcloud secrets versions access latest"},
+			[]bool{true},
+		},
+		{
+			"gcloud secrets versions access latest | sha256sum",
+			[]string{"gcloud secrets versions access latest", "sha256sum"},
+			[]bool{true, false},
+		},
+		{
+			"gcloud secrets versions access latest |& sha256sum",
+			[]string{"gcloud secrets versions access latest", "sha256sum"},
+			[]bool{true, false},
+		},
+		{
+			"a | b | c",
+			[]string{"a", "b", "c"},
+			[]bool{true, true, false},
+		},
+		{
+			"gcloud secrets versions access latest && echo done",
+			[]string{"gcloud secrets versions access latest", "echo done"},
+			[]bool{false, false},
+		},
+		{
+			"gcloud secrets versions access latest || echo failed",
+			[]string{"gcloud secrets versions access latest", "echo failed"},
+			[]bool{false, false},
+		},
+		{
+			"gcloud secrets versions access latest; echo done",
+			[]string{"gcloud secrets versions access latest", "echo done"},
+			[]bool{false, false},
+		},
+		{
+			"diff <(gcloud secrets versions access 1) <(gcloud secrets versions access 2)",
+			[]string{
+				"gcloud secrets versions access 1",
+				"gcloud secrets versions access 2",
+				"diff <(gcloud secrets versions access 1) <(gcloud secrets versions access 2)",
+			},
+			[]bool{true, true, false},
+		},
+		{
+			`echo "$(gcloud secrets versions access latest)"`,
+			[]string{"gcloud secrets versions access latest", `echo "$(gcloud secrets versions access latest)"`},
+			[]bool{true, false},
+		},
+		{
+			"echo $(echo $(whoami))",
+			[]string{"whoami", "echo $(whoami)", "echo $(echo $(whoami))"},
+			[]bool{true, true, false},
+		},
+		{
+			"FOO=$(whoami)",
+			[]string{"whoami"},
+			[]bool{true},
+		},
+		{
+			"a && b | c",
+			[]string{"a", "b", "c"},
+			[]bool{false, true, false},
+		},
+		{
+			"if true; then gcloud secrets versions access latest; fi",
+			[]string{"true", "gcloud secrets versions access latest"},
+			[]bool{false, false},
+		},
+		{
+			"(gcloud secrets versions access latest)",
+			[]string{"gcloud secrets versions access latest"},
+			[]bool{false},
+		},
+		{
+			"{ gcloud secrets versions access latest; }",
+			[]string{"gcloud secrets versions access latest"},
+			[]bool{false},
+		},
+		{
+			"x=$(a | b)",
+			[]string{"a", "b"},
+			[]bool{true, true},
+		},
+		{
+			"a & b",
+			[]string{"a", "b"},
+			[]bool{false, false},
+		},
+		{
+			"echo foo > $(whoami)",
+			[]string{"whoami", "echo foo"},
+			[]bool{true, false},
+		},
+		{
+			"for x in $(whoami); do echo $x; done",
+			[]string{"whoami", "echo $x"},
+			[]bool{true, false},
+		},
+		{
+			"PATH=/evil git status",
+			[]string{"PATH=/evil git status", "git status"},
+			[]bool{false, false},
+		},
+		{
+			"x=$(PATH=/evil git status)",
+			[]string{"PATH=/evil git status", "git status"},
+			[]bool{true, true},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := extractCommands(tt.input)
+			if err != nil {
+				t.Fatalf("extractCommands(%q) error: %v", tt.input, err)
+			}
+			if len(got) != len(tt.wantCommands) {
+				t.Fatalf("extractCommands(%q) returned %d commands %v, want %d %v",
+					tt.input, len(got), got, len(tt.wantCommands), tt.wantCommands)
+			}
+			for i := range got {
+				if got[i].Command != tt.wantCommands[i] {
+					t.Errorf("[%d] command = %q, want %q", i, got[i].Command, tt.wantCommands[i])
+				}
+				if got[i].Captured != tt.wantCaptured[i] {
+					t.Errorf("[%d] %q captured = %v, want %v", i, got[i].Command, got[i].Captured, tt.wantCaptured[i])
+				}
+			}
+		})
+	}
+}
+
+func TestExtractDenyRulesTopLevelOnly(t *testing.T) {
+	settings := &settingsFile{}
+	settings.Permissions.DenyRaw = []json.RawMessage{
+		json.RawMessage(`{"rule":"Bash(gcloud secrets versions access:*)","reason":"No secrets.","topLevelOnly":true}`),
+		json.RawMessage(`{"rule":"Bash(rm -rf:*)","reason":"Destructive."}`),
+	}
+
+	rules := extractDenyRules(settings)
+	if len(rules) != 2 {
+		t.Fatalf("expected 2 deny rules, got %d: %v", len(rules), rules)
+	}
+
+	if rules[0].Pattern != "gcloud secrets versions access*" {
+		t.Errorf("rules[0].Pattern = %q, want %q", rules[0].Pattern, "gcloud secrets versions access*")
+	}
+	if !rules[0].TopLevelOnly {
+		t.Errorf("rules[0].TopLevelOnly = false, want true")
+	}
+	if rules[0].Reason != "No secrets." {
+		t.Errorf("rules[0].Reason = %q, want %q", rules[0].Reason, "No secrets.")
+	}
+
+	if rules[1].TopLevelOnly {
+		t.Errorf("rules[1].TopLevelOnly = true, want false (default)")
+	}
+}
+
+func TestTopLevelOnlyDeny(t *testing.T) {
+	dir := t.TempDir()
+	settingsPath := filepath.Join(dir, "settings.json")
+	settings := `{
+		"permissions": {
+			"allow": ["Bash(gcloud*)", "Bash(git*)", "Bash(sha256sum*)", "Bash(diff*)", "Bash(echo*)", "Bash(true*)"],
+			"deny": [
+				{"rule":"Bash(gcloud secrets versions access:*)","reason":"Do not directly view secrets.","topLevelOnly":true},
+				"Bash(rm -rf*)"
+			]
+		}
+	}`
+	_ = os.WriteFile(settingsPath, []byte(settings), 0o644)
+	t.Setenv("CLAUDE_CONFIG_DIR", dir)
+
+	tests := []struct {
+		cmd  string
+		want string
+	}{
+		{"gcloud secrets versions access latest --secret=foo", "deny"},
+		{"x=$(gcloud secrets versions access latest --secret=foo)", "allow"},
+		{"gcloud secrets versions access latest --secret=foo | sha256sum", "allow"},
+		{"gcloud secrets versions access latest --secret=foo | diff - expected.txt", "allow"},
+		{"diff <(gcloud secrets versions access 1 --secret=foo) <(gcloud secrets versions access 2 --secret=foo)", "allow"},
+		{`echo "$(gcloud secrets versions access latest --secret=foo)" | sha256sum`, "allow"},
+		{"gcloud secrets versions access latest --secret=foo && echo done", "deny"},
+		{"gcloud secrets versions access latest --secret=foo || echo failed", "deny"},
+		{"gcloud secrets versions access latest --secret=foo; echo done", "deny"},
+		{"x=$(rm -rf /)", "deny"},
+		{"rm -rf /", "deny"},
+		{"gcloud secrets list", "allow"},
+		{"gcloud secrets describe my-secret", "allow"},
+		{"gcloud config list", "allow"},
+		{"if true; then gcloud secrets versions access latest --secret=foo; fi", "deny"},
+		{"if true; then x=$(gcloud secrets versions access latest --secret=foo); fi", "allow"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.cmd, func(t *testing.T) {
+			input := hookInput{}
+			input.ToolInput.Command = tt.cmd
+			data, _ := json.Marshal(input)
+
+			r, w, _ := os.Pipe()
+			_, _ = w.Write(data)
+			_ = w.Close()
+			origStdin := os.Stdin
+			os.Stdin = r
+			defer func() { os.Stdin = origStdin }()
+
+			log := devlogs.NewLogger("test")
+			got := run(log)
+
+			var action string
+			switch {
+			case got == nil:
+				action = "abstain"
+			case got.Action == "allow":
+				action = "allow"
+			case got.Action == "deny":
+				action = "deny"
+			}
+
+			if action != tt.want {
+				t.Errorf("run(%q) = %s, want %s", tt.cmd, action, tt.want)
+			}
+		})
 	}
 }

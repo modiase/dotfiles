@@ -30,9 +30,15 @@ type hookInput struct {
 	} `json:"tool_input"`
 }
 
+type commandInfo struct {
+	Command  string
+	Captured bool
+}
+
 type denyRule struct {
-	Pattern string
-	Reason  string
+	Pattern      string
+	Reason       string
+	TopLevelOnly bool
 }
 
 type settingsFile struct {
@@ -72,8 +78,9 @@ func extractDenyRules(settings *settingsFile) []denyRule {
 			continue
 		}
 		var obj struct {
-			Rule   string `json:"rule"`
-			Reason string `json:"reason"`
+			Rule         string `json:"rule"`
+			Reason       string `json:"reason"`
+			TopLevelOnly bool   `json:"topLevelOnly"`
 		}
 		if err := json.Unmarshal(raw, &obj); err == nil && obj.Rule != "" {
 			if p, ok := bashPattern(obj.Rule); ok {
@@ -81,7 +88,7 @@ func extractDenyRules(settings *settingsFile) []denyRule {
 				if reason == "" {
 					reason = "Command denied by policy."
 				}
-				rules = append(rules, denyRule{Pattern: p, Reason: reason})
+				rules = append(rules, denyRule{Pattern: p, Reason: reason, TopLevelOnly: obj.TopLevelOnly})
 			}
 		}
 	}
@@ -225,7 +232,7 @@ func printCallExpr(call *syntax.CallExpr) []string {
 	return []string{full, argsOnly}
 }
 
-func extractCommands(cmd string) ([]string, error) {
+func extractCommands(cmd string) ([]commandInfo, error) {
 	parser := syntax.NewParser(syntax.Variant(syntax.LangBash))
 	reader := strings.NewReader(cmd)
 	file, err := parser.Parse(reader, "")
@@ -233,205 +240,213 @@ func extractCommands(cmd string) ([]string, error) {
 		return nil, err
 	}
 
-	var commands []string
-	var walkStmts func(stmts []*syntax.Stmt)
-	var walkCmd func(cmd syntax.Command)
-	var walkWords func(words []*syntax.Word)
-	var walkWordParts func(parts []syntax.WordPart)
+	var commands []commandInfo
+	var walkStmts func(stmts []*syntax.Stmt, captured bool)
+	var walkStmt func(stmt *syntax.Stmt, captured bool)
+	var walkCmd func(cmd syntax.Command, captured bool)
+	var walkWords func(words []*syntax.Word, captured bool)
+	var walkWordParts func(parts []syntax.WordPart, captured bool)
 
-	walkWordParts = func(parts []syntax.WordPart) {
+	walkWordParts = func(parts []syntax.WordPart, captured bool) {
 		for _, part := range parts {
 			switch p := part.(type) {
 			case *syntax.CmdSubst:
-				walkStmts(p.Stmts)
+				walkStmts(p.Stmts, true)
 			case *syntax.ProcSubst:
-				walkStmts(p.Stmts)
+				walkStmts(p.Stmts, true)
 			case *syntax.DblQuoted:
-				walkWordParts(p.Parts)
+				walkWordParts(p.Parts, captured)
 			case *syntax.ParamExp:
 				if p.Index != nil {
-					walkArithm(p.Index, &commands, walkStmts, walkWordParts)
+					walkArithm(p.Index, &commands, captured, walkStmts, walkWordParts)
 				}
 				if p.Slice != nil {
 					if p.Slice.Offset != nil {
-						walkArithm(p.Slice.Offset, &commands, walkStmts, walkWordParts)
+						walkArithm(p.Slice.Offset, &commands, captured, walkStmts, walkWordParts)
 					}
 					if p.Slice.Length != nil {
-						walkArithm(p.Slice.Length, &commands, walkStmts, walkWordParts)
+						walkArithm(p.Slice.Length, &commands, captured, walkStmts, walkWordParts)
 					}
 				}
 				if p.Repl != nil {
 					if p.Repl.Orig != nil {
-						walkWordParts(p.Repl.Orig.Parts)
+						walkWordParts(p.Repl.Orig.Parts, captured)
 					}
 					if p.Repl.With != nil {
-						walkWordParts(p.Repl.With.Parts)
+						walkWordParts(p.Repl.With.Parts, captured)
 					}
 				}
 				if p.Exp != nil && p.Exp.Word != nil {
-					walkWordParts(p.Exp.Word.Parts)
+					walkWordParts(p.Exp.Word.Parts, captured)
 				}
 			case *syntax.ArithmExp:
 				if p.X != nil {
-					walkArithm(p.X, &commands, walkStmts, walkWordParts)
+					walkArithm(p.X, &commands, captured, walkStmts, walkWordParts)
 				}
 			}
 		}
 	}
 
-	walkWords = func(words []*syntax.Word) {
+	walkWords = func(words []*syntax.Word, captured bool) {
 		for _, word := range words {
-			walkWordParts(word.Parts)
+			walkWordParts(word.Parts, captured)
 		}
 	}
 
-	walkAssigns := func(assigns []*syntax.Assign) {
+	walkAssigns := func(assigns []*syntax.Assign, captured bool) {
 		for _, assign := range assigns {
 			if assign.Index != nil {
-				walkArithm(assign.Index, &commands, walkStmts, walkWordParts)
+				walkArithm(assign.Index, &commands, captured, walkStmts, walkWordParts)
 			}
 			if assign.Value != nil {
-				walkWordParts(assign.Value.Parts)
+				walkWordParts(assign.Value.Parts, captured)
 			}
 			if assign.Array != nil {
 				for _, elem := range assign.Array.Elems {
 					if elem.Index != nil {
-						walkArithm(elem.Index, &commands, walkStmts, walkWordParts)
+						walkArithm(elem.Index, &commands, captured, walkStmts, walkWordParts)
 					}
 					if elem.Value != nil {
-						walkWordParts(elem.Value.Parts)
+						walkWordParts(elem.Value.Parts, captured)
 					}
 				}
 			}
 		}
 	}
 
-	walkStmt := func(stmt *syntax.Stmt) {
+	walkStmt = func(stmt *syntax.Stmt, captured bool) {
 		if stmt == nil {
 			return
 		}
 		for _, redir := range stmt.Redirs {
 			if redir.Word != nil {
-				walkWordParts(redir.Word.Parts)
+				walkWordParts(redir.Word.Parts, captured)
 			}
 			if redir.Hdoc != nil {
-				walkWordParts(redir.Hdoc.Parts)
+				walkWordParts(redir.Hdoc.Parts, captured)
 			}
 		}
 		if stmt.Cmd != nil {
-			walkCmd(stmt.Cmd)
+			walkCmd(stmt.Cmd, captured)
 		}
 	}
 
-	walkStmts = func(stmts []*syntax.Stmt) {
+	walkStmts = func(stmts []*syntax.Stmt, captured bool) {
 		for _, stmt := range stmts {
-			walkStmt(stmt)
+			walkStmt(stmt, captured)
 		}
 	}
 
-	walkCmd = func(cmd syntax.Command) {
+	walkCmd = func(cmd syntax.Command, captured bool) {
 		switch c := cmd.(type) {
 		case *syntax.CallExpr:
-			walkAssigns(c.Assigns)
-			walkWords(c.Args)
+			walkAssigns(c.Assigns, captured)
+			walkWords(c.Args, captured)
 			if len(c.Args) > 0 {
-				commands = append(commands, printCallExpr(c)...)
+				for _, s := range printCallExpr(c) {
+					commands = append(commands, commandInfo{Command: s, Captured: captured})
+				}
 			}
 		case *syntax.BinaryCmd:
-			walkStmt(c.X)
-			walkStmt(c.Y)
+			if c.Op == syntax.Pipe || c.Op == syntax.PipeAll {
+				walkStmt(c.X, true)
+				walkStmt(c.Y, captured)
+			} else {
+				walkStmt(c.X, captured)
+				walkStmt(c.Y, captured)
+			}
 		case *syntax.Subshell:
-			walkStmts(c.Stmts)
+			walkStmts(c.Stmts, captured)
 		case *syntax.Block:
-			walkStmts(c.Stmts)
+			walkStmts(c.Stmts, captured)
 		case *syntax.IfClause:
-			walkStmts(c.Cond)
-			walkStmts(c.Then)
+			walkStmts(c.Cond, captured)
+			walkStmts(c.Then, captured)
 			if c.Else != nil {
-				walkCmd(c.Else)
+				walkCmd(c.Else, captured)
 			}
 		case *syntax.WhileClause:
-			walkStmts(c.Cond)
-			walkStmts(c.Do)
+			walkStmts(c.Cond, captured)
+			walkStmts(c.Do, captured)
 		case *syntax.ForClause:
 			switch loop := c.Loop.(type) {
 			case *syntax.WordIter:
-				walkWords(loop.Items)
+				walkWords(loop.Items, captured)
 			case *syntax.CStyleLoop:
 				if loop.Init != nil {
-					walkArithm(loop.Init, &commands, walkStmts, walkWordParts)
+					walkArithm(loop.Init, &commands, captured, walkStmts, walkWordParts)
 				}
 				if loop.Cond != nil {
-					walkArithm(loop.Cond, &commands, walkStmts, walkWordParts)
+					walkArithm(loop.Cond, &commands, captured, walkStmts, walkWordParts)
 				}
 				if loop.Post != nil {
-					walkArithm(loop.Post, &commands, walkStmts, walkWordParts)
+					walkArithm(loop.Post, &commands, captured, walkStmts, walkWordParts)
 				}
 			}
-			walkStmts(c.Do)
+			walkStmts(c.Do, captured)
 		case *syntax.CaseClause:
 			if c.Word != nil {
-				walkWordParts(c.Word.Parts)
+				walkWordParts(c.Word.Parts, captured)
 			}
 			for _, item := range c.Items {
-				walkWords(item.Patterns)
-				walkStmts(item.Stmts)
+				walkWords(item.Patterns, captured)
+				walkStmts(item.Stmts, captured)
 			}
 		case *syntax.FuncDecl:
-			walkStmt(c.Body)
+			walkStmt(c.Body, captured)
 		case *syntax.TestDecl:
 			if c.Description != nil {
-				walkWordParts(c.Description.Parts)
+				walkWordParts(c.Description.Parts, captured)
 			}
-			walkStmt(c.Body)
+			walkStmt(c.Body, captured)
 		case *syntax.DeclClause:
-			walkAssigns(c.Args)
+			walkAssigns(c.Args, captured)
 		case *syntax.TimeClause:
-			walkStmt(c.Stmt)
+			walkStmt(c.Stmt, captured)
 		case *syntax.CoprocClause:
-			walkStmt(c.Stmt)
+			walkStmt(c.Stmt, captured)
 		case *syntax.ArithmCmd:
 			if c.X != nil {
-				walkArithm(c.X, &commands, walkStmts, walkWordParts)
+				walkArithm(c.X, &commands, captured, walkStmts, walkWordParts)
 			}
 		case *syntax.TestClause:
-			walkTestExpr(c.X, &commands, walkStmts, walkWordParts)
+			walkTestExpr(c.X, &commands, captured, walkStmts, walkWordParts)
 		case *syntax.LetClause:
 			for _, expr := range c.Exprs {
-				walkArithm(expr, &commands, walkStmts, walkWordParts)
+				walkArithm(expr, &commands, captured, walkStmts, walkWordParts)
 			}
 		}
 	}
 
-	walkStmts(file.Stmts)
+	walkStmts(file.Stmts, false)
 	return commands, nil
 }
 
-func walkArithm(expr syntax.ArithmExpr, commands *[]string, walkStmts func([]*syntax.Stmt), walkWordParts func([]syntax.WordPart)) {
+func walkArithm(expr syntax.ArithmExpr, commands *[]commandInfo, captured bool, walkStmts func([]*syntax.Stmt, bool), walkWordParts func([]syntax.WordPart, bool)) {
 	switch e := expr.(type) {
 	case *syntax.Word:
-		walkWordParts(e.Parts)
+		walkWordParts(e.Parts, captured)
 	case *syntax.BinaryArithm:
-		walkArithm(e.X, commands, walkStmts, walkWordParts)
-		walkArithm(e.Y, commands, walkStmts, walkWordParts)
+		walkArithm(e.X, commands, captured, walkStmts, walkWordParts)
+		walkArithm(e.Y, commands, captured, walkStmts, walkWordParts)
 	case *syntax.UnaryArithm:
-		walkArithm(e.X, commands, walkStmts, walkWordParts)
+		walkArithm(e.X, commands, captured, walkStmts, walkWordParts)
 	case *syntax.ParenArithm:
-		walkArithm(e.X, commands, walkStmts, walkWordParts)
+		walkArithm(e.X, commands, captured, walkStmts, walkWordParts)
 	}
 }
 
-func walkTestExpr(expr syntax.TestExpr, commands *[]string, walkStmts func([]*syntax.Stmt), walkWordParts func([]syntax.WordPart)) {
+func walkTestExpr(expr syntax.TestExpr, commands *[]commandInfo, captured bool, walkStmts func([]*syntax.Stmt, bool), walkWordParts func([]syntax.WordPart, bool)) {
 	switch e := expr.(type) {
 	case *syntax.Word:
-		walkWordParts(e.Parts)
+		walkWordParts(e.Parts, captured)
 	case *syntax.BinaryTest:
-		walkTestExpr(e.X, commands, walkStmts, walkWordParts)
-		walkTestExpr(e.Y, commands, walkStmts, walkWordParts)
+		walkTestExpr(e.X, commands, captured, walkStmts, walkWordParts)
+		walkTestExpr(e.Y, commands, captured, walkStmts, walkWordParts)
 	case *syntax.UnaryTest:
-		walkTestExpr(e.X, commands, walkStmts, walkWordParts)
+		walkTestExpr(e.X, commands, captured, walkStmts, walkWordParts)
 	case *syntax.ParenTest:
-		walkTestExpr(e.X, commands, walkStmts, walkWordParts)
+		walkTestExpr(e.X, commands, captured, walkStmts, walkWordParts)
 	}
 }
 
@@ -534,17 +549,20 @@ func run(log *devlogs.Logger) *Decision {
 	allowPatterns := extractAllowPatterns(settings)
 
 	allAllowed := true
-	for _, cmd := range commands {
+	for _, ci := range commands {
 		for _, rule := range denyRules {
-			if globMatch(rule.Pattern, cmd) {
-				log.Info("denied cmd=" + cmd)
+			if rule.TopLevelOnly && ci.Captured {
+				continue
+			}
+			if globMatch(rule.Pattern, ci.Command) {
+				log.Info("denied cmd=" + ci.Command)
 				return deny(rule.Reason)
 			}
 		}
 
 		matched := false
 		for _, pattern := range allowPatterns {
-			if globMatch(pattern, cmd) {
+			if globMatch(pattern, ci.Command) {
 				matched = true
 				break
 			}
