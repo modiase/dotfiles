@@ -326,6 +326,10 @@
           type = "nixos";
           config = import ./systems/hermes { };
         };
+        hermes-vm = {
+          type = "nixos";
+          config = import ./systems/hermes/test-harness/vm.nix { };
+        };
         hestia = {
           type = "nixos";
           config = import ./systems/hestia {
