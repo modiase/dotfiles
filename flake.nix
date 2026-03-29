@@ -339,6 +339,10 @@
           type = "nixos";
           config = import ./systems/hekate { inherit sops-nix; };
         };
+        hekate-vm = {
+          type = "nixos";
+          config = import ./systems/hekate/test-harness/vm.nix { inherit sops-nix; };
+        };
         herakles = {
           type = "nixos";
           config = import ./systems/herakles;
