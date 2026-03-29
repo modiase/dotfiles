@@ -75,21 +75,24 @@ function M.close()
 end
 
 function M.accept_clear()
-	local fifo = vim.w[vim.api.nvim_get_current_win()].plan_fifo
-	M.close()
-	comments.write_fifo(fifo, "accept_clear")
+	local win = vim.api.nvim_get_current_win()
+	local buf = vim.api.nvim_win_get_buf(win)
+	comments.serialise_comments(buf, ns)
+	comments.write_fifo(vim.w[win].plan_fifo, "accept_clear")
 end
 
 function M.accept_auto()
-	local fifo = vim.w[vim.api.nvim_get_current_win()].plan_fifo
-	M.close()
-	comments.write_fifo(fifo, "accept_auto")
+	local win = vim.api.nvim_get_current_win()
+	local buf = vim.api.nvim_win_get_buf(win)
+	comments.serialise_comments(buf, ns)
+	comments.write_fifo(vim.w[win].plan_fifo, "accept_auto")
 end
 
 function M.accept_manual()
-	local fifo = vim.w[vim.api.nvim_get_current_win()].plan_fifo
-	M.close()
-	comments.write_fifo(fifo, "accept_manual")
+	local win = vim.api.nvim_get_current_win()
+	local buf = vim.api.nvim_win_get_buf(win)
+	comments.serialise_comments(buf, ns)
+	comments.write_fifo(vim.w[win].plan_fifo, "accept_manual")
 end
 
 function M.reject()
