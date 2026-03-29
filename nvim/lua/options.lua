@@ -94,6 +94,8 @@ vim.api.nvim_create_autocmd({ "TermOpen", "BufEnter" }, {
 	end,
 })
 
+require("conflict-markers")
+
 if vim.env.TMUX and vim.g.pager_mode ~= 1 then
 	local env_var = "NVIM_" .. vim.env.TMUX_PANE
 	vim.fn.system({ "tmux", "set-environment", env_var, vim.v.servername })
