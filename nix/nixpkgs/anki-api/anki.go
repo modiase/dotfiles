@@ -77,6 +77,7 @@ func OpenAnkiDB(path string) (*AnkiDB, error) {
 		return nil, fmt.Errorf("opening sqlite: %w", err)
 	}
 	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(0)
 	if err := db.Ping(); err != nil {
 		_ = db.Close()
 		return nil, fmt.Errorf("pinging sqlite: %w", err)
