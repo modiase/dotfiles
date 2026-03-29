@@ -36,6 +36,24 @@ type CreateNoteRequest struct {
 	Tags   string            `json:"tags"`
 }
 
+type UpdateNoteRequest struct {
+	Fields map[string]string `json:"fields"`
+	Tags   *string           `json:"tags"`
+}
+
+type Model struct {
+	ID     int64    `json:"id"`
+	Name   string   `json:"name"`
+	Fields []string `json:"fields"`
+}
+
+type Stats struct {
+	Notes  int `json:"notes"`
+	Cards  int `json:"cards"`
+	Decks  int `json:"decks"`
+	Models int `json:"models"`
+}
+
 type CreateNoteResponse struct {
 	NoteID  int64   `json:"note_id"`
 	CardIDs []int64 `json:"card_ids"`
@@ -581,6 +599,291 @@ func (a *AnkiDB) DeleteNote(noteID int64) error {
 	}
 
 	return tx.Commit()
+}
+
+func (a *AnkiDB) GetNote(id int64) (*Note, error) {
+	models, err := a.getNoteTypes()
+	if err != nil {
+		return nil, err
+	}
+	modelsByID := make(map[int64]noteType, len(models))
+	for _, m := range models {
+		modelsByID[m.ID] = m
+	}
+
+	var mid int64
+	var flds, tags string
+	err = a.db.QueryRow("SELECT mid, flds, tags FROM notes WHERE id = ?", id).Scan(&mid, &flds, &tags)
+	if err == sql.ErrNoRows {
+		return nil, fmt.Errorf("note %d not found", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("querying note: %w", err)
+	}
+
+	fields := make(map[string]string)
+	parts := strings.Split(flds, "\x1f")
+	if m, ok := modelsByID[mid]; ok {
+		for i, name := range m.Fields {
+			if i < len(parts) {
+				fields[name] = parts[i]
+			}
+		}
+	}
+
+	return &Note{
+		ID:     id,
+		Model:  modelsByID[mid].Name,
+		Fields: fields,
+		Tags:   strings.TrimSpace(tags),
+	}, nil
+}
+
+func (a *AnkiDB) UpdateNote(id int64, req UpdateNoteRequest) error {
+	models, err := a.getNoteTypes()
+	if err != nil {
+		return err
+	}
+	modelsByID := make(map[int64]noteType, len(models))
+	for _, m := range models {
+		modelsByID[m.ID] = m
+	}
+
+	tx, err := a.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var mid int64
+	var flds, tags string
+	err = tx.QueryRow("SELECT mid, flds, tags FROM notes WHERE id = ?", id).Scan(&mid, &flds, &tags)
+	if err == sql.ErrNoRows {
+		return fmt.Errorf("note %d not found", id)
+	}
+	if err != nil {
+		return fmt.Errorf("reading note: %w", err)
+	}
+
+	m, ok := modelsByID[mid]
+	if !ok {
+		return fmt.Errorf("model %d not found for note", mid)
+	}
+
+	parts := strings.Split(flds, "\x1f")
+	for len(parts) < len(m.Fields) {
+		parts = append(parts, "")
+	}
+
+	if req.Fields != nil {
+		for name, val := range req.Fields {
+			for i, fname := range m.Fields {
+				if fname == name {
+					parts[i] = val
+				}
+			}
+		}
+	}
+
+	newFlds := strings.Join(parts, "\x1f")
+	sortField := parts[0]
+	csum := checksumField(sortField)
+
+	newTags := tags
+	if req.Tags != nil {
+		newTags = normaliseTags(*req.Tags)
+	}
+
+	_, err = tx.Exec(
+		"UPDATE notes SET flds = ?, sfld = ?, csum = ?, tags = ?, mod = ?, usn = -1 WHERE id = ?",
+		newFlds, sortField, csum, newTags, time.Now().Unix(), id,
+	)
+	if err != nil {
+		return fmt.Errorf("updating note: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+func (a *AnkiDB) SearchNotes(query string, deckName string) ([]Note, error) {
+	models, err := a.getNoteTypes()
+	if err != nil {
+		return nil, err
+	}
+	modelsByID := make(map[int64]noteType, len(models))
+	for _, m := range models {
+		modelsByID[m.ID] = m
+	}
+
+	likeParam := "%" + query + "%"
+	var rows *sql.Rows
+
+	if deckName != "" {
+		decks, err := a.ListDecks()
+		if err != nil {
+			return nil, err
+		}
+		var deckID int64
+		for _, d := range decks {
+			if d.Name == deckName {
+				deckID = d.ID
+				break
+			}
+		}
+		if deckID == 0 {
+			return nil, fmt.Errorf("deck %q not found", deckName)
+		}
+		rows, err = a.db.Query(`
+			SELECT n.id, n.mid, n.flds, n.tags
+			FROM notes n
+			JOIN cards c ON c.nid = n.id
+			WHERE (n.flds LIKE ? OR n.tags LIKE ?) AND c.did = ?
+			GROUP BY n.id
+		`, likeParam, likeParam, deckID)
+		if err != nil {
+			return nil, fmt.Errorf("searching notes: %w", err)
+		}
+	} else {
+		rows, err = a.db.Query(`
+			SELECT id, mid, flds, tags FROM notes
+			WHERE flds LIKE ? OR tags LIKE ?
+		`, likeParam, likeParam)
+		if err != nil {
+			return nil, fmt.Errorf("searching notes: %w", err)
+		}
+	}
+	defer func() { _ = rows.Close() }()
+
+	var notes []Note
+	for rows.Next() {
+		var nid, mid int64
+		var flds, tags string
+		if err := rows.Scan(&nid, &mid, &flds, &tags); err != nil {
+			return nil, err
+		}
+		fields := make(map[string]string)
+		parts := strings.Split(flds, "\x1f")
+		if m, ok := modelsByID[mid]; ok {
+			for i, name := range m.Fields {
+				if i < len(parts) {
+					fields[name] = parts[i]
+				}
+			}
+		}
+		notes = append(notes, Note{
+			ID:     nid,
+			Model:  modelsByID[mid].Name,
+			Fields: fields,
+			Tags:   strings.TrimSpace(tags),
+		})
+	}
+	if notes == nil {
+		notes = []Note{}
+	}
+	return notes, rows.Err()
+}
+
+func (a *AnkiDB) UpdateDeck(deckID int64, name string) error {
+	tx, err := a.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var decksJSON string
+	if err := tx.QueryRow("SELECT decks FROM col").Scan(&decksJSON); err != nil {
+		return fmt.Errorf("reading decks: %w", err)
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(decksJSON), &raw); err != nil {
+		return fmt.Errorf("parsing decks JSON: %w", err)
+	}
+
+	idStr := fmt.Sprintf("%d", deckID)
+	existing, ok := raw[idStr]
+	if !ok {
+		return fmt.Errorf("deck %d not found", deckID)
+	}
+
+	for k, v := range raw {
+		if k == idStr {
+			continue
+		}
+		var d struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(v, &d); err == nil && d.Name == name {
+			return fmt.Errorf("deck %q already exists", name)
+		}
+	}
+
+	var deck map[string]any
+	if err := json.Unmarshal(existing, &deck); err != nil {
+		return fmt.Errorf("parsing deck: %w", err)
+	}
+	deck["name"] = name
+	deck["mod"] = time.Now().Unix()
+	deck["usn"] = -1
+
+	deckBytes, err := json.Marshal(deck)
+	if err != nil {
+		return err
+	}
+	raw[idStr] = deckBytes
+
+	updated, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec("UPDATE col SET decks = ?, mod = ?", string(updated), time.Now().Unix()); err != nil {
+		return fmt.Errorf("updating decks: %w", err)
+	}
+
+	return tx.Commit()
+}
+
+func (a *AnkiDB) GetNoteTypes() ([]Model, error) {
+	types, err := a.getNoteTypes()
+	if err != nil {
+		return nil, err
+	}
+	models := make([]Model, len(types))
+	for i, t := range types {
+		models[i] = Model{ID: t.ID, Name: t.Name, Fields: t.Fields}
+	}
+	return models, nil
+}
+
+func (a *AnkiDB) GetStats() (*Stats, error) {
+	var noteCount, cardCount int
+	if err := a.db.QueryRow("SELECT COUNT(*) FROM notes").Scan(&noteCount); err != nil {
+		return nil, fmt.Errorf("counting notes: %w", err)
+	}
+	if err := a.db.QueryRow("SELECT COUNT(*) FROM cards").Scan(&cardCount); err != nil {
+		return nil, fmt.Errorf("counting cards: %w", err)
+	}
+
+	var decksJSON, modelsJSON string
+	if err := a.db.QueryRow("SELECT decks, models FROM col").Scan(&decksJSON, &modelsJSON); err != nil {
+		return nil, fmt.Errorf("reading col: %w", err)
+	}
+
+	var decks map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(decksJSON), &decks); err != nil {
+		return nil, fmt.Errorf("parsing decks: %w", err)
+	}
+	var models map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(modelsJSON), &models); err != nil {
+		return nil, fmt.Errorf("parsing models: %w", err)
+	}
+
+	return &Stats{
+		Notes:  noteCount,
+		Cards:  cardCount,
+		Decks:  len(decks),
+		Models: len(models),
+	}, nil
 }
 
 func (a *AnkiDB) getNoteTypes() ([]noteType, error) {

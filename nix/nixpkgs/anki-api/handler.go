@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -119,6 +120,103 @@ func (h *Handler) DeleteNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
+}
+
+func (h *Handler) GetNote(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, `{"error":"invalid note id"}`, http.StatusBadRequest)
+		return
+	}
+	note, err := h.db.GetNote(id)
+	if err != nil {
+		if err.Error() == fmt.Sprintf("note %d not found", id) {
+			http.Error(w, `{"error":"note not found"}`, http.StatusNotFound)
+			return
+		}
+		serverError(w, "getting note", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, note)
+}
+
+func (h *Handler) UpdateNote(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, `{"error":"invalid note id"}`, http.StatusBadRequest)
+		return
+	}
+	var req UpdateNoteRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
+		return
+	}
+	if err := h.db.UpdateNote(id, req); err != nil {
+		if err.Error() == fmt.Sprintf("note %d not found", id) {
+			http.Error(w, `{"error":"note not found"}`, http.StatusNotFound)
+			return
+		}
+		serverError(w, "updating note", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+}
+
+func (h *Handler) SearchNotes(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query().Get("q")
+	if q == "" {
+		http.Error(w, `{"error":"q query parameter is required"}`, http.StatusBadRequest)
+		return
+	}
+	deck := r.URL.Query().Get("deck")
+	notes, err := h.db.SearchNotes(q, deck)
+	if err != nil {
+		serverError(w, "searching notes", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, notes)
+}
+
+func (h *Handler) UpdateDeck(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil {
+		http.Error(w, `{"error":"invalid deck id"}`, http.StatusBadRequest)
+		return
+	}
+	var req struct {
+		Name string `json:"name"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
+		return
+	}
+	if req.Name == "" {
+		http.Error(w, `{"error":"name is required"}`, http.StatusBadRequest)
+		return
+	}
+	if err := h.db.UpdateDeck(id, req.Name); err != nil {
+		serverError(w, "updating deck", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
+}
+
+func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
+	models, err := h.db.GetNoteTypes()
+	if err != nil {
+		serverError(w, "listing models", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, models)
+}
+
+func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
+	stats, err := h.db.GetStats()
+	if err != nil {
+		serverError(w, "getting stats", err)
+		return
+	}
+	writeJSON(w, http.StatusOK, stats)
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
