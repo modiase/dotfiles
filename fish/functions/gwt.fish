@@ -1,4 +1,4 @@
-argparse h/help f/from= F/force no-code 'c/code-args=' -- $argv; or return
+argparse h/help f/from= F/force K/kill-window no-code 'c/code-args=' -- $argv; or return
 
 set -g _gwt_code_args_val "$_flag_code_args"
 if set -q _flag_no_code
@@ -25,6 +25,7 @@ if set -q _flag_help
     echo "                       e.g. 'agent:claude,no-debug:' → --agent claude --no-debug"
     echo "  -f, --from=REF       Base ref for new worktree (default: default branch)"
     echo "  -F, --force          Force removal of unmerged branches (rm)"
+    echo "  -K, --kill-window    Kill tmux window after successful merge"
     echo "  -h, --help           Show this help"
     echo ""
     echo "Settings stored in .git/gwt/settings:"
@@ -49,6 +50,7 @@ if test "$common_dir" != "$actual_git_dir"
     if test "$argv[1]" = merge -a (count $argv) -le 1
         set -a reinvoke_argv (git branch --show-current)
     end
+    set -q _flag_kill_window; and set -a reinvoke_argv -K
     _gwt_cleanup
     env -C "$main_toplevel" fish -c 'gwt $argv' -- $reinvoke_argv
     return $status
@@ -388,6 +390,7 @@ switch "$argv[1]"
         _gwt_tidy
     case merge
         _gwt_merge $argv[2]
+        set -q _flag_kill_window; and test $status -eq 0; and tmux kill-window
     case new
         _gwt_health
         set -l _gwt_new_args $argv[2..]
