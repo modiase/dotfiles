@@ -278,6 +278,112 @@ func (a *AnkiDB) CreateDeck(name string) (int64, error) {
 	return id, tx.Commit()
 }
 
+func (a *AnkiDB) DeleteDeck(deckID int64) error {
+	if deckID == 1 {
+		return fmt.Errorf("cannot delete the Default deck")
+	}
+
+	tx, err := a.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	row := tx.QueryRow("SELECT decks FROM col")
+	var decksJSON string
+	if err := row.Scan(&decksJSON); err != nil {
+		return fmt.Errorf("reading decks: %w", err)
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(decksJSON), &raw); err != nil {
+		return fmt.Errorf("parsing decks JSON: %w", err)
+	}
+
+	idStr := fmt.Sprintf("%d", deckID)
+	if _, ok := raw[idStr]; !ok {
+		return fmt.Errorf("deck %d not found", deckID)
+	}
+	delete(raw, idStr)
+
+	// Collect note IDs for cards in this deck
+	noteRows, err := tx.Query("SELECT DISTINCT nid FROM cards WHERE did = ?", deckID)
+	if err != nil {
+		return fmt.Errorf("querying notes in deck: %w", err)
+	}
+	var noteIDs []int64
+	for noteRows.Next() {
+		var nid int64
+		if err := noteRows.Scan(&nid); err != nil {
+			_ = noteRows.Close()
+			return err
+		}
+		noteIDs = append(noteIDs, nid)
+	}
+	_ = noteRows.Close()
+	if err := noteRows.Err(); err != nil {
+		return fmt.Errorf("iterating note IDs: %w", err)
+	}
+
+	// Collect card IDs and record graves
+	cardRows, err := tx.Query("SELECT id FROM cards WHERE did = ?", deckID)
+	if err != nil {
+		return fmt.Errorf("querying cards in deck: %w", err)
+	}
+	var cardIDs []int64
+	for cardRows.Next() {
+		var cid int64
+		if err := cardRows.Scan(&cid); err != nil {
+			_ = cardRows.Close()
+			return err
+		}
+		cardIDs = append(cardIDs, cid)
+	}
+	_ = cardRows.Close()
+	if err := cardRows.Err(); err != nil {
+		return fmt.Errorf("iterating card IDs: %w", err)
+	}
+
+	if _, err := tx.Exec("DELETE FROM cards WHERE did = ?", deckID); err != nil {
+		return fmt.Errorf("deleting cards: %w", err)
+	}
+
+	for _, nid := range noteIDs {
+		// Only delete notes that have no cards remaining in other decks
+		var remaining int
+		if err := tx.QueryRow("SELECT COUNT(*) FROM cards WHERE nid = ?", nid).Scan(&remaining); err != nil {
+			return fmt.Errorf("checking remaining cards: %w", err)
+		}
+		if remaining == 0 {
+			if _, err := tx.Exec("DELETE FROM notes WHERE id = ?", nid); err != nil {
+				return fmt.Errorf("deleting note: %w", err)
+			}
+			if _, err := tx.Exec("INSERT INTO graves (usn, oid, type) VALUES (-1, ?, 1)", nid); err != nil {
+				return fmt.Errorf("recording note grave: %w", err)
+			}
+		}
+	}
+
+	for _, cid := range cardIDs {
+		if _, err := tx.Exec("INSERT INTO graves (usn, oid, type) VALUES (-1, ?, 0)", cid); err != nil {
+			return fmt.Errorf("recording card grave: %w", err)
+		}
+	}
+	if _, err := tx.Exec("INSERT INTO graves (usn, oid, type) VALUES (-1, ?, 2)", deckID); err != nil {
+		return fmt.Errorf("recording deck grave: %w", err)
+	}
+
+	updated, err := json.Marshal(raw)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec("UPDATE col SET decks = ?, mod = ?", string(updated), time.Now().Unix()); err != nil {
+		return fmt.Errorf("updating decks: %w", err)
+	}
+
+	return tx.Commit()
+}
+
 func (a *AnkiDB) ListNotes(deckName string) ([]Note, error) {
 	decks, err := a.ListDecks()
 	if err != nil {
