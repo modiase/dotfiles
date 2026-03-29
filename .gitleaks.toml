@@ -1,0 +1,4 @@
+[allowlist]
+  paths = [
+    "systems/hekate/test-harness/test-age-key\\.txt",
+  ]
