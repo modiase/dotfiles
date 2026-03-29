@@ -8,6 +8,7 @@ return {
 	opts = {
 		restart_highlighter = true,
 		anti_conceal = { enabled = false },
+		sign = { enabled = false },
 	},
 	config = function(_, opts)
 		for i = 1, 6 do
