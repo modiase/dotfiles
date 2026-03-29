@@ -15,6 +15,7 @@ in
 {
   programs.obsidian = {
     enable = true;
+    cli.enable = true;
 
     defaultSettings = {
       themes = [ obsidian-minimal-theme ];
