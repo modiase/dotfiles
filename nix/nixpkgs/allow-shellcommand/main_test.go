@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	devlogs "devlogs-lib"
+	"mvdan.cc/sh/v3/syntax"
 )
 
 func commandStrings(infos []commandInfo) []string {
@@ -480,6 +482,76 @@ func TestExtractCommands(t *testing.T) {
 		{"PATH=/evil git status", []string{"PATH=/evil git status", "git status"}},
 		{"FOO=bar BAZ=qux rm -rf /", []string{"FOO=bar BAZ=qux rm -rf /", "rm -rf /"}},
 		{"LD_PRELOAD=/evil.so git status", []string{"LD_PRELOAD=/evil.so git status", "git status"}},
+
+		// SSH unwrapping
+		{"ssh hermes 'git status'", []string{"git status"}},
+		{"ssh hermes systemctl status foo", []string{"systemctl status foo"}},
+		{"ssh hermes 'cmd1; cmd2'", []string{"cmd1", "cmd2"}},
+		{"ssh hermes 'cmd1 && cmd2'", []string{"cmd1", "cmd2"}},
+		{"ssh hermes 'cmd1 | cmd2'", []string{"cmd1", "cmd2"}},
+		{"ssh hermes 'echo hello'", []string{"echo hello"}},
+		{"ssh user@host 'git status'", []string{"git status"}},
+		{"ssh hermes 'ssh inner git status'", []string{"git status"}},
+
+		// SSH with various flags
+		{"ssh -v hermes 'git status'", []string{"git status"}},
+		{"ssh -vvv hermes 'git status'", []string{"git status"}},
+		{"ssh -p 2222 hermes 'ls -la'", []string{"ls -la"}},
+		{"ssh -p2222 hermes 'ls -la'", []string{"ls -la"}},
+		{"ssh -o StrictHostKeyChecking=no hermes 'git status'", []string{"git status"}},
+		{"ssh -oStrictHostKeyChecking=no hermes 'git log'", []string{"git log"}},
+		{"ssh -i /tmp/key hermes 'git status'", []string{"git status"}},
+		{"ssh -L 8080:localhost:80 hermes 'git log'", []string{"git log"}},
+		{"ssh -J jumphost hermes 'git status'", []string{"git status"}},
+		{"ssh -vp 2222 -i /tmp/key hermes 'git status'", []string{"git status"}},
+		{"ssh -- hermes 'git status'", []string{"git status"}},
+
+		// SSH kept as-is (no unwrap)
+		{"ssh hermes", []string{"ssh hermes"}},
+
+		// SSH with unresolvable args (walkWords catches substitutions)
+		{`ssh hermes "$(whoami)"`, []string{"whoami", `ssh hermes "$(whoami)"`}},
+
+		// bash/sh/zsh -c unwrapping
+		{"bash -c 'git status'", []string{"git status"}},
+		{"sh -c 'git status'", []string{"git status"}},
+		{"zsh -c 'git status'", []string{"git status"}},
+		{"bash -c 'cmd1; cmd2'", []string{"cmd1", "cmd2"}},
+		{"bash -c 'cmd1 | cmd2'", []string{"cmd1", "cmd2"}},
+		{"bash -xc 'git status'", []string{"git status"}},
+		{"bash -x -e -c 'git status'", []string{"git status"}},
+		{"bash -c 'echo $1' _ foo", []string{"echo $1"}},
+		{"bash -c 'ssh hermes git status'", []string{"git status"}},
+		{`ssh hermes 'bash -c "git status"'`, []string{"git status"}},
+
+		// bash/sh kept as-is (no unwrap)
+		{"bash", []string{"bash"}},
+		{"bash script.sh", []string{"bash script.sh"}},
+		{"bash -x script.sh", []string{"bash -x script.sh"}},
+
+		// nix-shell unwrapping
+		{"nix-shell --run 'git status'", []string{"git status"}},
+		{"nix-shell -p git --run 'git status'", []string{"git status"}},
+		{"nix-shell --pure -p git --run 'git log; git diff'", []string{"git log", "git diff"}},
+		{"nix-shell --command 'git status'", []string{"git status"}},
+		{"nix-shell --run 'cmd1 | cmd2'", []string{"cmd1", "cmd2"}},
+
+		// nix-shell kept as-is (no unwrap)
+		{"nix-shell", []string{"nix-shell"}},
+		{"nix-shell -p git", []string{"nix-shell -p git"}},
+		{"nix-shell default.nix", []string{"nix-shell default.nix"}},
+
+		// nix develop/shell unwrapping
+		{"nix develop --command git status", []string{"git status"}},
+		{"nix develop .#foo --command git log --oneline", []string{"git log --oneline"}},
+		{"nix shell nixpkgs#git --command git status", []string{"git status"}},
+		{`nix shell nixpkgs#git --command bash -c 'git status'`, []string{"git status"}},
+
+		// nix kept as-is (no unwrap)
+		{"nix build .#foo", []string{"nix build .#foo"}},
+		{"nix develop", []string{"nix develop"}},
+		{"nix shell nixpkgs#git", []string{"nix shell nixpkgs#git"}},
+		{"nix flake show", []string{"nix flake show"}},
 	}
 	for _, tt := range tests {
 		raw, err := extractCommands(tt.input)
@@ -607,6 +679,48 @@ func TestPipeSmuggling(t *testing.T) {
 
 		// parse failure → abstain (not fallback to whole-string match)
 		{"git status '", "abstain"},
+
+		// SSH wrapper unwrapping
+		{"ssh hermes 'git status'", "allow"},
+		{"ssh hermes 'git diff --stat'", "allow"},
+		{"ssh hermes 'git log; git diff'", "allow"},
+		{"ssh -p 2222 hermes 'git status'", "allow"},
+		{"ssh -v hermes 'git status'", "allow"},
+		{"ssh hermes 'rm -rf /'", "deny"},
+		{"ssh hermes 'git status; rm -rf /'", "deny"},
+		{"ssh hermes", "abstain"},
+		{"ssh hermes ls", "abstain"},
+		{`ssh hermes "$(rm -rf /)"`, "deny"},
+		{"ssh hermes 'ssh inner git status'", "allow"},
+		{"FOO=bar ssh hermes 'git status'", "abstain"},
+
+		// bash/sh/zsh -c unwrapping
+		{"bash -c 'git status'", "allow"},
+		{"sh -c 'git status'", "allow"},
+		{"zsh -c 'git status'", "allow"},
+		{"bash -c 'git log; git diff'", "allow"},
+		{"bash -c 'rm -rf /'", "deny"},
+		{"bash -c 'git status; rm -rf /'", "deny"},
+		{"bash", "abstain"},
+		{"bash script.sh", "abstain"},
+		{`bash -c "$(rm -rf /)"`, "deny"},
+		{"bash -c 'ssh hermes git status'", "allow"},
+		{`ssh hermes 'bash -c "git status"'`, "allow"},
+
+		// nix-shell unwrapping
+		{"nix-shell --run 'git status'", "allow"},
+		{"nix-shell -p git --run 'git diff'", "allow"},
+		{"nix-shell --run 'rm -rf /'", "deny"},
+		{"nix-shell --run 'git status; rm -rf /'", "deny"},
+		{"nix-shell -p git", "abstain"},
+		{"nix-shell", "abstain"},
+
+		// nix develop/shell unwrapping
+		{"nix develop --command git status", "allow"},
+		{"nix shell nixpkgs#git --command git log", "allow"},
+		{"nix develop --command rm -rf /", "deny"},
+		{"nix develop", "abstain"},
+		{"nix build .#foo", "abstain"},
 	}
 
 	for _, tt := range tests {
@@ -794,6 +908,89 @@ func TestExtractCommandsCaptured(t *testing.T) {
 			[]string{"PATH=/evil git status", "git status"},
 			[]bool{true, true},
 		},
+
+		// SSH captured propagation
+		{
+			"ssh hermes 'git status'",
+			[]string{"git status"},
+			[]bool{false},
+		},
+		{
+			"ssh hermes 'git status' | head -5",
+			[]string{"git status", "head -5"},
+			[]bool{true, false},
+		},
+		{
+			"ssh hermes 'git log | head'",
+			[]string{"git log", "head"},
+			[]bool{true, false},
+		},
+		{
+			"ssh hermes 'a | b' | cat",
+			[]string{"a", "b", "cat"},
+			[]bool{true, true, false},
+		},
+		{
+			"ssh hermes 'a; b'",
+			[]string{"a", "b"},
+			[]bool{false, false},
+		},
+		{
+			"ssh hermes 'a && b' | cat",
+			[]string{"a", "b", "cat"},
+			[]bool{true, true, false},
+		},
+
+		// bash -c captured propagation
+		{
+			"bash -c 'git status'",
+			[]string{"git status"},
+			[]bool{false},
+		},
+		{
+			"bash -c 'git status' | head -5",
+			[]string{"git status", "head -5"},
+			[]bool{true, false},
+		},
+		{
+			"bash -c 'a | b'",
+			[]string{"a", "b"},
+			[]bool{true, false},
+		},
+		{
+			"bash -c 'a | b' | cat",
+			[]string{"a", "b", "cat"},
+			[]bool{true, true, false},
+		},
+
+		// nix-shell captured propagation
+		{
+			"nix-shell --run 'git status'",
+			[]string{"git status"},
+			[]bool{false},
+		},
+		{
+			"nix-shell --run 'git status' | head -5",
+			[]string{"git status", "head -5"},
+			[]bool{true, false},
+		},
+		{
+			"nix-shell --run 'a | b'",
+			[]string{"a", "b"},
+			[]bool{true, false},
+		},
+
+		// nix develop captured propagation
+		{
+			"nix develop --command git status",
+			[]string{"git status"},
+			[]bool{false},
+		},
+		{
+			"nix develop --command git status | head -5",
+			[]string{"git status", "head -5"},
+			[]bool{true, false},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -909,6 +1106,143 @@ func TestTopLevelOnlyDeny(t *testing.T) {
 
 			if action != tt.want {
 				t.Errorf("run(%q) = %s, want %s", tt.cmd, action, tt.want)
+			}
+		})
+	}
+}
+
+func parseWords(s string) []*syntax.Word {
+	parser := syntax.NewParser(syntax.Variant(syntax.LangBash))
+	file, err := parser.Parse(strings.NewReader(s), "")
+	if err != nil || len(file.Stmts) == 0 {
+		return nil
+	}
+	call, ok := file.Stmts[0].Cmd.(*syntax.CallExpr)
+	if !ok || len(call.Args) == 0 {
+		return nil
+	}
+	return call.Args[1:]
+}
+
+func TestParseSSHArgs(t *testing.T) {
+	tests := []struct {
+		input   string
+		wantCmd string
+		wantOK  bool
+	}{
+		{"ssh hermes git status", "git status", true},
+		{"ssh hermes 'systemctl status foo'", "systemctl status foo", true},
+		{"ssh -v hermes git status", "git status", true},
+		{"ssh -vvv hermes git status", "git status", true},
+		{"ssh -p 2222 hermes git status", "git status", true},
+		{"ssh -p2222 hermes git status", "git status", true},
+		{"ssh -o StrictHostKeyChecking=no hermes git", "git", true},
+		{"ssh -oStrictHostKeyChecking=no hermes git", "git", true},
+		{"ssh -i /tmp/key hermes git status", "git status", true},
+		{"ssh -vp 2222 -i /tmp/key hermes git status", "git status", true},
+		{"ssh -- hermes git status", "git status", true},
+		{"ssh hermes", "", true},
+		{"ssh -N hermes", "", true},
+		{"ssh -v", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			args := parseWords(tt.input)
+			got, ok := extractSSHRemoteCmd(args)
+			if ok != tt.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tt.wantOK)
+			}
+			if got != tt.wantCmd {
+				t.Errorf("cmd = %q, want %q", got, tt.wantCmd)
+			}
+		})
+	}
+}
+
+func TestParseShellExecArgs(t *testing.T) {
+	tests := []struct {
+		input   string
+		wantCmd string
+		wantOK  bool
+	}{
+		{"bash -c 'git status'", "git status", true},
+		{"bash -c 'cmd1; cmd2'", "cmd1; cmd2", true},
+		{"bash -xc 'git status'", "git status", true},
+		{"bash -x -e -c 'git status'", "git status", true},
+		{"bash -o pipefail -c 'git status'", "git status", true},
+		{"bash", "", true},
+		{"bash script.sh", "", true},
+		{"bash -x script.sh", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			args := parseWords(tt.input)
+			got, ok := extractShellExecCmd(args)
+			if ok != tt.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tt.wantOK)
+			}
+			if got != tt.wantCmd {
+				t.Errorf("cmd = %q, want %q", got, tt.wantCmd)
+			}
+		})
+	}
+}
+
+func TestExtractNixShellCmd(t *testing.T) {
+	tests := []struct {
+		input   string
+		wantCmd string
+		wantOK  bool
+	}{
+		{"nix-shell --run 'git status'", "git status", true},
+		{"nix-shell -p git --run 'git status'", "git status", true},
+		{"nix-shell --pure --run 'git log'", "git log", true},
+		{"nix-shell --command 'git status'", "git status", true},
+		{"nix-shell", "", true},
+		{"nix-shell -p git", "", true},
+		{"nix-shell default.nix", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			args := parseWords(tt.input)
+			got, ok := extractNixShellCmd(args)
+			if ok != tt.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tt.wantOK)
+			}
+			if got != tt.wantCmd {
+				t.Errorf("cmd = %q, want %q", got, tt.wantCmd)
+			}
+		})
+	}
+}
+
+func TestExtractNixCmd(t *testing.T) {
+	tests := []struct {
+		input   string
+		wantCmd string
+		wantOK  bool
+	}{
+		{"nix develop --command git status", "git status", true},
+		{"nix develop .#foo --command git log --oneline", "git log --oneline", true},
+		{"nix shell nixpkgs#git --command git status", "git status", true},
+		{"nix develop", "", true},
+		{"nix shell nixpkgs#git", "", true},
+		{"nix build .#foo", "", true},
+		{"nix flake show", "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			args := parseWords(tt.input)
+			got, ok := extractNixCmd(args)
+			if ok != tt.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tt.wantOK)
+			}
+			if got != tt.wantCmd {
+				t.Errorf("cmd = %q, want %q", got, tt.wantCmd)
 			}
 		})
 	}
