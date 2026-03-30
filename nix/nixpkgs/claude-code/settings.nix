@@ -1,4 +1,8 @@
-{ hookBin, shellcommandHookBin }:
+{
+  hookBin,
+  shellcommandHookBin,
+  formatHookBin,
+}:
 {
   theme = "ANSI Dark";
   alwaysThinkingEnabled = true;
@@ -368,6 +372,17 @@
           {
             type = "command";
             command = "${hookBin} stop --wrapper-id $WRAPPER_ID";
+          }
+        ];
+      }
+    ];
+    PostToolUse = [
+      {
+        matcher = "Edit|Write";
+        hooks = [
+          {
+            type = "command";
+            command = formatHookBin;
           }
         ];
       }
