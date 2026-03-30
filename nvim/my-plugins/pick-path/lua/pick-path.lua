@@ -1,3 +1,4 @@
+local log = require("devlogs").new("pick-path")
 local LABELS = "asdfghjklASDFGHJKLqwertyuiopQWERTYUIOPzxcvbnmZXCVBNM1234567890"
 local PATH_PATTERN = [[\v[~.]?/?[a-zA-Z0-9_.@-]+(/[a-zA-Z0-9_.@-]+)+(:[0-9]+){,2}(:\{[^}]+\})?]]
 local LABEL_HL = "PickPathLabel"
@@ -20,8 +21,10 @@ local function resolve_path(raw)
 
 	local expanded = path:gsub("^~", vim.env.HOME)
 	if vim.fn.filereadable(expanded) ~= 1 then
+		log.debug("rejected (not readable): " .. raw)
 		return nil
 	end
+	log.debug("resolved: " .. raw .. " -> " .. expanded)
 	return { path = expanded, line = tonumber(line), col = tonumber(col), search = search }
 end
 
@@ -30,6 +33,7 @@ local M = {}
 function M.pick()
 	local top = vim.fn.line("w0")
 	local bot = vim.fn.line("w$")
+	log.debug("viewport scan: lines " .. top .. "-" .. bot)
 	local candidates = {}
 
 	for lnum = top, bot do
@@ -45,11 +49,18 @@ function M.pick()
 			if resolved then
 				resolved.lnum = lnum
 				resolved.col_start = s
+				local detail = "candidate: path=" .. resolved.path .. " line=" .. lnum .. " col=" .. s
+				if resolved.search then
+					detail = detail .. " search=" .. resolved.search
+				end
+				log.debug(detail)
 				table.insert(candidates, resolved)
 			end
 			start = e
 		end
 	end
+
+	log.debug("total candidates: " .. #candidates)
 
 	if #candidates == 0 then
 		vim.notify("No file paths found in viewport", vim.log.levels.INFO)
@@ -83,6 +94,7 @@ function M.pick()
 	end
 
 	local target = candidates[idx]
+	log.debug("selected: label=" .. char .. " path=" .. target.path)
 	vim.cmd("edit " .. vim.fn.fnameescape(target.path))
 	if target.search then
 		vim.fn.search(target.search, "cw")
