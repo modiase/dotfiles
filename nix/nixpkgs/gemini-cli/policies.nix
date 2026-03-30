@@ -127,6 +127,7 @@ let
     # keep-sorted start
     "bin/activate show"
     "curl"
+    "devlogs"
     "gh auth status"
     "gh issue list"
     "gh issue status"
