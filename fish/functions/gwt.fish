@@ -390,7 +390,8 @@ switch "$argv[1]"
         _gwt_tidy
     case merge
         _gwt_merge $argv[2]
-        set -q _flag_kill_window; and test $status -eq 0; and tmux kill-window
+        set -l merge_status $status
+        set -q _flag_kill_window; and test $merge_status -eq 0; and tmux kill-window
     case new
         _gwt_health
         set -l _gwt_new_args $argv[2..]
