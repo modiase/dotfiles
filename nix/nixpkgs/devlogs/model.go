@@ -244,6 +244,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "l":
 			for i, lv := range levelCycle {
 				if lv == m.levelFilter {
+					m.levelFilter = levelCycle[(i-1+len(levelCycle))%len(levelCycle)]
+					m.refilter()
+					if m.follow {
+						m.scrollToBottom()
+					}
+					return m, nil
+				}
+			}
+			m.levelFilter = levelCycle[len(levelCycle)-1]
+			m.refilter()
+			if m.follow {
+				m.scrollToBottom()
+			}
+			return m, nil
+		case "L":
+			for i, lv := range levelCycle {
+				if lv == m.levelFilter {
 					m.levelFilter = levelCycle[(i+1)%len(levelCycle)]
 					m.refilter()
 					if m.follow {
@@ -412,9 +429,9 @@ func (m model) View() string {
 		b.WriteString(m.filter.View())
 	} else if m.filter.Value() != "" {
 		b.WriteString(helpStyle.Render(fmt.Sprintf(" / %s", m.filter.Value())))
-		b.WriteString(helpStyle.Render("    esc reset  ↑↓ scroll  a all/window  l level  H history  c clear  f follow  q quit"))
+		b.WriteString(helpStyle.Render("    esc reset  ↑↓ scroll  a all/window  l/L level  H history  c clear  f follow  q quit"))
 	} else {
-		b.WriteString(helpStyle.Render(" / filter  ↑↓ scroll  a all/window  l level  H history  c clear  f follow  q quit"))
+		b.WriteString(helpStyle.Render(" / filter  ↑↓ scroll  a all/window  l/L level  H history  c clear  f follow  q quit"))
 	}
 
 	return b.String()
