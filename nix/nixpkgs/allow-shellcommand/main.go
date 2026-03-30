@@ -232,6 +232,216 @@ func printCallExpr(call *syntax.CallExpr) []string {
 	return []string{full, argsOnly}
 }
 
+func canResolveWord(word *syntax.Word) bool {
+	for _, part := range word.Parts {
+		switch p := part.(type) {
+		case *syntax.Lit:
+		case *syntax.SglQuoted:
+			if p.Dollar {
+				return false
+			}
+		case *syntax.DblQuoted:
+			for _, dp := range p.Parts {
+				if _, ok := dp.(*syntax.Lit); !ok {
+					return false
+				}
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func shellQuote(s string) string {
+	if s == "" || strings.ContainsAny(s, " \t\n'\"\\$`|&;(){}[]!?*~#<>") {
+		return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+	}
+	return s
+}
+
+var sshFlagsWithArg = map[byte]bool{
+	'b': true, 'c': true, 'D': true, 'E': true, 'e': true,
+	'F': true, 'I': true, 'i': true, 'J': true, 'L': true,
+	'l': true, 'm': true, 'O': true, 'o': true, 'p': true,
+	'Q': true, 'R': true, 'S': true, 'W': true, 'w': true,
+}
+
+func extractSSHRemoteCmd(args []*syntax.Word) (string, bool) {
+	printer := syntax.NewPrinter()
+	resolved := make([]string, len(args))
+	for i, w := range args {
+		if !canResolveWord(w) {
+			return "", false
+		}
+		resolved[i] = resolveWord(w, printWord(printer, w))
+	}
+
+	i := 0
+	for i < len(resolved) {
+		arg := resolved[i]
+		if arg == "--" {
+			i++
+			break
+		}
+		if !strings.HasPrefix(arg, "-") || len(arg) == 1 {
+			break
+		}
+		flagStr := arg[1:]
+		consumeNext := false
+		for k := 0; k < len(flagStr); k++ {
+			if sshFlagsWithArg[flagStr[k]] {
+				if k+1 < len(flagStr) {
+					break
+				}
+				consumeNext = true
+				break
+			}
+		}
+		i++
+		if consumeNext && i < len(resolved) {
+			i++
+		}
+	}
+
+	if i >= len(resolved) {
+		return "", true
+	}
+	i++
+	if i >= len(resolved) {
+		return "", true
+	}
+	return strings.Join(resolved[i:], " "), true
+}
+
+func extractShellExecCmd(args []*syntax.Word) (string, bool) {
+	printer := syntax.NewPrinter()
+	for i := 0; i < len(args); i++ {
+		if !canResolveWord(args[i]) {
+			return "", false
+		}
+		arg := resolveWord(args[i], printWord(printer, args[i]))
+		if !strings.HasPrefix(arg, "-") || len(arg) == 1 {
+			continue
+		}
+		flagStr := arg[1:]
+		skipNext := false
+		for k := 0; k < len(flagStr); k++ {
+			ch := flagStr[k]
+			if ch == 'c' {
+				if k+1 < len(flagStr) {
+					return flagStr[k+1:], true
+				}
+				i++
+				if i >= len(args) {
+					return "", true
+				}
+				if !canResolveWord(args[i]) {
+					return "", false
+				}
+				return resolveWord(args[i], printWord(printer, args[i])), true
+			}
+			if ch == 'o' {
+				if k+1 < len(flagStr) {
+					break
+				}
+				skipNext = true
+				break
+			}
+		}
+		if skipNext {
+			i++
+		}
+	}
+	return "", true
+}
+
+func extractNixShellCmd(args []*syntax.Word) (string, bool) {
+	printer := syntax.NewPrinter()
+	for i := 0; i < len(args); i++ {
+		if !canResolveWord(args[i]) {
+			return "", false
+		}
+		arg := resolveWord(args[i], printWord(printer, args[i]))
+		if arg == "--run" || arg == "--command" {
+			i++
+			if i >= len(args) {
+				return "", true
+			}
+			if !canResolveWord(args[i]) {
+				return "", false
+			}
+			return resolveWord(args[i], printWord(printer, args[i])), true
+		}
+	}
+	return "", true
+}
+
+func extractNixCmd(args []*syntax.Word) (string, bool) {
+	if len(args) == 0 {
+		return "", true
+	}
+	printer := syntax.NewPrinter()
+	if !canResolveWord(args[0]) {
+		return "", false
+	}
+	subcmd := resolveWord(args[0], printWord(printer, args[0]))
+	if subcmd != "develop" && subcmd != "shell" {
+		return "", true
+	}
+	for i := 1; i < len(args); i++ {
+		if !canResolveWord(args[i]) {
+			return "", false
+		}
+		arg := resolveWord(args[i], printWord(printer, args[i]))
+		if arg == "--command" {
+			remaining := args[i+1:]
+			if len(remaining) == 0 {
+				return "", true
+			}
+			parts := make([]string, len(remaining))
+			for j, w := range remaining {
+				if !canResolveWord(w) {
+					return "", false
+				}
+				parts[j] = shellQuote(resolveWord(w, printWord(printer, w)))
+			}
+			return strings.Join(parts, " "), true
+		}
+	}
+	return "", true
+}
+
+var transparentWrappers = map[string]func([]*syntax.Word) (string, bool){
+	"ssh":       extractSSHRemoteCmd,
+	"bash":      extractShellExecCmd,
+	"sh":        extractShellExecCmd,
+	"zsh":       extractShellExecCmd,
+	"nix-shell": extractNixShellCmd,
+	"nix":       extractNixCmd,
+}
+
+func unwrapTransparentWrapper(call *syntax.CallExpr) []commandInfo {
+	if len(call.Args) == 0 || len(call.Assigns) > 0 {
+		return nil
+	}
+	printer := syntax.NewPrinter()
+	name := resolveWord(call.Args[0], printWord(printer, call.Args[0]))
+	extractFn, ok := transparentWrappers[name]
+	if !ok {
+		return nil
+	}
+	innerCmd, canResolve := extractFn(call.Args[1:])
+	if !canResolve || innerCmd == "" {
+		return nil
+	}
+	cmds, err := extractCommands(innerCmd)
+	if err != nil {
+		return nil
+	}
+	return cmds
+}
+
 func extractCommands(cmd string) ([]commandInfo, error) {
 	parser := syntax.NewParser(syntax.Variant(syntax.LangBash))
 	reader := strings.NewReader(cmd)
@@ -342,7 +552,14 @@ func extractCommands(cmd string) ([]commandInfo, error) {
 		case *syntax.CallExpr:
 			walkAssigns(c.Assigns, captured)
 			walkWords(c.Args, captured)
-			if len(c.Args) > 0 {
+			if inner := unwrapTransparentWrapper(c); inner != nil {
+				for _, ic := range inner {
+					commands = append(commands, commandInfo{
+						Command:  ic.Command,
+						Captured: captured || ic.Captured,
+					})
+				}
+			} else if len(c.Args) > 0 {
 				for _, s := range printCallExpr(c) {
 					commands = append(commands, commandInfo{Command: s, Captured: captured})
 				}
