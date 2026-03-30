@@ -20,7 +20,8 @@ local function resolve_path(raw)
 	end
 
 	local expanded = path:gsub("^~", vim.env.HOME)
-	if vim.fn.filereadable(expanded) ~= 1 then
+	local stat = vim.uv.fs_stat(expanded)
+	if not stat or stat.type ~= "file" then
 		log.debug("rejected (not readable): " .. raw)
 		return nil
 	end
