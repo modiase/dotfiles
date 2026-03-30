@@ -5,7 +5,10 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
+	"github.com/atotto/clipboard"
+	osc52 "github.com/aymanbagabas/go-osc52/v2"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -26,8 +29,11 @@ var (
 )
 
 type historyEntriesMsg []LogEntry
+type yankMsg struct{}
+type yankClearMsg struct{}
 
 type model struct {
+	yanked          bool
 	entries         []LogEntry
 	filtered        []int
 	filter          textinput.Model
@@ -151,6 +157,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case streamDoneMsg:
+		return m, nil
+
+	case yankMsg:
+		m.yanked = true
+		return m, tea.Tick(2*time.Second, func(time.Time) tea.Msg { return yankClearMsg{} })
+
+	case yankClearMsg:
+		m.yanked = false
 		return m, nil
 
 	case spinner.TickMsg:
@@ -282,6 +296,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.historyIdx = (m.historyIdx + 1) % len(historyPresets)
 			m.fetchingHistory = true
 			return m, tea.Batch(fetchHistory(historyPresets[m.historyIdx]), m.spinner.Tick)
+		case "y":
+			var sb strings.Builder
+			for i, idx := range m.filtered {
+				if i > 0 {
+					sb.WriteByte('\n')
+				}
+				sb.WriteString(formatEntry(m.entries[idx]))
+			}
+			text := sb.String()
+			return m, func() tea.Msg {
+				_, _ = osc52.New(text).WriteTo(os.Stderr)
+				_ = clipboard.WriteAll(text)
+				return yankMsg{}
+			}
 		case "f":
 			m.follow = !m.follow
 			if m.follow {
@@ -382,8 +410,13 @@ func (m model) View() string {
 		historyTag = dimStyle.Render("[" + ht + "]")
 	}
 
+	yankTag := ""
+	if m.yanked {
+		yankTag = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Render("[copied]")
+	}
+
 	tags := followTag
-	for _, t := range []string{levelTag, historyTag} {
+	for _, t := range []string{levelTag, historyTag, yankTag} {
 		if t != "" {
 			tags += " " + t
 		}
@@ -429,9 +462,9 @@ func (m model) View() string {
 		b.WriteString(m.filter.View())
 	} else if m.filter.Value() != "" {
 		b.WriteString(helpStyle.Render(fmt.Sprintf(" / %s", m.filter.Value())))
-		b.WriteString(helpStyle.Render("    esc reset  ↑↓ scroll  a all/window  l/L level  H history  c clear  f follow  q quit"))
+		b.WriteString(helpStyle.Render("    esc reset  ↑↓ scroll  a all/window  l/L level  H history  c clear  f follow  y yank  q quit"))
 	} else {
-		b.WriteString(helpStyle.Render(" / filter  ↑↓ scroll  a all/window  l/L level  H history  c clear  f follow  q quit"))
+		b.WriteString(helpStyle.Render(" / filter  ↑↓ scroll  a all/window  l/L level  H history  c clear  f follow  y yank  q quit"))
 	}
 
 	return b.String()
