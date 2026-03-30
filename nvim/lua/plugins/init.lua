@@ -8,7 +8,6 @@ end
 local pager_plugins = {
 	["base16"] = true,
 	["treesitter"] = true,
-	["airline"] = true,
 	["nvim-web-devicons"] = true,
 	["neoscroll"] = true,
 	["tmux"] = true,
