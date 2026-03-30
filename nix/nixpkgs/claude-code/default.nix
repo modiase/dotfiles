@@ -70,10 +70,25 @@ let
     '';
   };
 
+  formatHookScript = pkgs.writeShellApplication {
+    name = "claude-format-hook";
+    runtimeInputs = [
+      pkgs.jq
+      pkgs.nix
+    ];
+    text = ''
+      # shellcheck source=/dev/null
+      source ${devlogsLib.shell}/lib/devlogs.sh
+      devlogs_init claude-format-hook
+      ${builtins.readFile ./scripts/format-hook.sh}
+    '';
+  };
+
   hookBin = "${hookScript}/bin/claude-hook";
   shellcommandHookBin = "${allowShellcommand}/bin/allow-shellcommand";
+  formatHookBin = "${formatHookScript}/bin/claude-format-hook";
 
-  baseSettings = import ./settings.nix { inherit hookBin shellcommandHookBin; };
+  baseSettings = import ./settings.nix { inherit hookBin shellcommandHookBin formatHookBin; };
 
   settings = baseSettings // {
     hooks = baseSettings.hooks // {
@@ -88,7 +103,7 @@ let
           ];
         }
       ];
-      PostToolUse = [
+      PostToolUse = baseSettings.hooks.PostToolUse ++ [
         {
           matcher = "ExitPlanMode";
           hooks = [

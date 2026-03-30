@@ -107,16 +107,6 @@ Compare log timestamps against your last message to determine if activation ran 
 - **Avoid `git add -A`** which indiscriminately stages everything including garbage
 - **Review before staging**: check `git status` to identify what's new vs modified
 
-## Pre-commit Checks
-
-- Default: run `git add -u && pre-commit run` (stages tracked changes, checks staged files)
-- To include new files: `git add -u && git add path/to/new/file.nix && pre-commit run`
-- If you need to lint without staging: run `pre-commit run --files $(git diff --name-only)` to check only your working changes
-- When `.pre-commit-config.yaml` changes or after adding new hooks: run `pre-commit run --all-files` (aka `-a`) once to baseline the repo, then revert to the default flow above
-- Address all issues reported by hooks, then re-run the relevant `pre-commit run` until clean
-- Run checks inside the activate shell when applicable to ensure the correct environment
-- Do not bypass or disable hooks; fix code to satisfy them unless explicitly instructed otherwise
-
 ## Shell Scripting Style
 
 - **Prefer `&&` chaining over if/else** for simple conditionals:
@@ -262,7 +252,7 @@ Compare log timestamps against your last message to determine if activation ran 
 
 When creating implementation plans, you MUST include an explicit cleanup step at the end:
 
-1. **Final step: "Run pre-commit checks and clean up per AGENTS.md"** - Every plan must end with verification
+1. **Final step: "Clean up per AGENTS.md"** - Every plan must end with verification
 2. **Apply code quality guidelines** - Review changes against Shell Scripting Style, Configuration Best Practices, etc.
 3. **Verify no regressions** - Ensure fixes don't introduce new issues (e.g., `set -e` compatibility)
 
