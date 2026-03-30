@@ -251,6 +251,7 @@
       "Bash(curl:*)"
       "Bash(wget:*)"
       "Bash(bat:*)"
+      "Bash(devlogs:*)"
       "Bash(shellcheck:*)"
       "Bash(tldr:*)"
       "Bash(man:*)"
