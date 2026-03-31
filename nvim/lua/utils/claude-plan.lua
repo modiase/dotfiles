@@ -79,6 +79,7 @@ function M.accept_clear()
 	local buf = vim.api.nvim_win_get_buf(win)
 	comments.serialise_comments(buf, ns)
 	comments.write_fifo(vim.w[win].plan_fifo, "accept_clear")
+	vim.notify("Plan accepted", vim.log.levels.INFO)
 end
 
 function M.accept_auto()
@@ -86,6 +87,7 @@ function M.accept_auto()
 	local buf = vim.api.nvim_win_get_buf(win)
 	comments.serialise_comments(buf, ns)
 	comments.write_fifo(vim.w[win].plan_fifo, "accept_auto")
+	vim.notify("Plan accepted", vim.log.levels.INFO)
 end
 
 function M.accept_manual()
@@ -93,6 +95,7 @@ function M.accept_manual()
 	local buf = vim.api.nvim_win_get_buf(win)
 	comments.serialise_comments(buf, ns)
 	comments.write_fifo(vim.w[win].plan_fifo, "accept_manual")
+	vim.notify("Plan accepted", vim.log.levels.INFO)
 end
 
 function M.reject()
