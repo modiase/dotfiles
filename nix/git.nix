@@ -19,9 +19,16 @@
       pull.rebase = true;
       init.defaultBranch = "main";
       interactive.diffFilter = "delta --color-only";
-      delta.navigate = true;
-      delta."syntax-theme" = "ansi";
-      merge.conflictstyle = "diff3";
+      delta = {
+        navigate = true;
+        side-by-side = true;
+        line-numbers = true;
+        hyperlinks = true;
+        file-decoration-style = "box";
+        hunk-header-decoration-style = "box ul";
+        syntax-theme = "ansi";
+      };
+      merge.conflictstyle = "zdiff3";
       diff.colorMoved = "default";
     };
     includes = [
