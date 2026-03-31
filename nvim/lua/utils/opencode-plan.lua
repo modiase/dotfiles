@@ -64,7 +64,16 @@ function M.reject()
 	end
 
 	if has_comments then
-		do_reject("Please address all comments in the plan")
+		vim.ui.input({ prompt = "Additional comment (optional): " }, function(input)
+			if not input then
+				return
+			end
+			local reason = "Please address all comments in the plan"
+			if input ~= "" then
+				reason = reason .. "\n\n" .. input
+			end
+			do_reject(reason)
+		end)
 		return
 	end
 
