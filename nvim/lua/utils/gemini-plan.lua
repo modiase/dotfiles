@@ -68,6 +68,7 @@ function M.accept_auto()
 	log.info("accept_auto")
 	comments.serialise_comments(buf, ns)
 	comments.write_fifo(vim.w[win].plan_fifo, "accept_auto")
+	vim.notify("Plan accepted", vim.log.levels.INFO)
 end
 
 function M.accept_manual()
@@ -76,6 +77,7 @@ function M.accept_manual()
 	log.info("accept_manual")
 	comments.serialise_comments(buf, ns)
 	comments.write_fifo(vim.w[win].plan_fifo, "accept_manual")
+	vim.notify("Plan accepted", vim.log.levels.INFO)
 end
 
 function M.reject()

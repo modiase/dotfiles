@@ -50,6 +50,7 @@ function M.accept()
 	log.info("accept")
 	M.close()
 	comments.write_fifo(fifo, "accept")
+	vim.notify("Plan accepted", vim.log.levels.INFO)
 end
 
 function M.reject()
