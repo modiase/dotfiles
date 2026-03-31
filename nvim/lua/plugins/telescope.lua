@@ -1,7 +1,3 @@
-local function is_citc()
-	return vim.fn.getcwd():match("^/google/src/cloud/") ~= nil
-end
-
 return {
 	"nvim-telescope/telescope.nvim",
 	dependencies = {
@@ -151,7 +147,7 @@ return {
 
 		local function get_grep_picker()
 			local picker = require("telescope").extensions.live_grep_args.live_grep_args
-			if is_citc() then
+			if require("utils.vcs").is_citc() then
 				picker = require("telescope").extensions.codesearch.find_query
 			end
 			return picker
@@ -171,7 +167,7 @@ return {
 			local picker = function(opts)
 				require("telescope.builtin").find_files(vim.tbl_extend("force", { hidden = true }, opts or {}))
 			end
-			if is_citc() then
+			if require("utils.vcs").is_citc() then
 				picker = require("telescope").extensions.codesearch.find_files
 			end
 			call_with_spinner(picker)
@@ -190,6 +186,15 @@ return {
 		end, { desc = "Plan history" })
 
 		vim.keymap.set("n", "<leader>fc", function()
+			if require("utils.vcs").is_citc() then
+				local ok, ext = pcall(function()
+					return require("telescope").extensions.fig.status
+				end)
+				if ok then
+					ext({})
+					return
+				end
+			end
 			-- pcall: plenary oneshot channel race in async pipe EOF handling
 			pcall(require("telescope.builtin").git_status)
 		end, { desc = "Changed files" })

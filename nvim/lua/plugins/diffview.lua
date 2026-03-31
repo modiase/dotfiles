@@ -1,13 +1,7 @@
 ---@diagnostic disable-next-line: undefined-global
 local vim = vim
 
-local function is_citc()
-	return vim.fn.getcwd():match("^/google/src/cloud/") ~= nil
-end
-
-local function is_hg()
-	return vim.fn.system("hg root 2>/dev/null"):find("^/") ~= nil
-end
+local vcs = require("utils.vcs")
 
 local function get_git_options()
 	local options = {
@@ -59,9 +53,9 @@ local function pick_base_and_open()
 	end
 
 	local options
-	if is_citc() then
+	if vcs.is_citc() then
 		options = get_citc_options()
-	elseif is_hg() then
+	elseif vcs.is_hg() then
 		options = get_hg_options()
 	else
 		options = get_git_options()
