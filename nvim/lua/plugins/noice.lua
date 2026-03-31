@@ -5,6 +5,12 @@ return {
 		"MunifTanjim/nui.nvim",
 		"rcarriga/nvim-notify",
 	},
+	config = function(_, opts)
+		package.preload["noice.view.backend.devlogs"] = function()
+			return require("views.noice-devlogs")
+		end
+		require("noice").setup(opts)
+	end,
 	opts = {
 		lsp = {
 			progress = { enabled = false },
@@ -30,6 +36,7 @@ return {
 			},
 		},
 		routes = {
+			{ view = "devlogs", filter = { event = "notify" }, opts = { stop = false } },
 			{ filter = { min_height = 10 }, view = "popup" },
 		},
 		presets = {
