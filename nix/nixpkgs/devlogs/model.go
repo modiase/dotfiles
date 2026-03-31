@@ -335,13 +335,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.follow = true
 			m.scrollToBottom()
 			return m, nil
-		case "pgdown", "ctrl+d":
+		case "pgdown", "ctrl+d", "J":
 			m.follow = false
 			vh := m.viewportHeight()
 			m.offset += vh / 2
 			m.clampOffset()
 			return m, nil
-		case "pgup", "ctrl+u":
+		case "pgup", "ctrl+u", "K":
 			m.follow = false
 			vh := m.viewportHeight()
 			m.offset -= vh / 2
