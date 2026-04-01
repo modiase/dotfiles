@@ -2,13 +2,17 @@
   callPackage,
   writeShellApplication,
   coreutils,
+  tmux,
 }:
 let
   devlogsLib = callPackage ../devlogs-lib { };
 in
 writeShellApplication {
   name = "ding";
-  runtimeInputs = [ coreutils ];
+  runtimeInputs = [
+    coreutils
+    tmux
+  ];
   text = ''
     # shellcheck source=/dev/null
     source ${devlogsLib.shell}/lib/devlogs.sh
