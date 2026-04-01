@@ -62,22 +62,38 @@ function M.close()
 	close_plan_tab(buf, win)
 end
 
-function M.accept_auto()
+local function accept_and_transition(fifo_path, response)
 	local win = vim.api.nvim_get_current_win()
 	local buf = vim.api.nvim_win_get_buf(win)
-	log.info("accept_auto")
+	local filepath = vim.api.nvim_buf_get_name(buf)
+
+	log.info(response)
 	comments.serialise_comments(buf, ns)
-	comments.write_fifo(vim.w[win].plan_fifo, "accept_auto")
+	comments.write_fifo(fifo_path, response)
+
+	if #vim.api.nvim_list_tabpages() > 1 then
+		vim.cmd("tabclose")
+	else
+		vim.cmd("enew")
+	end
+
+	if vim.api.nvim_buf_is_valid(buf) then
+		vim.api.nvim_buf_delete(buf, { force = true })
+	end
+
+	vim.cmd("edit " .. vim.fn.fnameescape(filepath))
+	vim.bo.modifiable = false
+	vim.bo.readonly = true
+
 	vim.notify("Plan accepted", vim.log.levels.INFO)
 end
 
+function M.accept_auto()
+	accept_and_transition(vim.w[vim.api.nvim_get_current_win()].plan_fifo, "accept_auto")
+end
+
 function M.accept_manual()
-	local win = vim.api.nvim_get_current_win()
-	local buf = vim.api.nvim_win_get_buf(win)
-	log.info("accept_manual")
-	comments.serialise_comments(buf, ns)
-	comments.write_fifo(vim.w[win].plan_fifo, "accept_manual")
-	vim.notify("Plan accepted", vim.log.levels.INFO)
+	accept_and_transition(vim.w[vim.api.nvim_get_current_win()].plan_fifo, "accept_manual")
 end
 
 function M.reject()

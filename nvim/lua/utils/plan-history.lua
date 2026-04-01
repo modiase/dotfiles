@@ -160,7 +160,7 @@ function M.picker()
 					actions.close(prompt_bufnr)
 					local selection = action_state.get_selected_entry()
 					if selection then
-						vim.cmd("tabnew " .. vim.fn.fnameescape(selection.value.path))
+						vim.cmd("edit " .. vim.fn.fnameescape(selection.value.path))
 					end
 				end)
 				return true
