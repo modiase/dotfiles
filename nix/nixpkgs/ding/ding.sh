@@ -4,8 +4,13 @@ set -eu
 usage() {
     cat <<EOF
 Usage: ding [OPTIONS]
+       ding focus [--pane W:P] [--tab TAB-ID] [--socket PATH]
 
 Terminal notification tool. Adapts to context (macOS/Linux, SSH, tmux, focus state).
+
+Subcommands:
+  focus                   Activate Ghostty tab and select tmux pane immediately.
+                          Auto-detects from \$TMUX_PANE when --pane/--tab omitted.
 
 Options:
   -c, --command CMD       Run command, alert success/error based on exit code
@@ -33,12 +38,105 @@ EOF
     exit 0
 }
 
+do_focus() {
+    local pane="" tab="" socket=""
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --pane)
+                pane="$2"
+                shift 2
+                ;;
+            --pane=*)
+                pane="${1#--pane=}"
+                shift
+                ;;
+            --tab)
+                tab="$2"
+                shift 2
+                ;;
+            --tab=*)
+                tab="${1#--tab=}"
+                shift
+                ;;
+            --socket)
+                socket="$2"
+                shift 2
+                ;;
+            --socket=*)
+                socket="${1#--socket=}"
+                shift
+                ;;
+            *) shift ;;
+        esac
+    done
+    if [[ -z "$socket" && -n "${TMUX:-}" ]]; then
+        socket="${TMUX%%,*}"
+    fi
+
+    local tmux_args=()
+    [[ -n "$socket" ]] && tmux_args+=(-S "$socket")
+
+    clog debug "focus: pane=$pane tab=$tab socket=$socket"
+
+    if [[ -z "$pane" && -n "${TMUX_PANE:-}" ]]; then
+        local win_idx pane_idx
+        win_idx=$(tmux "${tmux_args[@]}" display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
+        pane_idx=$(tmux "${tmux_args[@]}" display-message -t "$TMUX_PANE" -p '#{pane_index}' 2>/dev/null) || true
+        [[ -n "$win_idx" && -n "$pane_idx" ]] && pane="$win_idx:$pane_idx" || true
+        clog debug "focus: auto-detected pane=$pane"
+    fi
+
+    if [[ -z "$tab" && -n "${TMUX_PANE:-}" ]]; then
+        local raw_tab
+        raw_tab=$(tmux "${tmux_args[@]}" show-environment GHOSTTY_TAB_ID 2>/dev/null) || true
+        [[ "$raw_tab" == *=* ]] && tab="${raw_tab#*=}" || true
+        clog debug "focus: auto-detected tab=$tab"
+    fi
+
+    if [[ -n "$tab" ]]; then
+        clog debug "focus: selecting ghostty tab=$tab"
+        osascript -e "$(printf 'tell application "Ghostty"
+    repeat with w in windows
+        repeat with t in tabs of w
+            if id of t is "%s" then
+                select tab t
+                activate window w
+                activate
+                return
+            end if
+        end repeat
+    end repeat
+    activate
+end tell' "$tab")" >/dev/null 2>/dev/null || true
+    else
+        clog debug "focus: no tab, simple activate"
+        osascript -e 'tell app "Ghostty" to activate' >/dev/null 2>/dev/null || true
+    fi
+
+    if [[ -n "$pane" ]]; then
+        local win="${pane%:*}" pane_idx="${pane#*:}"
+        clog debug "focus: tmux_args=(${tmux_args[*]:-}) win=$win pane_idx=$pane_idx"
+        local sw_out sp_out
+        sw_out=$(tmux "${tmux_args[@]}" select-window -t ":$win" 2>&1) || clog debug "focus: select-window failed: $sw_out"
+        sp_out=$(tmux "${tmux_args[@]}" select-pane -t ":$win.$pane_idx" 2>&1) || clog debug "focus: select-pane failed: $sp_out"
+    else
+        clog debug "focus: no pane to select"
+    fi
+}
+
+if [[ "${1:-}" == "focus" ]]; then
+    shift
+    do_focus "$@"
+    exit 0
+fi
+
 command=""
 message=""
 title=""
 actions=""
 
 focus_pane=""
+ghostty_tab_id=""
 force=0
 no_bell=0
 no_sound=0
@@ -61,6 +159,8 @@ while [[ $# -gt 0 ]]; do
                 window_idx=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
                 pane_idx=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_index}' 2>/dev/null) || true
                 [[ -n "$window_idx" && -n "$pane_idx" ]] && focus_pane="$window_idx:$pane_idx" || true
+                raw_tab=$(tmux show-environment GHOSTTY_TAB_ID 2>/dev/null) || true
+                [[ "$raw_tab" == *=* ]] && ghostty_tab_id="${raw_tab#*=}" || true
             fi
             shift
             ;;
@@ -292,8 +392,12 @@ send_alert() {
     if [[ $no_sound -eq 0 ]]; then args+=(-sound default); fi
 
     if [[ -n "$focus_pane" ]]; then
-        local win="${focus_pane%:*}"
-        args+=(-execute "osascript -e 'tell app \"Ghostty\" to activate' && tmux select-window -t ':$win' && tmux select-pane -t ':$focus_pane'")
+        local tmux_socket="${TMUX%%,*}"
+        local focus_cmd="'$0' focus --pane '$focus_pane'"
+        [[ -n "$ghostty_tab_id" ]] && focus_cmd="$focus_cmd --tab '$ghostty_tab_id'" || true
+        [[ -n "$tmux_socket" ]] && focus_cmd="$focus_cmd --socket '$tmux_socket'" || true
+        clog debug "send_alert: execute=$focus_cmd"
+        args+=(-execute "$focus_cmd")
     fi
 
     "$notifier" "${args[@]}" &

@@ -1,6 +1,6 @@
 ---
 name: devlogs
-description: How to use the devlogs logging library (shell, Fish, Python, Lua, Go, TypeScript) for unified syslog logging.
+description: How to use the devlogs logging library (shell, Fish, Python, Lua, Go, TypeScript) for unified syslog logging. MUST be activated when debugging development tools or when asked to 'check devlogs'.
 ---
 
 # Devlogs Logging Library

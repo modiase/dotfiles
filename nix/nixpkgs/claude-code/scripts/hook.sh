@@ -32,17 +32,7 @@ notify() {
 }
 
 focus_pane() {
-    osascript -e 'tell app "Ghostty" to activate' >/dev/null 2>/dev/null || true
-    if [[ -n "${TMUX_PANE:-}" ]]; then
-        local win_idx
-        win_idx=$(tmux display-message -t "$TMUX_PANE" -p '#{window_index}' 2>/dev/null) || true
-        local pane_idx
-        pane_idx=$(tmux display-message -t "$TMUX_PANE" -p '#{pane_index}' 2>/dev/null) || true
-        if [[ -n "${win_idx:-}" && -n "${pane_idx:-}" ]]; then
-            tmux select-window -t ":$win_idx" 2>/dev/null || true
-            tmux select-pane -t ":$win_idx.$pane_idx" 2>/dev/null || true
-        fi
-    fi
+    ding focus
 }
 
 on_stop() {
