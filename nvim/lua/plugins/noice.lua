@@ -36,7 +36,7 @@ return {
 			},
 		},
 		routes = {
-			{ view = "devlogs", filter = { event = "notify" }, opts = { stop = false } },
+			{ view = "devlogs", filter = { event = "notify" }, opts = { stop = false, format = { "{message}" } } },
 			{ filter = { min_height = 10 }, view = "popup" },
 		},
 		presets = {
