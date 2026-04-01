@@ -13,6 +13,7 @@
     };
   };
   experimental.plan = true;
+  experimental.subagents = true;
   useWriteTodos = true;
   ide.enabled = true;
   ui.hideTips = true;
