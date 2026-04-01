@@ -24,8 +24,6 @@ tmp/
 **/.terraform.tfstate.*
 **/tofu.tfstate
 **/tofu.tfstate.*
-infra/tofu.tfvars
-infra/terraform.tfvars
 
 # OS / tooling clutter
 **/.DS_Store
