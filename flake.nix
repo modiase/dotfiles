@@ -47,7 +47,7 @@
     }@inputs:
     let
       username = "moye";
-      lib = nixpkgs.lib;
+      inherit (nixpkgs) lib;
       authorizedKeys = import ./nix/authorized-keys.nix;
       authorizedKeyLists = lib.mapAttrs (
         _: hostMap:
@@ -92,31 +92,29 @@
         };
       };
 
-      heraklesBuildServer =
-        { ... }:
-        {
-          nix = {
-            distributedBuilds = true;
-            settings.builders-use-substitutes = true;
-            buildMachines = [
-              {
-                hostName = "herakles";
-                sshUser = "moye";
-                protocol = "ssh-ng";
-                systems = [
-                  "x86_64-linux"
-                  "aarch64-linux"
-                ];
-                maxJobs = 8;
-                speedFactor = 2;
-                supportedFeatures = [
-                  "kvm"
-                  "big-parallel"
-                ];
-              }
-            ];
-          };
+      heraklesBuildServer = _: {
+        nix = {
+          distributedBuilds = true;
+          settings.builders-use-substitutes = true;
+          buildMachines = [
+            {
+              hostName = "herakles";
+              sshUser = "moye";
+              protocol = "ssh-ng";
+              systems = [
+                "x86_64-linux"
+                "aarch64-linux"
+              ];
+              maxJobs = 8;
+              speedFactor = 2;
+              supportedFeatures = [
+                "kvm"
+                "big-parallel"
+              ];
+            }
+          ];
         };
+      };
       darwinCommonModules = [
         nix-homebrew.darwinModules.nix-homebrew
       ];
@@ -126,6 +124,7 @@
           aleo = super.callPackage ./nix/nixpkgs/aleo { };
           gemini-nvim-ide-bridge = super.callPackage ./nix/nixpkgs/gemini-cli/scripts/gemini-nvim-ide-bridge {
             tmuxNvimSelect = super.callPackage ./nix/nixpkgs/tmux-nvim { };
+            devlogsLibSrc = ./nix/nixpkgs/devlogs-lib;
           };
           lato = super.callPackage ./nix/nixpkgs/lato { };
           nvim-mcp = super.callPackage ./nix/nixpkgs/nvim-mcp { };
@@ -395,7 +394,7 @@
         buildableSystems = builtins.filter (s: s.mkBuildImage or null != null) allSystems;
         buildImageScripts = builtins.listToAttrs (
           map (s: {
-            name = s.name;
+            inherit (s) name;
             value = s.mkBuildImage buildImageArgs;
           }) buildableSystems
         );
@@ -482,7 +481,7 @@
             };
         };
 
-        shellutils = shellutils;
+        inherit shellutils;
 
         apps = {
           build-system-image = {

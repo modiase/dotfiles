@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -14,26 +13,15 @@ import (
 	"sync"
 	"time"
 
+	devlogs "devlogs-lib"
+
 	"github.com/neovim/go-client/nvim"
 )
 
 var (
-	component         string
+	logger            *devlogs.Logger
 	tmuxNvimSelectBin = "tmux-nvim-select"
 )
-
-func init() {
-	win := os.Getenv("TARGET_WINDOW")
-	if win != "" {
-		component = fmt.Sprintf("gemini-bridge(@%s)", win)
-	} else {
-		component = "gemini-bridge"
-	}
-}
-
-func clog(level, msg string) {
-	log.Printf("[devlogs] %s %s: %s", strings.ToUpper(level), component, msg)
-}
 
 type JSONRPCRequest struct {
 	JSONRPC string          `json:"jsonrpc"`
@@ -141,7 +129,7 @@ func (b *Bridge) healthCheckAndReconnect() {
 		if fileExists(socket) && b.pingNvim(v) {
 			return
 		}
-		clog("info", fmt.Sprintf("nvim disconnected socket=%s", socket))
+		logger.Info(fmt.Sprintf("nvim disconnected socket=%s", socket))
 		b.mu.Lock()
 		if b.nvimClient == v {
 			_ = b.nvimClient.Close()
@@ -157,10 +145,10 @@ func (b *Bridge) healthCheckAndReconnect() {
 	}
 
 	if err := b.connectNvim(discovered); err != nil {
-		clog("warn", fmt.Sprintf("dial failed socket=%s err=%v", discovered, err))
+		logger.Warn(fmt.Sprintf("dial failed socket=%s err=%v", discovered, err))
 		return
 	}
-	clog("info", fmt.Sprintf("connected socket=%s", discovered))
+	logger.Info(fmt.Sprintf("connected socket=%s", discovered))
 }
 
 func fileExists(path string) bool {
@@ -296,7 +284,7 @@ func (b *Bridge) handleMCP(w http.ResponseWriter, r *http.Request) {
 			Arguments json.RawMessage `json:"arguments"`
 		}
 		if err = json.Unmarshal(req.Params, &params); err == nil {
-			clog("info", fmt.Sprintf("tool call=%s", params.Name))
+			logger.Info(fmt.Sprintf("tool call=%s", params.Name))
 			switch params.Name {
 			case "get_active_editor_context":
 				result, err = b.getActiveEditorContext()
@@ -319,7 +307,7 @@ func (b *Bridge) handleMCP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		clog("error", fmt.Sprintf("method=%s err=%v", req.Method, err))
+		logger.Error(fmt.Sprintf("method=%s err=%v", req.Method, err))
 	}
 
 	resp := JSONRPCResponse{
@@ -475,7 +463,7 @@ func (b *Bridge) openDiff(args json.RawMessage) (any, error) {
 
 	_ = v.Command("tabnew " + p.FilePath)
 	_ = v.Command("diffthis")
-	_ = v.Command("vsplit")
+	_ = v.Command("rightbelow vsplit")
 	_ = v.SetCurrentBuffer(newBuf)
 	_ = v.Command("diffthis")
 
@@ -542,6 +530,8 @@ func main() {
 	_ = flag.String("wrapper-id", "", "Wrapper instance identifier")
 	flag.Parse()
 
+	logger = devlogs.NewLogger("gemini-bridge")
+
 	if *socketPath == "" {
 		*socketPath = os.Getenv("NVIM_SOCKET")
 	}
@@ -564,12 +554,12 @@ func main() {
 
 	if *socketPath != "" {
 		if err := bridge.connectNvim(*socketPath); err != nil {
-			clog("info", fmt.Sprintf("initial connect failed socket=%s err=%v", *socketPath, err))
+			logger.Info(fmt.Sprintf("initial connect failed socket=%s err=%v", *socketPath, err))
 		} else {
-			clog("info", fmt.Sprintf("connected socket=%s", *socketPath))
+			logger.Info(fmt.Sprintf("connected socket=%s", *socketPath))
 		}
 	} else {
-		clog("info", "no initial socket, waiting for discovery")
+		logger.Info("no initial socket, waiting for discovery")
 	}
 
 	go bridge.connectLoop()
@@ -612,7 +602,7 @@ func main() {
 		Handler: mux,
 	}
 
-	clog("info", fmt.Sprintf("listening port=%d", *port))
+	logger.Info(fmt.Sprintf("listening port=%d", *port))
 
 	go func() {
 		for {
@@ -624,7 +614,7 @@ func main() {
 	}()
 
 	if err := server.ListenAndServe(); err != nil {
-		clog("error", fmt.Sprintf("server err=%v", err))
+		logger.Error(fmt.Sprintf("server err=%v", err))
 		os.Exit(1)
 	}
 }
