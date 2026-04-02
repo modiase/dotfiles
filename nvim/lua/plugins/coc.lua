@@ -152,5 +152,7 @@ return {
 		vim.keymap.set("n", "<leader>cc", ":CocLocalConfig<cr>", { silent = true })
 		vim.keymap.set("n", "<S-TAB>", "<Plug>(coc-range-select)", { silent = true })
 		vim.keymap.set("x", "<S-TAB>", "<Plug>(coc-range-select)", { silent = true })
+
+		require("utils.coc-devlogs").setup()
 	end,
 }
