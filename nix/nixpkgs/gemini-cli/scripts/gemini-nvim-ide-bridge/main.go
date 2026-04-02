@@ -470,12 +470,13 @@ func (b *Bridge) openDiff(args json.RawMessage) (any, error) {
 
 	_ = v.SetBufferLines(newBuf, 0, -1, true, byteLines)
 	_ = v.SetBufferOption(newBuf, "buftype", "nofile")
+	_ = v.SetBufferOption(newBuf, "bufhidden", "wipe")
 	_ = v.SetBufferName(newBuf, "Proposed Changes")
 
-	_ = v.Command("tabnew")
-	_ = v.SetCurrentBuffer(newBuf)
+	_ = v.Command("tabnew " + p.FilePath)
 	_ = v.Command("diffthis")
-	_ = v.Command("vsplit " + p.FilePath)
+	_ = v.Command("vsplit")
+	_ = v.SetCurrentBuffer(newBuf)
 	_ = v.Command("diffthis")
 
 	return toolResult("Diff opened in new tab"), nil
