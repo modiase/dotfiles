@@ -65,13 +65,23 @@ let
     '';
   };
 
+  formatHookScript = pkgs.callPackage ../format-hook { name = "gemini-format-hook"; };
+
   hookBin = "${hookScript}/bin/gemini-hook";
   openPlanBin = "${openPlanScript}/bin/gemini-nvim-plan";
   closePlanBin = "${closePlanScript}/bin/gemini-close-plan";
+  formatHookBin = "${formatHookScript}/bin/gemini-format-hook";
 
   agentsCfg = config.dotfiles.agents-config;
 
-  baseSettings = import ./settings.nix { inherit hookBin openPlanBin closePlanBin; };
+  baseSettings = import ./settings.nix {
+    inherit
+      hookBin
+      openPlanBin
+      closePlanBin
+      formatHookBin
+      ;
+  };
   settings = baseSettings // {
     inherit (agentsCfg) mcpServers;
   };

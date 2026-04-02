@@ -9,8 +9,8 @@ if [[ -z "$file_path" ]]; then
     exit 0
 fi
 
-if [[ "${CLAUDE_FORMAT_DISABLED:-}" == "1" ]]; then
-    clog debug "formatting disabled via CLAUDE_FORMAT_DISABLED"
+if [[ "${FORMAT_HOOK_DISABLED:-}" == "1" ]]; then
+    clog debug "formatting disabled via FORMAT_HOOK_DISABLED"
     exit 0
 fi
 
@@ -22,18 +22,18 @@ fi
 ext="${file_path##*.}"
 basename="${file_path##*/}"
 
-if [[ -n "${CLAUDE_FORMAT_SKIP:-}" ]]; then
-    IFS=',' read -ra skips <<<"$CLAUDE_FORMAT_SKIP"
+if [[ -n "${FORMAT_HOOK_SKIP:-}" ]]; then
+    IFS=',' read -ra skips <<<"$FORMAT_HOOK_SKIP"
     for s in "${skips[@]}"; do
         if [[ "$s" == "$ext" ]]; then
-            clog debug "skipping $ext (CLAUDE_FORMAT_SKIP)"
+            clog debug "skipping $ext (FORMAT_HOOK_SKIP)"
             exit 0
         fi
     done
 fi
 
 ext_upper=$(printf '%s' "$ext" | tr '[:lower:]' '[:upper:]')
-override_var="CLAUDE_FORMAT_${ext_upper}"
+override_var="FORMAT_HOOK_${ext_upper}"
 
 if [[ -n "${!override_var:-}" ]]; then
     override="${!override_var}"
