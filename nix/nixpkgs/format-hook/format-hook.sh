@@ -14,6 +14,13 @@ if [[ "${FORMAT_HOOK_DISABLED:-}" == "1" ]]; then
     exit 0
 fi
 
+if [[ -n "${FORMAT_HOOK_OVERRIDE:-}" ]]; then
+    if "$FORMAT_HOOK_OVERRIDE" "$file_path" 2>/dev/null; then
+        clog debug "formatted by override: $FORMAT_HOOK_OVERRIDE"
+        exit 0
+    fi
+fi
+
 if [[ ! -f "$file_path" ]]; then
     clog debug "file does not exist: $file_path"
     exit 0
