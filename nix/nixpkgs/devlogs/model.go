@@ -112,6 +112,7 @@ func (m *model) refilter() {
 			m.filtered = append(m.filtered, i)
 		}
 	}
+	m.scrollToBottom()
 }
 
 func (m *model) viewportHeight() int {
@@ -206,17 +207,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.filter.Blur()
 				m.filter.SetValue("")
 				m.refilter()
-				if m.follow {
-					m.scrollToBottom()
-				}
 				return m, nil
 			default:
 				var cmd tea.Cmd
 				m.filter, cmd = m.filter.Update(msg)
 				m.refilter()
-				if m.follow {
-					m.scrollToBottom()
-				}
 				return m, cmd
 			}
 		}
@@ -231,9 +226,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			m.filter.SetValue("")
 			m.refilter()
-			if m.follow {
-				m.scrollToBottom()
-			}
 			return m, nil
 		case "a":
 			if m.windowFilter != "" {
@@ -245,9 +237,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			m.refilter()
-			if m.follow {
-				m.scrollToBottom()
-			}
 			return m, nil
 		case "c":
 			m.entries = m.entries[:0]
@@ -260,34 +249,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if lv == m.levelFilter {
 					m.levelFilter = levelCycle[(i-1+len(levelCycle))%len(levelCycle)]
 					m.refilter()
-					if m.follow {
-						m.scrollToBottom()
-					}
 					return m, nil
 				}
 			}
 			m.levelFilter = levelCycle[len(levelCycle)-1]
 			m.refilter()
-			if m.follow {
-				m.scrollToBottom()
-			}
 			return m, nil
 		case "L":
 			for i, lv := range levelCycle {
 				if lv == m.levelFilter {
 					m.levelFilter = levelCycle[(i+1)%len(levelCycle)]
 					m.refilter()
-					if m.follow {
-						m.scrollToBottom()
-					}
 					return m, nil
 				}
 			}
 			m.levelFilter = levelCycle[0]
 			m.refilter()
-			if m.follow {
-				m.scrollToBottom()
-			}
 			return m, nil
 		case "H":
 			if m.fetchingHistory {
