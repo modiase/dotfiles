@@ -73,8 +73,20 @@ let
   formatHookScript = pkgs.writeShellApplication {
     name = "claude-format-hook";
     runtimeInputs = [
+      pkgs.biome
+      pkgs.buildifier
+      pkgs.fish
+      pkgs.go
+      pkgs.google-java-format
       pkgs.jq
-      pkgs.nix
+      pkgs.nixfmt-rfc-style
+      pkgs.nodePackages.prettier
+      pkgs.opentofu
+      pkgs.ruff
+      pkgs.rustfmt
+      pkgs.shfmt
+      pkgs.statix
+      pkgs.stylua
     ];
     text = ''
       # shellcheck source=/dev/null
@@ -122,8 +134,8 @@ let
   wrappedClaude = import ./wrapper.nix {
     inherit pkgs;
     claudeCodePkg = pkgs.claude-code;
-    generateAgentsMd = agentsCfg.generateAgentsMd;
-    configDir = cfg.configDir;
+    inherit (agentsCfg) generateAgentsMd;
+    inherit (cfg) configDir;
   };
 
   agentsDir = "$HOME/.agents";
