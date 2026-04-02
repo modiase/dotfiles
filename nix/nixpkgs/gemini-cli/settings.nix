@@ -2,6 +2,7 @@
   hookBin,
   openPlanBin,
   closePlanBin,
+  formatHookBin,
   ...
 }:
 {
@@ -54,6 +55,24 @@
       }
     ];
     AfterTool = [
+      {
+        matcher = "edit_file";
+        hooks = [
+          {
+            type = "command";
+            command = formatHookBin;
+          }
+        ];
+      }
+      {
+        matcher = "write_file";
+        hooks = [
+          {
+            type = "command";
+            command = formatHookBin;
+          }
+        ];
+      }
       {
         matcher = "write_file";
         hooks = [

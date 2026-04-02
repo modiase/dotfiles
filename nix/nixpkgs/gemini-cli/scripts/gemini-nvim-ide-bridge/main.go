@@ -62,6 +62,7 @@ func (b *Bridge) connectNvim(socketPath string) error {
 	if err != nil {
 		return err
 	}
+	_ = v.RegisterHandler("NVIM_MCP_DiagnosticsChanged", func() {})
 	b.mu.Lock()
 	if b.nvimClient != nil {
 		_ = b.nvimClient.Close()

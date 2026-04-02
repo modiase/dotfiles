@@ -70,31 +70,7 @@ let
     '';
   };
 
-  formatHookScript = pkgs.writeShellApplication {
-    name = "claude-format-hook";
-    runtimeInputs = [
-      pkgs.biome
-      pkgs.buildifier
-      pkgs.fish
-      pkgs.go
-      pkgs.google-java-format
-      pkgs.jq
-      pkgs.nixfmt-rfc-style
-      pkgs.nodePackages.prettier
-      pkgs.opentofu
-      pkgs.ruff
-      pkgs.rustfmt
-      pkgs.shfmt
-      pkgs.statix
-      pkgs.stylua
-    ];
-    text = ''
-      # shellcheck source=/dev/null
-      source ${devlogsLib.shell}/lib/devlogs.sh
-      devlogs_init claude-format-hook
-      ${builtins.readFile ./scripts/format-hook.sh}
-    '';
-  };
+  formatHookScript = pkgs.callPackage ../format-hook { name = "claude-format-hook"; };
 
   hookBin = "${hookScript}/bin/claude-hook";
   shellcommandHookBin = "${allowShellcommand}/bin/allow-shellcommand";
