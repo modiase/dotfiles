@@ -1,0 +1,14 @@
+go 1.25.5
+
+use (
+	./agents-plan-responder
+	./allow-shellcommand
+	./anki-api
+	./ankigen
+	./devlogs
+	./devlogs-lib
+	./gemini-cli/scripts/gemini-editor
+	./gemini-cli/scripts/gemini-nvim-ide-bridge
+	./nvim-mcp-wrapper
+	./semsearch
+)

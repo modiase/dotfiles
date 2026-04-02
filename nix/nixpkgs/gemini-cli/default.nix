@@ -6,7 +6,7 @@
 }:
 let
   cfg = config.dotfiles.gemini-cli;
-  generateAgentsMd = config.dotfiles.agents-config.generateAgentsMd;
+  inherit (config.dotfiles.agents-config) generateAgentsMd;
 
   devlogsLib = pkgs.callPackage ../devlogs-lib { };
   ding = pkgs.callPackage ../ding { };
@@ -73,7 +73,7 @@ let
 
   baseSettings = import ./settings.nix { inherit hookBin openPlanBin closePlanBin; };
   settings = baseSettings // {
-    mcpServers = agentsCfg.mcpServers;
+    inherit (agentsCfg) mcpServers;
   };
   settingsJson = pkgs.writeText "gemini-settings.json" (builtins.toJSON settings);
 
@@ -132,7 +132,7 @@ let
       if [ -n "$ide_env" ]; then
           eval "$ide_env"
           clog info "IDE integration found port=$GEMINI_CLI_IDE_SERVER_PORT socket=$NVIM_LISTEN_ADDRESS"
-          gemini-nvim-ide-bridge -socket "$NVIM_LISTEN_ADDRESS" -port "$GEMINI_CLI_IDE_SERVER_PORT" -ide-pids "$IDE_PIDS" -workspace "$(pwd)" -wrapper-id "$WRAPPER_ID" 2>&1 | logger -t devlogs &
+          gemini-nvim-ide-bridge -socket "$NVIM_LISTEN_ADDRESS" -port "$GEMINI_CLI_IDE_SERVER_PORT" -ide-pids "$IDE_PIDS" -workspace "$(pwd)" -wrapper-id "$WRAPPER_ID" &
       else
           clog info "IDE integration (no initial nvim)"
           IDE_PORT=$((RANDOM % 16384 + 49152))
@@ -149,7 +149,7 @@ let
           done
           export GEMINI_CLI_IDE_SERVER_PORT="$IDE_PORT"
           export ENABLE_IDE_INTEGRATION=true
-          gemini-nvim-ide-bridge -port "$IDE_PORT" -ide-pids "$all_pids" -workspace "$(pwd)" -wrapper-id "$WRAPPER_ID" 2>&1 | logger -t devlogs &
+          gemini-nvim-ide-bridge -port "$IDE_PORT" -ide-pids "$all_pids" -workspace "$(pwd)" -wrapper-id "$WRAPPER_ID" &
       fi
       exec ${cfg.executable} "$@"
     '';
