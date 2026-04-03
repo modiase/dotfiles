@@ -28,11 +28,11 @@ notify() {
     local args=(--focus-pane -i "$title" -m "$message")
     if [[ -n "$alert_type" ]]; then args+=(-t "$alert_type"); fi
     clog info "dispatch: $title"
-    ding "${args[@]}" >/dev/null
+    attn "${args[@]}" >/dev/null
 }
 
 focus_pane() {
-    ding focus
+    attn focus
 }
 
 on_stop() {
@@ -72,7 +72,7 @@ on_permission() {
 
     local result actions='Allow,Show'
     if [[ "$tool_name" == "ExitPlanMode" || "$tool_name" == "AskUserQuestion" ]]; then actions='Show'; fi
-    result=$(ding -i 'Claude Code' -m "$msg" --actions "$actions")
+    result=$(attn -i 'Claude Code' -m "$msg" --actions "$actions")
     case "$result" in
         Allow)
             clog info "permission: allowed via dialog"

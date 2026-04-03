@@ -9,7 +9,7 @@ let
   inherit (config.dotfiles.agents-config) generateAgentsMd;
 
   devlogsLib = pkgs.callPackage ../devlogs-lib { };
-  ding = pkgs.callPackage ../ding { };
+  attn = pkgs.callPackage ../attn { };
   nvr = pkgs.callPackage ../nvr { };
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 
@@ -53,7 +53,7 @@ let
   hookScript = pkgs.writeShellApplication {
     name = "gemini-hook";
     runtimeInputs = [
-      ding
+      attn
       generateAgentsMd
       pkgs.jq
     ];

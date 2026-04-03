@@ -9,8 +9,11 @@
 
 let
   secrets = pkgs.callPackage ./nixpkgs/secrets { };
-  ding = pkgs.callPackage ./nixpkgs/ding { };
-  ntfy-me = pkgs.callPackage ./nixpkgs/ntfy-me { inherit secrets ding; };
+  attn = pkgs.callPackage ./nixpkgs/attn { };
+  ntfy-me = pkgs.callPackage ./nixpkgs/ntfy-me {
+    inherit secrets;
+    inherit attn;
+  };
 
   commonPackages = with pkgs; [
     git-crypt
@@ -39,11 +42,11 @@ let
         exec ${chafa}/bin/chafa "$@"
       fi
     '')
+    attn
     bat
     cargo
     coreutils
     delta
-    ding
     docker
     doggo
     duf

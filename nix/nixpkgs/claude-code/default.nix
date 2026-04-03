@@ -8,7 +8,7 @@ let
   cfg = config.dotfiles.claude-code;
 
   devlogsLib = pkgs.callPackage ../devlogs-lib { };
-  ding = pkgs.callPackage ../ding { };
+  attn = pkgs.callPackage ../attn { };
   nvr = pkgs.callPackage ../nvr { };
 
   agentsCfg = config.dotfiles.agents-config;
@@ -17,7 +17,7 @@ let
   hookScript = pkgs.writeShellApplication {
     name = "claude-hook";
     runtimeInputs = [
-      ding
+      attn
       pkgs.jq
     ];
     text = ''

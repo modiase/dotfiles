@@ -83,6 +83,6 @@ while read -r line; do
         if [[ "$tags" =~ type-([a-z]+) ]]; then
             ding_args+=(-t "${BASH_REMATCH[1]}")
         fi
-        ding "${ding_args[@]}" >/dev/null
+        attn "${ding_args[@]}" >/dev/null
     fi
 done <"$fifo"
