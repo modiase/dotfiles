@@ -37,7 +37,7 @@ notify() {
     local args=(--focus-pane -i "$title" -m "$message")
     if [[ -n "$alert_type" ]]; then args+=(-t "$alert_type"); fi
     clog info "dispatch: $title"
-    ding "${args[@]}" >/dev/null
+    attn "${args[@]}" >/dev/null
 }
 
 focus_pane() {
@@ -158,7 +158,7 @@ on_permission() {
 
     (
         local result
-        result=$(ding -i 'Gemini CLI' -m "$msg" --actions 'Allow,Show')
+        result=$(attn -i 'Gemini CLI' -m "$msg" --actions 'Allow,Show')
         case "$result" in
             Allow)
                 clog info "permission: sending approval keystroke"

@@ -7,7 +7,7 @@
   google-cloud-sdk,
   jq,
   secrets,
-  ding,
+  attn,
 }:
 
 let
@@ -26,9 +26,9 @@ let
     name = "ntfy-listen";
     runtimeInputs = [
       # keep-sorted start
+      attn
       coreutils
       curl
-      ding
       jq
       secrets
       # keep-sorted end

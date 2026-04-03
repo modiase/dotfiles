@@ -12,7 +12,7 @@ let
 
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
   nvr = pkgs.callPackage ../nvr { };
-  ding = pkgs.callPackage ../ding { };
+  attn = pkgs.callPackage ../attn { };
 
   planReviewPlugin = pkgs.replaceVars ./plugins/plan-review.ts {
     tmuxNvimSelect = "${tmuxNvimSelect}/bin/tmux-nvim-select";
@@ -20,7 +20,7 @@ let
   };
 
   notifyPlugin = pkgs.replaceVars ./plugins/notify.ts {
-    ding = "${ding}/bin/ding";
+    attn = "${attn}/bin/attn";
   };
 
   explorePrompt = ''

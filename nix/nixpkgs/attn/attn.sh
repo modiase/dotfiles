@@ -3,8 +3,8 @@ set -eu
 
 usage() {
     cat <<EOF
-Usage: ding [OPTIONS]
-       ding focus [--pane W:P] [--tab TAB-ID] [--socket PATH]
+Usage: attn [OPTIONS]
+       attn focus [--pane W:P] [--tab TAB-ID] [--socket PATH]
 
 Terminal notification tool. Adapts to context (macOS/Linux, SSH, tmux, focus state).
 
@@ -145,7 +145,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -h | --help) usage ;;
         --debug)
-            exec 3>>/tmp/ding-debug.log
+            exec 3>>/tmp/attn-debug.log
             BASH_XTRACEFD=3
             set -x
             shift
@@ -410,18 +410,18 @@ has_osascript=0
 if command -v osascript &>/dev/null; then has_osascript=1; fi
 
 if [[ $is_ssh -eq 1 ]] || [[ $has_osascript -eq 0 ]]; then
-    osc_msg="${title:-ding}"
+    osc_msg="${title:-attn}"
     if [[ -n "$message" ]]; then osc_msg="$osc_msg: $message"; fi
-    clog info "osc9 — title='${title:-ding}' message='$message'"
+    clog info "osc9 — title='${title:-attn}' message='$message'"
     send_bell
     send_osc9 "$osc_msg"
 elif [[ $force -eq 0 ]] && ghostty_is_focused && ghostty_tab_is_active && tmux_window_is_active; then
     clog debug "suppressed — focused, tab active, window active"
     send_bell
 elif [[ -n "$actions" ]]; then
-    clog info "action dialog — title='${title:-ding}' message='$message' actions='$actions'"
-    send_action_dialog "${title:-ding}" "$message" "$actions"
+    clog info "action dialog — title='${title:-attn}' message='$message' actions='$actions'"
+    send_action_dialog "${title:-attn}" "$message" "$actions"
 else
-    clog info "alert — title='${title:-ding}' message='$message'"
-    send_alert "${title:-ding}" "$message"
+    clog info "alert — title='${title:-attn}' message='$message'"
+    send_alert "${title:-attn}" "$message"
 fi
