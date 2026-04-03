@@ -40,7 +40,7 @@ pid_targeted=$!
 ) &
 pid_watchdog=$!
 
-clog info "starting (host=$my_hostname, since=$last_id)"
+clog debug "starting (host=$my_hostname, since=$last_id)"
 
 while read -r line; do
     [[ "$line" != data:* ]] && continue
@@ -64,7 +64,7 @@ while read -r line; do
         continue
     fi
     if [[ $age -gt 300 ]]; then
-        clog info "skipped (too old: ${age}s)"
+        clog debug "skipped (too old: ${age}s)"
         continue
     fi
     if [[ $((now - last_ding)) -lt 2 ]]; then
