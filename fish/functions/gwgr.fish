@@ -1,0 +1,1 @@
+git wgraph $argv
