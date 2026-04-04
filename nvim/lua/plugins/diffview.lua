@@ -125,6 +125,34 @@ return {
 			local actions = require("diffview.actions")
 			vim.opt.fillchars:append({ diff = " " })
 
+			-- git-crypt: committed blobs are encrypted, so `git show <rev>:<path>`
+			-- returns binary. Patch GitAdapter to use --textconv, which invokes the
+			-- git-crypt diff textconv driver to decrypt blobs before diffing.
+			local GitAdapter = require("diffview.vcs.adapters.git").GitAdapter
+
+			local orig_get_show_args = GitAdapter.get_show_args
+			function GitAdapter:get_show_args(path, rev)
+				local args = orig_get_show_args(self, path, rev)
+				for i, v in ipairs(args) do
+					if v == "show" then
+						table.insert(args, i + 1, "--textconv")
+						break
+					end
+				end
+				return args
+			end
+
+			local orig_is_binary = GitAdapter.is_binary
+			function GitAdapter:is_binary(path, rev)
+				-- --textconv decrypts git-crypt blobs, so skip binary check for
+				-- files that have a textconv driver configured
+				local attr = vim.fn.system("git check-attr diff -- " .. vim.fn.shellescape(path)):gsub("\n", "")
+				if attr:match("diff: git%-crypt") then
+					return false
+				end
+				return orig_is_binary(self, path, rev)
+			end
+
 			local merge_keymaps = {
 				["]x"] = actions.next_conflict,
 				["[x"] = actions.prev_conflict,
