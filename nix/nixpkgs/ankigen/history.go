@@ -230,7 +230,9 @@ func historyToContext(record *HistoryRecord) *PipelineContext {
 	return ctx
 }
 
-func saveHistory(ctx *PipelineContext) {
+var saveHistoryFunc = saveHistoryImpl
+
+func saveHistoryImpl(ctx *PipelineContext) {
 	ctx.History.SetResult(ctx)
 	_ = ctx.History.Save()
 }
