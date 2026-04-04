@@ -30,7 +30,7 @@ resource "google_storage_bucket_object" "jwks" {
   bucket = google_storage_bucket.oidc.name
   content = jsonencode({
     keys = [
-      for id, key in var.machine_keys : {
+      for id, key in var.keys : {
         kty = "EC"
         crv = "P-256"
         alg = "ES256"

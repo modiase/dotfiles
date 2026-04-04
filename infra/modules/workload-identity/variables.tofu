@@ -9,10 +9,10 @@ variable "region" {
   default     = "EUROPE-WEST2"
 }
 
-variable "machine_keys" {
+variable "keys" {
   type = map(object({
     x = string
     y = string
   }))
-  description = "Map of machine ID to ES256 public key coordinates (base64url-encoded)"
+  description = "Map of subject ID to ES256 public key coordinates (base64url-encoded)"
 }
