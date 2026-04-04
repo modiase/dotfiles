@@ -31,9 +31,6 @@
       merge.conflictstyle = "zdiff3";
       diff.colorMoved = "default";
     };
-    aliases = {
-      wgraph = "!watch -w -t -c 'git log --graph --oneline --decorate --all --color=always'";
-    };
     includes = [
       { path = "~/.config/git/maintenance.config"; }
     ];

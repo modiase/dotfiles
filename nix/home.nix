@@ -94,7 +94,7 @@ let
     tldr
     tshark
     uv
-    watch
+    viddy
     wireguard-tools
     # keep-sorted end
   ];
