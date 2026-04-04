@@ -90,10 +90,10 @@ module "hestia_backup_monitor" {
   name          = "hestia-backup"
   bucket        = var.backup_bucket_name
   object        = "hestia/metadata.json"
-  schedule      = "0 0 */2 * *"
+  schedule      = "0 */6 * * *"
   max_age_hours = 48
   ntfy_topic    = "backups"
-  ntfy_priority = "1"
+  ntfy_priority = "4"
   ntfy_title    = "Backup Alert"
   ntfy_message  = "Expected backup from hestia missing"
 }
