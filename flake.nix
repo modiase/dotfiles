@@ -129,6 +129,13 @@
           lato = super.callPackage ./nix/nixpkgs/lato { };
           nvim-mcp = super.callPackage ./nix/nixpkgs/nvim-mcp { };
           space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
+          viddy = super.viddy.overrideAttrs (old: {
+            postPatch = (old.postPatch or "") + ''
+              substituteInPlace src/components/home.rs \
+                --replace-fail 'Constraint::Length(32)]).areas(footer);' \
+                               'Constraint::Length(0)]).areas(footer);'
+            '';
+          });
         })
       ];
 
