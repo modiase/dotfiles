@@ -730,7 +730,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.context.RefusalReason = "User cancelled agent question"
 				m.tabView = initDebugModel(m.context, m.width, m.height)
 				m.agentInput.Reset()
-				saveHistory(m.context)
+				saveHistoryFunc(m.context)
 				return m, nil
 			case "ctrl+d":
 				response := strings.TrimSpace(m.agentInput.Value())
@@ -803,8 +803,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.context.RefusalReason = ""
 				m.context.AwaitingInput = false
 				m.context.AgentQuestion = ""
+				m.context.FailedAttempts = nil
 				m.context.DebugHistory = nil
 				m.context.AgentTurn = 0
+				m.context.SearchCount = 0
 				return m, runAgentTurn(m.context)
 			}
 		case "i":
@@ -937,7 +939,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.context.HistoryIndex = len(m.context.CardHistory) - 1
 			}
 			m.tabView = initDebugModel(m.context, m.width, m.height)
-			saveHistory(m.context)
+			saveHistoryFunc(m.context)
 			return m, nil
 		}
 		return m, runStage(m.stage, m.context)
@@ -951,7 +953,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.tabView = initDebugModel(m.context, m.width, m.height)
 			m.tabView.activeTab = 6
 			m.tabView.viewport.SetContent(m.tabView.contents[6])
-			saveHistory(m.context)
+			saveHistoryFunc(m.context)
 			return m, nil
 		}
 
@@ -962,14 +964,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.context.CardHistory = append(m.context.CardHistory, m.context.Card)
 			m.context.HistoryIndex = len(m.context.CardHistory) - 1
 			m.tabView = initDebugModel(m.context, m.width, m.height)
-			saveHistory(m.context)
+			saveHistoryFunc(m.context)
 			return m, nil
 
 		case "refuse":
 			m.substage = fmt.Sprintf("Turn %d: refused", msg.turn)
 			m.done = true
 			m.tabView = initDebugModel(m.context, m.width, m.height)
-			saveHistory(m.context)
+			saveHistoryFunc(m.context)
 			return m, nil
 
 		case "search":
@@ -994,7 +996,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.tabView = initDebugModel(m.context, m.width, m.height)
 			m.tabView.activeTab = 6
 			m.tabView.viewport.SetContent(m.tabView.contents[6])
-			saveHistory(m.context)
+			saveHistoryFunc(m.context)
 			return m, nil
 		}
 		m.context.Card = msg.card
@@ -1005,8 +1007,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			"card":         msg.card,
 		})
 		m.done = true
-		m.substage = ""
-		saveHistory(m.context)
+		m.substage = "iterated card"
+		m.tabView = initDebugModel(m.context, m.width, m.height)
+		saveHistoryFunc(m.context)
 		return m, nil
 
 	case errorMsg:
@@ -1016,7 +1019,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.tabView = initDebugModel(m.context, m.width, m.height)
 		m.tabView.activeTab = 5
 		m.tabView.viewport.SetContent(m.tabView.contents[5])
-		saveHistory(m.context)
+		saveHistoryFunc(m.context)
 		return m, nil
 	}
 
@@ -2206,10 +2209,12 @@ func stripTags(s string, tags ...string) string {
 			if start == -1 {
 				break
 			}
-			end := strings.Index(s, close)
+			after := start + len(open)
+			end := strings.Index(s[after:], close)
 			if end == -1 {
 				break
 			}
+			end += after
 			s = s[:start] + s[end+len(close):]
 		}
 	}
@@ -2431,7 +2436,7 @@ func run(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		ctx.CardHistory = append(ctx.CardHistory, ctx.Card)
-		saveHistory(ctx)
+		saveHistoryFunc(ctx)
 
 		output, _ := json.MarshalIndent(ctx.Card, "", "  ")
 		fmt.Println(string(output))
