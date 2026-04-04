@@ -9,9 +9,13 @@ nixos_image_name      = "hermes-nixos"
 nixos_image_family    = "hermes-nixos"
 nixos_image_source    = "https://storage.googleapis.com/modiase-infra/images/hermes-nixos-latest.tar.gz"
 
-wif_machine_keys = {
+wif_keys = {
   hestia = {
     x = "BIZlG7kMCqqHeVGZqxoNa369eJpOETt_w4GunJTQ7nE"
     y = "5GWBuiP7tYlkis7Z3b5N_Y2LuGdnIM0fYu-_xjqOP1g"
+  }
+  amex-otp = {
+    x = "bQO-n66SnpKghxJIgL3VadrygDL0pI60wIkyAOAXhWA"
+    y = "0lc9izhfSbO-FZg_SKoxUaBYC0KKMnTmUI_5vz5vqh4"
   }
 }

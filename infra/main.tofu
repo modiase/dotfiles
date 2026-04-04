@@ -34,10 +34,10 @@ module "hermes" {
 }
 
 module "workload_identity" {
-  source       = "./modules/workload-identity"
-  project_id   = var.project_id
-  region       = var.backup_bucket_location
-  machine_keys = var.wif_machine_keys
+  source     = "./modules/workload-identity"
+  project_id = var.project_id
+  region     = var.backup_bucket_location
+  keys       = var.wif_keys
 }
 
 module "hestia" {
