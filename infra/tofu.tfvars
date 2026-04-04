@@ -11,8 +11,8 @@ nixos_image_source    = "https://storage.googleapis.com/modiase-infra/images/her
 
 wif_keys = {
   hestia = {
-    x = "BIZlG7kMCqqHeVGZqxoNa369eJpOETt_w4GunJTQ7nE"
-    y = "5GWBuiP7tYlkis7Z3b5N_Y2LuGdnIM0fYu-_xjqOP1g"
+    x = "2bJVh1i8qPrcTvk-_c6EK7jZN0MgbXrMNe2oZ3KYY5c"
+    y = "rztZlti4vzhqKpxAk049eZ1nhKWEzbIhMdwnX_J-W0g"
   }
   amex-otp = {
     x = "bQO-n66SnpKghxJIgL3VadrygDL0pI60wIkyAOAXhWA"
