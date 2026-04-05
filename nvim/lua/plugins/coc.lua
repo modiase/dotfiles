@@ -19,11 +19,8 @@ return {
 		end)
 	end,
 	config = function()
-		vim.opt.hidden = true
 		vim.opt.backup = false
 		vim.opt.writebackup = false
-		vim.opt.cmdheight = 1
-		vim.opt.updatetime = 300
 		vim.opt.shortmess:append("c")
 		vim.opt.signcolumn = "yes"
 
