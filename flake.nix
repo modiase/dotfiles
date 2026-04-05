@@ -119,7 +119,27 @@
         nix-homebrew.darwinModules.nix-homebrew
       ];
 
+      # TODO: remove once nixos-unstable advances past 2026-04-03.
+      # nixos-unstable is stuck at 2026-04-01; claude-code 2.1.88 was yanked
+      # from npm (404). Pin to a nixpkgs master commit with 2.1.92.
+      nixpkgs-claude-code = builtins.fetchTarball {
+        url = "https://github.com/NixOS/nixpkgs/archive/a366415aa31aaba86de150bc5002cedd27bd1c95.tar.gz";
+        sha256 = "2ZVZ8QGj6DO18/rDkx2MijEWrTrD31BMZgL/zGOIXwk=";
+      };
+
       sharedOverlays = [
+        # TODO: remove once nixos-unstable advances past 2026-04-03 (see above)
+        (final: _: {
+          inherit
+            (
+              (import nixpkgs-claude-code {
+                inherit (final) system;
+                config.allowUnfree = true;
+              })
+            )
+            claude-code
+            ;
+        })
         (_: super: {
           aleo = super.callPackage ./nix/nixpkgs/aleo { };
           gemini-nvim-ide-bridge = super.callPackage ./nix/nixpkgs/gemini-cli/scripts/gemini-nvim-ide-bridge {

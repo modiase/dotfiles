@@ -77,22 +77,22 @@ let
     nix-tree
     nixfmt
     nmap
-    nodePackages.pnpm
-    nodePackages.svelte-language-server
-    nodePackages.typescript
     nodejs
     ntfy-me
     opentofu
     pgcli
+    pnpm
     pre-commit
     procs
     pstree
     ripgrep
     sd
     secrets
+    svelte-language-server
     terraform-ls
     tldr
     tshark
+    typescript
     uv
     viddy
     wireguard-tools
