@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,6 +14,9 @@ import (
 	devlogs "devlogs-lib"
 	"mvdan.cc/sh/v3/syntax"
 )
+
+//go:embed deny-rules.json
+var embeddedDenyRulesJSON []byte
 
 type Decision struct {
 	Action string `json:"permissionDecision,omitempty"`
@@ -41,10 +45,16 @@ type denyRule struct {
 	TopLevelOnly bool
 }
 
+type embeddedDenyRule struct {
+	Rule         string `json:"rule"`
+	Reason       string `json:"reason"`
+	TopLevelOnly bool   `json:"topLevelOnly"`
+}
+
 type settingsFile struct {
 	Permissions struct {
-		Allow   []string          `json:"allow"`
-		DenyRaw []json.RawMessage `json:"deny"`
+		Allow []string `json:"allow"`
+		Deny  []string `json:"deny"`
 	} `json:"permissions"`
 }
 
@@ -67,29 +77,29 @@ func extractAllowPatterns(settings *settingsFile) []string {
 	return patterns
 }
 
+func loadEmbeddedDenyRules() []denyRule {
+	var embedded []embeddedDenyRule
+	if err := json.Unmarshal(embeddedDenyRulesJSON, &embedded); err != nil {
+		return nil
+	}
+	rules := make([]denyRule, 0, len(embedded))
+	for _, e := range embedded {
+		if p, ok := bashPattern(e.Rule); ok {
+			reason := e.Reason
+			if reason == "" {
+				reason = "Command denied by policy."
+			}
+			rules = append(rules, denyRule{Pattern: p, Reason: reason, TopLevelOnly: e.TopLevelOnly})
+		}
+	}
+	return rules
+}
+
 func extractDenyRules(settings *settingsFile) []denyRule {
 	var rules []denyRule
-	for _, raw := range settings.Permissions.DenyRaw {
-		var str string
-		if err := json.Unmarshal(raw, &str); err == nil {
-			if p, ok := bashPattern(str); ok {
-				rules = append(rules, denyRule{Pattern: p, Reason: "Command denied by policy."})
-			}
-			continue
-		}
-		var obj struct {
-			Rule         string `json:"rule"`
-			Reason       string `json:"reason"`
-			TopLevelOnly bool   `json:"topLevelOnly"`
-		}
-		if err := json.Unmarshal(raw, &obj); err == nil && obj.Rule != "" {
-			if p, ok := bashPattern(obj.Rule); ok {
-				reason := obj.Reason
-				if reason == "" {
-					reason = "Command denied by policy."
-				}
-				rules = append(rules, denyRule{Pattern: p, Reason: reason, TopLevelOnly: obj.TopLevelOnly})
-			}
+	for _, entry := range settings.Permissions.Deny {
+		if p, ok := bashPattern(entry); ok {
+			rules = append(rules, denyRule{Pattern: p, Reason: "Command denied by policy."})
 		}
 	}
 	return rules
@@ -762,7 +772,8 @@ func run(log *devlogs.Logger) *Decision {
 		return abstain()
 	}
 
-	denyRules := extractDenyRules(settings)
+	denyRules := loadEmbeddedDenyRules()
+	denyRules = append(denyRules, extractDenyRules(settings)...)
 	allowPatterns := extractAllowPatterns(settings)
 
 	allAllowed := true
