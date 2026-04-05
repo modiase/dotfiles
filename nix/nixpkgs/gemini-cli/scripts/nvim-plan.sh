@@ -37,13 +37,16 @@ fi
 
 session_dir="$(dirname "$(dirname "$plan_file")")"
 PIDFILE="$session_dir/plan-responder.pid"
+FIFO_PATH_FILE="$session_dir/plan-fifo"
 if [[ -f "$PIDFILE" ]]; then
     kill "$(cat "$PIDFILE")" 2>/dev/null || true
     rm -f "$PIDFILE"
 fi
+rm -f "$FIFO_PATH_FILE"
 
 FIFO="/tmp/nvim-plan-$(uuidgen | tr '[:upper:]' '[:lower:]').fifo"
 mkfifo "$FIFO"
+echo "$FIFO" >"$FIFO_PATH_FILE"
 
 setsid agents-plan-responder --fifo "$FIFO" --pane "$TMUX_PANE" --provider gemini \
     --wrapper-id "$WRAPPER_ID" </dev/null &>/dev/null &
