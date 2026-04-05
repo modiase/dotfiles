@@ -176,6 +176,9 @@ pre-commit-whitespace:
     # shellcheck disable=SC2086
     nix-shell -p gnused --run "sed -i 's/[[:space:]]*$//' ${files[*]}"
 
+flake-update:
+    nix flake update
+
 nix-lint:
     #!/usr/bin/env bash
     set -euo pipefail
