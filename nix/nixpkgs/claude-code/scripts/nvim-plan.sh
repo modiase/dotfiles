@@ -36,13 +36,16 @@ if [[ -z "${NVIM_SOCKET:-}" ]]; then
 fi
 
 PIDFILE="/tmp/plan-responder-${WRAPPER_ID}.pid"
+FIFO_PATH_FILE="/tmp/plan-fifo-${WRAPPER_ID}"
 if [[ -f "$PIDFILE" ]]; then
     kill "$(cat "$PIDFILE")" 2>/dev/null || true
     rm -f "$PIDFILE"
 fi
+rm -f "$FIFO_PATH_FILE"
 
 FIFO="/tmp/nvim-plan-$(uuidgen | tr '[:upper:]' '[:lower:]').fifo"
 mkfifo "$FIFO"
+echo "$FIFO" >"$FIFO_PATH_FILE"
 
 setsid agents-plan-responder --fifo "$FIFO" --pane "$TMUX_PANE" --provider claude \
     --wrapper-id "$WRAPPER_ID" </dev/null &>/dev/null &
