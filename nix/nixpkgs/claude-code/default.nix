@@ -28,7 +28,9 @@ let
     '';
   };
 
-  allowShellcommand = pkgs.callPackage ../allow-shellcommand { };
+  denyRulesJson = pkgs.writeText "deny-rules.json" (builtins.toJSON (import ./deny-rules.nix));
+
+  allowShellcommand = pkgs.callPackage ../allow-shellcommand { inherit denyRulesJson; };
 
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
 
@@ -76,7 +78,8 @@ let
   shellcommandHookBin = "${allowShellcommand}/bin/allow-shellcommand";
   formatHookBin = "${formatHookScript}/bin/claude-format-hook";
 
-  baseSettings = import ./settings.nix { inherit hookBin shellcommandHookBin formatHookBin; };
+  settingsModule = import ./settings.nix { inherit hookBin shellcommandHookBin formatHookBin; };
+  baseSettings = settingsModule.settings;
 
   settings = baseSettings // {
     hooks = baseSettings.hooks // {

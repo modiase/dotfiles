@@ -72,15 +72,16 @@ func TestExtractAllowPatterns(t *testing.T) {
 	}
 }
 
-func TestExtractDenyRulesStringFormat(t *testing.T) {
+func TestExtractDenyRulesFromSettings(t *testing.T) {
 	settings := &settingsFile{}
-	settings.Permissions.DenyRaw = []json.RawMessage{
-		json.RawMessage(`"Bash(rm -rf:*)"`),
+	settings.Permissions.Deny = []string{
+		"Bash(rm -rf:*)",
+		"Read(~/.ssh/*)",
 	}
 
 	rules := extractDenyRules(settings)
 	if len(rules) != 1 {
-		t.Fatalf("expected 1 deny rule, got %d: %v", len(rules), rules)
+		t.Fatalf("expected 1 deny rule (non-Bash skipped), got %d: %v", len(rules), rules)
 	}
 	if rules[0].Pattern != "rm -rf*" {
 		t.Errorf("pattern = %q, want %q", rules[0].Pattern, "rm -rf*")
@@ -90,56 +91,25 @@ func TestExtractDenyRulesStringFormat(t *testing.T) {
 	}
 }
 
-func TestExtractDenyRulesObjectFormat(t *testing.T) {
-	settings := &settingsFile{}
-	settings.Permissions.DenyRaw = []json.RawMessage{
-		json.RawMessage(`{"rule":"Bash(git push:*)","reason":"Ask the user."}`),
-	}
+func TestLoadEmbeddedDenyRules(t *testing.T) {
+	orig := embeddedDenyRulesJSON
+	defer func() { embeddedDenyRulesJSON = orig }()
 
-	rules := extractDenyRules(settings)
-	if len(rules) != 1 {
-		t.Fatalf("expected 1 deny rule, got %d: %v", len(rules), rules)
-	}
-	if rules[0].Pattern != "git push*" {
-		t.Errorf("pattern = %q, want %q", rules[0].Pattern, "git push*")
-	}
-	if rules[0].Reason != "Ask the user." {
-		t.Errorf("reason = %q, want %q", rules[0].Reason, "Ask the user.")
-	}
-}
+	embeddedDenyRulesJSON = []byte(`[
+		{"rule":"Bash(git push:*)","reason":"Ask the user."},
+		{"rule":"Bash(node:*)"},
+		{"rule":"Read(~/.ssh/*)","reason":"skipped"}
+	]`)
 
-func TestExtractDenyRulesMixed(t *testing.T) {
-	settings := &settingsFile{}
-	settings.Permissions.DenyRaw = []json.RawMessage{
-		json.RawMessage(`"Bash(rm -rf:*)"`),
-		json.RawMessage(`{"rule":"Bash(git push:*)","reason":"Destructive."}`),
-		json.RawMessage(`"Read(~/.ssh/*)"`),
-	}
-
-	rules := extractDenyRules(settings)
+	rules := loadEmbeddedDenyRules()
 	if len(rules) != 2 {
-		t.Fatalf("expected 2 deny rules, got %d: %v", len(rules), rules)
+		t.Fatalf("expected 2 rules (non-Bash skipped), got %d: %v", len(rules), rules)
 	}
-	if rules[0].Pattern != "rm -rf*" || rules[0].Reason != "Command denied by policy." {
+	if rules[0].Pattern != "git push*" || rules[0].Reason != "Ask the user." {
 		t.Errorf("rules[0] = %+v", rules[0])
 	}
-	if rules[1].Pattern != "git push*" || rules[1].Reason != "Destructive." {
-		t.Errorf("rules[1] = %+v", rules[1])
-	}
-}
-
-func TestExtractDenyRulesObjectNoReason(t *testing.T) {
-	settings := &settingsFile{}
-	settings.Permissions.DenyRaw = []json.RawMessage{
-		json.RawMessage(`{"rule":"Bash(node:*)"}`),
-	}
-
-	rules := extractDenyRules(settings)
-	if len(rules) != 1 {
-		t.Fatalf("expected 1 deny rule, got %d", len(rules))
-	}
-	if rules[0].Reason != "Command denied by policy." {
-		t.Errorf("reason = %q, want default", rules[0].Reason)
+	if rules[1].Pattern != "node*" || rules[1].Reason != "Command denied by policy." {
+		t.Errorf("rules[1] = %+v, want default reason", rules[1])
 	}
 }
 
@@ -1014,14 +984,16 @@ func TestExtractCommandsCaptured(t *testing.T) {
 	}
 }
 
-func TestExtractDenyRulesTopLevelOnly(t *testing.T) {
-	settings := &settingsFile{}
-	settings.Permissions.DenyRaw = []json.RawMessage{
-		json.RawMessage(`{"rule":"Bash(gcloud secrets versions access:*)","reason":"No secrets.","topLevelOnly":true}`),
-		json.RawMessage(`{"rule":"Bash(rm -rf:*)","reason":"Destructive."}`),
-	}
+func TestEmbeddedDenyRulesTopLevelOnly(t *testing.T) {
+	orig := embeddedDenyRulesJSON
+	defer func() { embeddedDenyRulesJSON = orig }()
 
-	rules := extractDenyRules(settings)
+	embeddedDenyRulesJSON = []byte(`[
+		{"rule":"Bash(gcloud secrets versions access:*)","reason":"No secrets.","topLevelOnly":true},
+		{"rule":"Bash(rm -rf:*)","reason":"Destructive."}
+	]`)
+
+	rules := loadEmbeddedDenyRules()
 	if len(rules) != 2 {
 		t.Fatalf("expected 2 deny rules, got %d: %v", len(rules), rules)
 	}
@@ -1042,15 +1014,19 @@ func TestExtractDenyRulesTopLevelOnly(t *testing.T) {
 }
 
 func TestTopLevelOnlyDeny(t *testing.T) {
+	orig := embeddedDenyRulesJSON
+	defer func() { embeddedDenyRulesJSON = orig }()
+
+	embeddedDenyRulesJSON = []byte(`[
+		{"rule":"Bash(gcloud secrets versions access:*)","reason":"Do not directly view secrets.","topLevelOnly":true}
+	]`)
+
 	dir := t.TempDir()
 	settingsPath := filepath.Join(dir, "settings.json")
 	settings := `{
 		"permissions": {
 			"allow": ["Bash(gcloud*)", "Bash(git*)", "Bash(sha256sum*)", "Bash(diff*)", "Bash(echo*)", "Bash(true*)"],
-			"deny": [
-				{"rule":"Bash(gcloud secrets versions access:*)","reason":"Do not directly view secrets.","topLevelOnly":true},
-				"Bash(rm -rf*)"
-			]
+			"deny": ["Bash(rm -rf*)"]
 		}
 	}`
 	_ = os.WriteFile(settingsPath, []byte(settings), 0o644)
