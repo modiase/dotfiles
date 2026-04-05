@@ -14,7 +14,7 @@ let
     pkgs.google-java-format
     pkgs.jq
     pkgs.nixfmt-rfc-style
-    pkgs.nodePackages.prettier
+    pkgs.prettier
     pkgs.opentofu
     pkgs.ruff
     pkgs.rustfmt
