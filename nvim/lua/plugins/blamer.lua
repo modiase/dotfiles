@@ -1,5 +1,5 @@
 function GitBlameCp()
-	vim.api.nvim_exec("GitBlameCopySHA", true)
+	vim.cmd("GitBlameCopySHA")
 	print(vim.fn.getreg("+"))
 end
 

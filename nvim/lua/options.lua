@@ -2,7 +2,6 @@
 local vim = vim
 local colors = require("colors")
 
-vim.opt.autoindent = true
 vim.opt.listchars = { extends = ">", precedes = "<" }
 vim.opt.mouse = "a"
 vim.opt.number = true
@@ -12,11 +11,8 @@ vim.opt.expandtab = true
 vim.opt.tabstop = 4
 vim.opt.updatetime = 300
 vim.opt.wrap = false
-vim.opt.termguicolors = true
 vim.opt.fillchars = { eob = " " }
 vim.opt.laststatus = 3
-
-vim.cmd("syntax on")
 
 vim.api.nvim_set_hl(0, "Normal", { bg = colors.background })
 vim.api.nvim_set_hl(0, "NormalFloat", { bg = "NONE" })
