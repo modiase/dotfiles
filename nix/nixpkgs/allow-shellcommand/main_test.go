@@ -126,7 +126,7 @@ func TestDenyDecisionHasReason(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := `{"permissionDecision":"deny","permissionDecisionReason":"test reason"}`
+	want := `{"permissionDecision":"deny","permissionDecisionReason":"test reason","retry":true}`
 	if string(out) != want {
 		t.Errorf("json = %s, want %s", out, want)
 	}

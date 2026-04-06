@@ -231,6 +231,17 @@ in
           ];
         }
       ];
+      PermissionDenied = [
+        {
+          matcher = "Bash";
+          hooks = [
+            {
+              type = "command";
+              command = "${shellcommandHookBin} --wrapper-id $WRAPPER_ID";
+            }
+          ];
+        }
+      ];
       SessionStart = [
         {
           matcher = "*";

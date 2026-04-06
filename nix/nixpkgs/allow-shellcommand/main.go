@@ -21,10 +21,11 @@ var embeddedDenyRulesJSON []byte
 type Decision struct {
 	Action string `json:"permissionDecision,omitempty"`
 	Reason string `json:"permissionDecisionReason,omitempty"`
+	Retry  bool   `json:"retry,omitempty"`
 }
 
 func allow() *Decision             { return &Decision{Action: "allow"} }
-func deny(reason string) *Decision { return &Decision{Action: "deny", Reason: reason} }
+func deny(reason string) *Decision { return &Decision{Action: "deny", Reason: reason, Retry: true} }
 func abstain() *Decision           { return nil }
 
 type hookInput struct {
