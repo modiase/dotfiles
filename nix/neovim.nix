@@ -72,9 +72,15 @@ in
         background = "#${colors.background}",
         foreground = "#${colors.foreground}",
         foregroundDim = "#${colors.foregroundDim}",
+        foregroundMuted = "#${colors.foregroundMuted}",
         cursor = "#${colors.cursor}",
         cursorText = "#${colors.cursorText}",
         selection = "#${colors.selection}",
+
+        diffAdd = "#${colors.diffAdd}",
+        diffChange = "#${colors.diffChange}",
+        diffText = "#${colors.diffText}",
+        diffDelete = "#${colors.diffDelete}",
 
         base00 = "#${colors.base16.base00}",
         base01 = "#${colors.base16.base01}",

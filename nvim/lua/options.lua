@@ -29,23 +29,10 @@ vim.g.clipboard = {
 	},
 }
 
-vim.api.nvim_set_hl(0, "DiffAdd", {
-	bg = "#103510",
-})
-
-vim.api.nvim_set_hl(0, "DiffChange", {
-	bg = "#4a4a00",
-	fg = "NONE",
-})
-
-vim.api.nvim_set_hl(0, "DiffText", {
-	bg = "#6b6b00",
-	fg = "NONE",
-})
-
-vim.api.nvim_set_hl(0, "DiffDelete", {
-	bg = "#401010",
-})
+vim.api.nvim_set_hl(0, "DiffAdd", { bg = colors.diffAdd })
+vim.api.nvim_set_hl(0, "DiffChange", { bg = colors.diffChange })
+vim.api.nvim_set_hl(0, "DiffText", { bg = colors.diffChange, fg = colors.diffText })
+vim.api.nvim_set_hl(0, "DiffDelete", { bg = colors.diffDelete })
 
 vim.api.nvim_set_hl(0, "CocInlayHint", { fg = colors.base0C, bg = "NONE" })
 vim.api.nvim_set_hl(0, "CocInlayHintParameter", { fg = colors.base0C, bg = "NONE" })
