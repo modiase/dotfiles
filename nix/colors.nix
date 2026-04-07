@@ -2,6 +2,7 @@
   background = "282828";
   foreground = "e0e0e0";
   foregroundDim = "707070";
+  foregroundMuted = "a0a0a0";
   cursor = "e0e0e0";
   cursorText = "282828";
   selection = "3a3a3a";
@@ -24,6 +25,11 @@
     "14=#b8e8f0"
     "15=#f0f0f0"
   ];
+
+  diffAdd = "103510";
+  diffChange = "4a4a00";
+  diffText = "d4a050";
+  diffDelete = "401010";
 
   base16 = {
     base00 = "282828";
