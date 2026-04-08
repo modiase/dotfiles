@@ -12,6 +12,8 @@ vim.opt.tabstop = 4
 vim.opt.updatetime = 300
 vim.opt.wrap = false
 vim.opt.fillchars = { eob = " " }
+vim.opt.guicursor =
+	"n-v-c-sm:block-blinkon500-blinkoff500-blinkwait500,i-ci-ve:ver25-blinkon500-blinkoff500-blinkwait500,r-cr-o:hor20-blinkon500-blinkoff500-blinkwait500"
 vim.opt.laststatus = 3
 
 vim.api.nvim_set_hl(0, "Normal", { bg = colors.background })
