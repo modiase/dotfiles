@@ -21,8 +21,7 @@ let
     set -g mouse on
     bind C-l send-keys 'C-l'
 
-    set -g window-active-style 'fg=#${colors.foreground}'
-    set -g window-style 'fg=#${colors.foregroundDim}'
+    set -g cursor-style blinking-block
 
     set -g default-command ${pkgs.fish}/bin/fish
     set -g allow-passthrough all
@@ -64,7 +63,7 @@ in
       set -g window-status-format " #{?window_bell_flag,#[fg=#${colors.base16.base0B}],}#I:#W#F "
       set -g window-status-current-format " #I:#W#F "
       set -g pane-border-style "fg=#${colors.base16.base02}"
-      set -g pane-active-border-style "fg=#${colors.base16.base0B}"
+      set -g pane-active-border-style "fg=#${colors.foregroundDim}"
       set -g message-style "bg=#${colors.base16.base02},fg=#${colors.foreground}"
 
       set -g @resurrect-processes '"~nvim" "~yazi" ~"gemini" ~"claude" ~"devlogs"'
