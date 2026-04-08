@@ -9,7 +9,7 @@ function M.setup()
 		group = group,
 		pattern = "CocNvimInit",
 		callback = function()
-			log.info("initialised")
+			log.info("coc initialised")
 		end,
 	})
 
