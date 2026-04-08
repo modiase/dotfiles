@@ -165,7 +165,9 @@ return {
 
 		vim.keymap.set("n", "<leader>ff", function()
 			local picker = function(opts)
-				require("telescope.builtin").find_files(vim.tbl_extend("force", { hidden = true }, opts or {}))
+				require("telescope").extensions.frecency.frecency(
+					vim.tbl_extend("force", { hidden = true }, opts or {})
+				)
 			end
 			if require("utils.vcs").is_citc() then
 				picker = require("telescope").extensions.codesearch.find_files

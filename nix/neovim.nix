@@ -36,6 +36,7 @@ in
       "diffview"
       "fidget"
       "flash"
+      "frecency"
       "gitsigns"
       "image"
       "neogit"
