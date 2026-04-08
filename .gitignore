@@ -44,6 +44,9 @@ worktrees/
 /result
 /result-*/
 
+# Go build artifacts
+**/vpn-routing-server
+
 # Agents
 # symlinked to AGENTS.md
 /CLAUDE.md
