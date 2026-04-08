@@ -36,7 +36,7 @@ notify() {
     local title="$1" message="$2" alert_type="${3:-}"
     local args=(--focus-pane -i "$title" -m "$message")
     if [[ -n "$alert_type" ]]; then args+=(-t "$alert_type"); fi
-    clog info "dispatch: $title"
+    clog debug "dispatch: $title"
     attn "${args[@]}" >/dev/null
 }
 
