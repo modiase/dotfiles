@@ -230,11 +230,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1767398142,
-        "narHash": "sha256-lUpM2J2D4HsRfLpkNHT1lDX30YKbdoMxtRp9JQetIrE=",
+        "lastModified": 1775685295,
+        "narHash": "sha256-tNS5D9mjkq2IFAN2bpLl77BqsK7t6iV6/5xG271qHdw=",
         "owner": "modiase",
         "repo": "tk700-controller-dashboard",
-        "rev": "9a09b3a6d69a680c6d3f817c5da416b02f6e2e03",
+        "rev": "ee93e48eb6442d68e6d6c1ca539c37deed67083e",
         "type": "github"
       },
       "original": {
