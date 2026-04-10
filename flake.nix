@@ -244,6 +244,14 @@
               };
             };
 
+          pkiModule = {
+            security.pki.certificateFiles = [ ./certs/root-ca.pem ];
+            _module.args.homelabCerts = {
+              rootCA = ./certs/root-ca.pem;
+              intermediateCA = ./certs/intermediate-ca.pem;
+            };
+          };
+
           hostnameModule = lib.optionalAttrs (hostname != null) (
             if isDarwin then
               {
@@ -267,6 +275,7 @@
                 modules = [
                   dotfilesModule
                   hostnameModule
+                  pkiModule
                 ]
                 ++ darwinCommonModules
                 ++ modules;
@@ -278,6 +287,7 @@
                 modules = [
                   dotfilesModule
                   hostnameModule
+                  pkiModule
                   { nixpkgs.overlays = systemOverlays; }
                 ]
                 ++ modules;
