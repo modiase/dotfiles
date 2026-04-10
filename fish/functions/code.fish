@@ -12,7 +12,7 @@ if set -q _flag_help
     echo "  --no-rename       Don't rename tmux window"
     echo "  --no-debug        Don't add devlogs pane"
     echo ""
-    echo "Layout: yazi | nvim / terminal | agent (optional) / devlogs (default)"
+    echo "Layout: yazi[/hgr] | nvim / terminal | agent (optional) / devlogs (default)"
     return 0
 end
 
@@ -92,4 +92,9 @@ end
 if test $has_debug -eq 1
     set -l debug_pane (math $need - 1)
     tmux send-keys -t $win.$debug_pane devlogs Enter
+end
+
+if git_is_repo
+    set -l hgr_pane (tmux split-window -v -t $win.0 -l 40% -c "$dir" -P -F '#{pane_id}')
+    tmux send-keys -t $hgr_pane hgr Enter
 end
