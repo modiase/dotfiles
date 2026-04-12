@@ -25,10 +25,6 @@
     reason = "Destructive git operation. Ask the user to run this manually.";
   }
   {
-    rule = "Bash(git commit:*)";
-    reason = "Use the Skill tool with /commit instead, or ask the user.";
-  }
-  {
     rule = "Bash(git reset --hard:*)";
     reason = "Destructive git operation. Ask the user to run this manually.";
   }
