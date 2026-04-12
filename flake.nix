@@ -156,6 +156,14 @@
                                'Constraint::Length(0)]).areas(footer);'
             '';
           });
+          anki-sync-server = super.anki-sync-server.overrideAttrs (old: {
+            postPatch = (old.postPatch or "") + ''
+              substituteInPlace rslib/src/storage/sqlite.rs \
+                --replace-fail '"locking_mode", "exclusive"' '"locking_mode", "normal"'
+              substituteInPlace rslib/src/sync/media/database/server/mod.rs \
+                --replace-fail '"locking_mode", "exclusive"' '"locking_mode", "normal"'
+            '';
+          });
         })
       ];
 

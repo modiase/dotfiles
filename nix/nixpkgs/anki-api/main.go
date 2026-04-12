@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	dbPath := flag.String("db", "", "path to Anki collection.anki21 database")
+	dbPath := flag.String("db", "", "path to Anki collection.anki2 database")
 	port := flag.Int("port", 27702, "HTTP listen port")
 	apiKeyFile := flag.String("api-key-file", "", "path to file containing API key")
 	flag.Parse()
@@ -38,15 +38,9 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", h.Health)
 	mux.HandleFunc("GET /api/decks", h.ListDecks)
-	mux.HandleFunc("POST /api/decks", h.CreateDeck)
-	mux.HandleFunc("DELETE /api/decks/{id}", h.DeleteDeck)
 	mux.HandleFunc("GET /api/notes/search", h.SearchNotes)
 	mux.HandleFunc("GET /api/notes/{id}", h.GetNote)
-	mux.HandleFunc("PUT /api/notes/{id}", h.UpdateNote)
 	mux.HandleFunc("GET /api/notes", h.ListNotes)
-	mux.HandleFunc("POST /api/notes", h.CreateNote)
-	mux.HandleFunc("DELETE /api/notes/{id}", h.DeleteNote)
-	mux.HandleFunc("PUT /api/decks/{id}", h.UpdateDeck)
 	mux.HandleFunc("GET /api/models", h.ListModels)
 	mux.HandleFunc("GET /api/stats", h.Stats)
 

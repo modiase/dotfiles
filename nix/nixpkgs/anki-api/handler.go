@@ -42,40 +42,6 @@ func (h *Handler) ListDecks(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, decks)
 }
 
-func (h *Handler) CreateDeck(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Name string `json:"name"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
-		return
-	}
-	if req.Name == "" {
-		http.Error(w, `{"error":"name is required"}`, http.StatusBadRequest)
-		return
-	}
-	id, err := h.db.CreateDeck(req.Name)
-	if err != nil {
-		serverError(w, "creating deck", err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, map[string]int64{"id": id})
-}
-
-func (h *Handler) DeleteDeck(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		http.Error(w, `{"error":"invalid deck id"}`, http.StatusBadRequest)
-		return
-	}
-	if err := h.db.DeleteDeck(id); err != nil {
-		serverError(w, "deleting deck", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
-}
-
 func (h *Handler) ListNotes(w http.ResponseWriter, r *http.Request) {
 	deck := r.URL.Query().Get("deck")
 	if deck == "" {
@@ -88,38 +54,6 @@ func (h *Handler) ListNotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, notes)
-}
-
-func (h *Handler) CreateNote(w http.ResponseWriter, r *http.Request) {
-	var req CreateNoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
-		return
-	}
-	if req.Deck == "" || req.Model == "" || len(req.Fields) == 0 {
-		http.Error(w, `{"error":"deck, model, and fields are required"}`, http.StatusBadRequest)
-		return
-	}
-	note, err := h.db.CreateNote(req)
-	if err != nil {
-		serverError(w, "creating note", err)
-		return
-	}
-	writeJSON(w, http.StatusCreated, note)
-}
-
-func (h *Handler) DeleteNote(w http.ResponseWriter, r *http.Request) {
-	idStr := r.PathValue("id")
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		http.Error(w, `{"error":"invalid note id"}`, http.StatusBadRequest)
-		return
-	}
-	if err := h.db.DeleteNote(id); err != nil {
-		serverError(w, "deleting note", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
 
 func (h *Handler) GetNote(w http.ResponseWriter, r *http.Request) {
@@ -140,28 +74,6 @@ func (h *Handler) GetNote(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, note)
 }
 
-func (h *Handler) UpdateNote(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		http.Error(w, `{"error":"invalid note id"}`, http.StatusBadRequest)
-		return
-	}
-	var req UpdateNoteRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
-		return
-	}
-	if err := h.db.UpdateNote(id, req); err != nil {
-		if err.Error() == fmt.Sprintf("note %d not found", id) {
-			http.Error(w, `{"error":"note not found"}`, http.StatusNotFound)
-			return
-		}
-		serverError(w, "updating note", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
-}
-
 func (h *Handler) SearchNotes(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
 	if q == "" {
@@ -175,30 +87,6 @@ func (h *Handler) SearchNotes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, notes)
-}
-
-func (h *Handler) UpdateDeck(w http.ResponseWriter, r *http.Request) {
-	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
-	if err != nil {
-		http.Error(w, `{"error":"invalid deck id"}`, http.StatusBadRequest)
-		return
-	}
-	var req struct {
-		Name string `json:"name"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"invalid JSON"}`, http.StatusBadRequest)
-		return
-	}
-	if req.Name == "" {
-		http.Error(w, `{"error":"name is required"}`, http.StatusBadRequest)
-		return
-	}
-	if err := h.db.UpdateDeck(id, req.Name); err != nil {
-		serverError(w, "updating deck", err)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]string{"status": "updated"})
 }
 
 func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
