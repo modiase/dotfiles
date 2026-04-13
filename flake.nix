@@ -264,6 +264,7 @@
                   dotfilesModule
                   hostnameModule
                   pkiModule
+                  ./nix/auto-activate.nix
                 ]
                 ++ darwinCommonModules
                 ++ modules;
@@ -276,6 +277,7 @@
                   dotfilesModule
                   hostnameModule
                   pkiModule
+                  ./nix/auto-activate.nix
                   { nixpkgs.overlays = systemOverlays; }
                 ]
                 ++ modules;
