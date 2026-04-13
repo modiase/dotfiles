@@ -1,7 +1,8 @@
 {
   hookBin,
   shellcommandHookBin,
-  formatHookBin,
+  recordEditBin,
+  formatStopBin,
 }:
 let
   denyRules = import ./deny-rules.nix;
@@ -258,6 +259,10 @@ in
           hooks = [
             {
               type = "command";
+              command = formatStopBin;
+            }
+            {
+              type = "command";
               command = "${hookBin} stop --wrapper-id $WRAPPER_ID";
             }
           ];
@@ -269,7 +274,7 @@ in
           hooks = [
             {
               type = "command";
-              command = formatHookBin;
+              command = recordEditBin;
             }
           ];
         }

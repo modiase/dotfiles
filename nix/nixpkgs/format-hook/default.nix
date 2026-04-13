@@ -1,12 +1,11 @@
 {
   pkgs,
   name ? "format-hook",
-  script ? ./format-hook.sh,
   extraRuntimeInputs ? [ ],
 }:
 let
   devlogsLib = pkgs.callPackage ../devlogs-lib { };
-  defaultRuntimeInputs = [
+  formatRuntimeInputs = [
     pkgs.biome
     pkgs.buildifier
     pkgs.fish
@@ -21,15 +20,49 @@ let
     pkgs.shfmt
     pkgs.statix
     pkgs.stylua
-  ];
-in
-pkgs.writeShellApplication {
-  inherit name;
-  runtimeInputs = defaultRuntimeInputs ++ extraRuntimeInputs;
-  text = ''
+  ]
+  ++ extraRuntimeInputs;
+
+  devlogsInit = name': ''
     # shellcheck source=/dev/null
     source ${devlogsLib.shell}/lib/devlogs.sh
-    devlogs_init ${name}
-    ${builtins.readFile script}
+    devlogs_init ${name'}
   '';
+
+  formatFileSrc = builtins.readFile ./format-file.sh;
+
+  formatHook = pkgs.writeShellApplication {
+    inherit name;
+    runtimeInputs = formatRuntimeInputs;
+    text = ''
+      ${devlogsInit name}
+      ${formatFileSrc}
+      ${builtins.readFile ./format-hook.sh}
+    '';
+  };
+
+  recordEdit = pkgs.writeShellApplication {
+    name = "${name}-record";
+    runtimeInputs = [ pkgs.jq ];
+    text = ''
+      ${devlogsInit "${name}-record"}
+      ${builtins.readFile ./record-edit.sh}
+    '';
+  };
+
+  formatStop = pkgs.writeShellApplication {
+    name = "${name}-stop";
+    runtimeInputs = formatRuntimeInputs;
+    text = ''
+      ${devlogsInit "${name}-stop"}
+      ${formatFileSrc}
+      ${builtins.readFile ./format-stop.sh}
+    '';
+  };
+in
+formatHook
+// {
+  passthru = {
+    inherit recordEdit formatStop;
+  };
 }

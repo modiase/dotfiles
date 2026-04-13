@@ -76,9 +76,17 @@ let
 
   hookBin = "${hookScript}/bin/claude-hook";
   shellcommandHookBin = "${allowShellcommand}/bin/allow-shellcommand";
-  formatHookBin = "${formatHookScript}/bin/claude-format-hook";
+  recordEditBin = "${formatHookScript.passthru.recordEdit}/bin/claude-format-hook-record";
+  formatStopBin = "${formatHookScript.passthru.formatStop}/bin/claude-format-hook-stop";
 
-  settingsModule = import ./settings.nix { inherit hookBin shellcommandHookBin formatHookBin; };
+  settingsModule = import ./settings.nix {
+    inherit
+      hookBin
+      shellcommandHookBin
+      recordEditBin
+      formatStopBin
+      ;
+  };
   baseSettings = settingsModule.settings;
 
   settings = baseSettings // {
