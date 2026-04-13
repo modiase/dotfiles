@@ -13,16 +13,34 @@ resource "google_service_account" "amex_otp" {
   project      = var.project_id
 }
 
-resource "google_secret_manager_secret_iam_member" "gmail_credentials" {
+resource "google_secret_manager_secret" "amex_otp_gmail_credentials" {
   project   = var.project_id
   secret_id = "amex-otp-gmail-credentials"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret" "amex_credentials" {
+  project   = var.project_id
+  secret_id = "amex-credentials"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_iam_member" "gmail_credentials" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.amex_otp_gmail_credentials.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.amex_otp.email}"
 }
 
 resource "google_secret_manager_secret_iam_member" "amex_credentials_invoker" {
   project   = var.project_id
-  secret_id = "amex-credentials"
+  secret_id = google_secret_manager_secret.amex_credentials.secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.invoker.email}"
 }

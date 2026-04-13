@@ -17,6 +17,66 @@ provider "google" {
   region  = var.region
 }
 
+import {
+  to = module.hermes.google_secret_manager_secret.authelia_hmac_secret
+  id = "projects/modiase-infra/secrets/authelia-hmac-secret"
+}
+
+import {
+  to = module.hermes.google_secret_manager_secret.authelia_oidc_jwks_key
+  id = "projects/modiase-infra/secrets/authelia-oidc-jwks-key"
+}
+
+import {
+  to = module.hermes.google_secret_manager_secret.authelia_secrets
+  id = "projects/modiase-infra/secrets/authelia-secrets"
+}
+
+import {
+  to = module.hermes.google_secret_manager_secret.hermes_cert_private_key
+  id = "projects/modiase-infra/secrets/hermes-cert-private-key"
+}
+
+import {
+  to = module.hermes.google_secret_manager_secret.hermes_gmail_address
+  id = "projects/modiase-infra/secrets/hermes-gmail-address"
+}
+
+import {
+  to = module.hermes.google_secret_manager_secret.hermes_gmail_client_id
+  id = "projects/modiase-infra/secrets/hermes-gmail-client-id"
+}
+
+import {
+  to = module.hermes.google_secret_manager_secret.hermes_gmail_client_secret
+  id = "projects/modiase-infra/secrets/hermes-gmail-client-secret"
+}
+
+import {
+  to = module.hermes.google_secret_manager_secret.hermes_gmail_refresh_token
+  id = "projects/modiase-infra/secrets/hermes-gmail-refresh-token"
+}
+
+import {
+  to = module.hermes.google_secret_manager_secret.nvd_api_key
+  id = "projects/modiase-infra/secrets/nvd-api-key"
+}
+
+import {
+  to = module.amex_otp.google_secret_manager_secret.amex_otp_gmail_credentials
+  id = "projects/modiase-infra/secrets/amex-otp-gmail-credentials"
+}
+
+import {
+  to = module.amex_otp.google_secret_manager_secret.amex_credentials
+  id = "projects/modiase-infra/secrets/amex-credentials"
+}
+
+import {
+  to = module.ntfy_pubsub.google_secret_manager_secret.ntfy_basic_auth_password
+  id = "projects/modiase-infra/secrets/ntfy-basic-auth-password"
+}
+
 module "hermes" {
   source = "../systems/hermes/infra"
 
