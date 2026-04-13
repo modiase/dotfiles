@@ -195,7 +195,7 @@ def main() -> None:
 
     tmp = Path(f"/tmp/agents-md-{args.agent}.md")
     tmp.write_text(result)
-    log.info("wrote temp output to %s", tmp)
+    log.debug("wrote agents.md output to %s", tmp)
 
     if args.output:
         args.output.write_text(result)
