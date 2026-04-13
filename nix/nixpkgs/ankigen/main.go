@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/atotto/clipboard"
+	osc52 "github.com/aymanbagabas/go-osc52/v2"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -81,6 +82,9 @@ type AgentResponse struct {
 
 type DebugTurn struct {
 	Turn        int
+	Round       int
+	RoundLabel  string
+	Kind        string // "agent", "user_response", "iterate", "separator"
 	Prompt      string
 	RawResponse string
 	Parsed      *AgentResponse
@@ -360,6 +364,7 @@ type PipelineContext struct {
 	UserResponses     []string
 	AwaitingInput     bool
 	DebugHistory      []DebugTurn
+	DebugRound        int
 	AgentTurn         int
 	AdditionalContext []string
 	History           *HistoryRecord
@@ -607,31 +612,71 @@ func formatSearchTerms(terms []string) string {
 	return b.String()
 }
 
+func copyToClipboard(text string) error {
+	if err := clipboard.WriteAll(text); err == nil {
+		return nil
+	}
+	_, err := osc52.New(text).WriteTo(os.Stderr)
+	return err
+}
+
+func roundLabelForCtx(ctx *PipelineContext) string {
+	if ctx.DebugRound == 0 {
+		return "Initial Generation"
+	}
+	return fmt.Sprintf("Regen #%d", ctx.DebugRound)
+}
+
 func formatDebugHistory(history []DebugTurn) string {
 	if len(history) == 0 {
 		return "(no agent turns recorded)"
 	}
 	var b strings.Builder
+	entry := 0
 	for _, turn := range history {
-		fmt.Fprintf(&b, "═══ Turn %d ═══\n", turn.Turn)
-		fmt.Fprintf(&b, "PROMPT:\n%s\n\n", turn.Prompt)
-		fmt.Fprintf(&b, "RAW RESPONSE:\n%s\n\n", turn.RawResponse)
-		if turn.Parsed != nil {
-			fmt.Fprintf(&b, "PARSED: action=%s", turn.Parsed.Action)
-			switch turn.Parsed.Action {
-			case "search":
-				fmt.Fprintf(&b, ", term=%q", turn.Parsed.SearchTerm)
-			case "ask":
-				fmt.Fprintf(&b, ", question=%q", turn.Parsed.Question)
-			case "refuse":
-				fmt.Fprintf(&b, ", reason=%q", turn.Parsed.Reason)
+		switch turn.Kind {
+		case "separator":
+			fmt.Fprintf(&b, "\n╔══════════════════════════════════╗\n")
+			fmt.Fprintf(&b, "║  %s\n", turn.RoundLabel)
+			fmt.Fprintf(&b, "╚══════════════════════════════════╝\n\n")
+
+		case "user_response":
+			entry++
+			fmt.Fprintf(&b, "─── Entry %d [User] ───\n", entry)
+			fmt.Fprintf(&b, "%s\n\n", turn.Prompt)
+
+		case "iterate":
+			entry++
+			fmt.Fprintf(&b, "═══ Entry %d [Iterate] ═══\n", entry)
+			fmt.Fprintf(&b, "PROMPT:\n%s\n\n", turn.Prompt)
+			fmt.Fprintf(&b, "RAW RESPONSE:\n%s\n\n", turn.RawResponse)
+			if turn.Error != nil {
+				fmt.Fprintf(&b, "ERROR: %v\n", turn.Error)
+			}
+			b.WriteString("\n")
+
+		default:
+			entry++
+			fmt.Fprintf(&b, "═══ Entry %d [Agent Turn %d] ═══\n", entry, turn.Turn)
+			fmt.Fprintf(&b, "PROMPT:\n%s\n\n", turn.Prompt)
+			fmt.Fprintf(&b, "RAW RESPONSE:\n%s\n\n", turn.RawResponse)
+			if turn.Parsed != nil {
+				fmt.Fprintf(&b, "PARSED: action=%s", turn.Parsed.Action)
+				switch turn.Parsed.Action {
+				case "search":
+					fmt.Fprintf(&b, ", term=%q", turn.Parsed.SearchTerm)
+				case "ask":
+					fmt.Fprintf(&b, ", question=%q", turn.Parsed.Question)
+				case "refuse":
+					fmt.Fprintf(&b, ", reason=%q", turn.Parsed.Reason)
+				}
+				b.WriteString("\n")
+			}
+			if turn.Error != nil {
+				fmt.Fprintf(&b, "ERROR: %v\n", turn.Error)
 			}
 			b.WriteString("\n")
 		}
-		if turn.Error != nil {
-			fmt.Fprintf(&b, "ERROR: %v\n", turn.Error)
-		}
-		b.WriteString("\n")
 	}
 	return b.String()
 }
@@ -745,6 +790,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					"question": m.context.AgentQuestion,
 					"response": response,
 				})
+				m.context.DebugHistory = append(m.context.DebugHistory, DebugTurn{
+					Kind:       "user_response",
+					Round:      m.context.DebugRound,
+					RoundLabel: roundLabelForCtx(m.context),
+					Turn:       m.context.AgentTurn,
+					Prompt:     fmt.Sprintf("Agent asked: %s\nUser responded: %s", m.context.AgentQuestion, response),
+				})
 				m.done = false
 				m.substage = fmt.Sprintf("Turn %d: continuing...", m.context.AgentTurn+1)
 				m.agentInput.Reset()
@@ -804,7 +856,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.context.AwaitingInput = false
 				m.context.AgentQuestion = ""
 				m.context.FailedAttempts = nil
-				m.context.DebugHistory = nil
+				m.context.DebugRound++
+				m.context.DebugHistory = append(m.context.DebugHistory, DebugTurn{
+					Kind:       "separator",
+					Round:      m.context.DebugRound,
+					RoundLabel: fmt.Sprintf("Regen #%d", m.context.DebugRound),
+				})
 				m.context.AgentTurn = 0
 				m.context.SearchCount = 0
 				return m, runAgentTurn(m.context)
@@ -832,21 +889,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "c":
 			if m.done && m.context.Card.Front != "" {
 				cardText := fmt.Sprintf("%s\t%s", m.context.Card.Front, m.context.Card.Back)
-				if err := clipboard.WriteAll(cardText); err == nil {
+				if err := copyToClipboard(cardText); err == nil {
 					m.copied = true
 					m.substage = "copied both"
 				}
 			}
 		case "f":
 			if m.done && m.context.Card.Front != "" {
-				if err := clipboard.WriteAll(m.context.Card.Front); err == nil {
+				if err := copyToClipboard(m.context.Card.Front); err == nil {
 					m.copied = true
 					m.substage = "copied front"
 				}
 			}
 		case "b":
 			if m.done && m.context.Card.Back != "" {
-				if err := clipboard.WriteAll(m.context.Card.Back); err == nil {
+				if err := copyToClipboard(m.context.Card.Back); err == nil {
 					m.copied = true
 					m.substage = "copied back"
 				}
@@ -1207,6 +1264,14 @@ func runIterate(ctx *PipelineContext, instructions string) tea.Cmd {
 }
 
 func iterateCard(ctx *PipelineContext, instructions string) (Card, error) {
+	ctx.DebugRound++
+	iterLabel := fmt.Sprintf("Iterate #%d", ctx.DebugRound)
+	ctx.DebugHistory = append(ctx.DebugHistory,
+		DebugTurn{Kind: "separator", Round: ctx.DebugRound, RoundLabel: iterLabel},
+		DebugTurn{Kind: "user_response", Round: ctx.DebugRound, RoundLabel: iterLabel,
+			Prompt: fmt.Sprintf("Iteration instructions: %s", instructions)},
+	)
+
 	systemPrompt := fetchSystemPrompt()
 
 	var userPrompt strings.Builder
@@ -1221,6 +1286,10 @@ func iterateCard(ctx *PipelineContext, instructions string) (Card, error) {
 	fmt.Fprintf(&userPrompt, "Please modify this card according to these instructions: %s", instructions)
 
 	response, err := callLLMWithSystem(systemPrompt, userPrompt.String(), !deepThink)
+	ctx.DebugHistory = append(ctx.DebugHistory, DebugTurn{
+		Kind: "iterate", Round: ctx.DebugRound, RoundLabel: iterLabel,
+		Prompt: userPrompt.String(), RawResponse: response, Error: err,
+	})
 	if err != nil {
 		return Card{}, err
 	}
@@ -1548,7 +1617,7 @@ func generateCard(question, summary string, additional []string) (Card, error) {
 }
 
 func callAgenticLLM(ctx *PipelineContext, turn int) (AgentResponse, DebugTurn, error) {
-	debug := DebugTurn{Turn: turn}
+	debug := DebugTurn{Turn: turn, Round: ctx.DebugRound, RoundLabel: roundLabelForCtx(ctx), Kind: "agent"}
 
 	systemPrompt := fetchSystemPrompt() + `
 

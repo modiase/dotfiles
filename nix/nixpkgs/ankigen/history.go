@@ -207,7 +207,10 @@ func historyToContext(record *HistoryRecord) *PipelineContext {
 			}
 			if json.Unmarshal(ev.Data, &data) == nil {
 				debug := DebugTurn{
+					Kind:        "agent",
 					Turn:        data.Turn,
+					Round:       ctx.DebugRound,
+					RoundLabel:  roundLabelForCtx(ctx),
 					Prompt:      data.Prompt,
 					RawResponse: data.RawResponse,
 				}
@@ -219,6 +222,32 @@ func historyToContext(record *HistoryRecord) *PipelineContext {
 				}
 				ctx.DebugHistory = append(ctx.DebugHistory, debug)
 				ctx.AgentTurn = data.Turn
+			}
+		case "user_response":
+			var data struct {
+				Question string `json:"question"`
+				Response string `json:"response"`
+			}
+			if json.Unmarshal(ev.Data, &data) == nil {
+				ctx.DebugHistory = append(ctx.DebugHistory, DebugTurn{
+					Kind:       "user_response",
+					Round:      ctx.DebugRound,
+					RoundLabel: roundLabelForCtx(ctx),
+					Prompt:     fmt.Sprintf("Agent asked: %s\nUser responded: %s", data.Question, data.Response),
+				})
+			}
+		case "card_iterated":
+			var data struct {
+				Instructions string `json:"instructions"`
+			}
+			if json.Unmarshal(ev.Data, &data) == nil {
+				ctx.DebugRound++
+				iterLabel := fmt.Sprintf("Iterate #%d", ctx.DebugRound)
+				ctx.DebugHistory = append(ctx.DebugHistory,
+					DebugTurn{Kind: "separator", Round: ctx.DebugRound, RoundLabel: iterLabel},
+					DebugTurn{Kind: "user_response", Round: ctx.DebugRound, RoundLabel: iterLabel,
+						Prompt: fmt.Sprintf("Iteration instructions: %s", data.Instructions)},
+				)
 			}
 		}
 	}

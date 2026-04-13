@@ -92,8 +92,14 @@ func TestRegenerate_ResetsAllState(t *testing.T) {
 	if m.context.AgentTurn != 0 {
 		t.Errorf("AgentTurn = %d, want 0", m.context.AgentTurn)
 	}
-	if m.context.DebugHistory != nil {
-		t.Errorf("DebugHistory = %v, want nil", m.context.DebugHistory)
+	if len(m.context.DebugHistory) < 2 {
+		t.Errorf("DebugHistory len = %d, want >= 2 (original + separator)", len(m.context.DebugHistory))
+	}
+	if last := m.context.DebugHistory[len(m.context.DebugHistory)-1]; last.Kind != "separator" {
+		t.Errorf("last DebugHistory entry Kind = %q, want 'separator'", last.Kind)
+	}
+	if m.context.DebugRound != 1 {
+		t.Errorf("DebugRound = %d, want 1", m.context.DebugRound)
 	}
 	if m.context.Refused {
 		t.Error("Refused = true, want false")
@@ -493,5 +499,120 @@ func TestGenerateStageExecute_ResetsState(t *testing.T) {
 	// SearchCount is NOT reset by Execute — "r" key handler resets it
 	if ctx.SearchCount != 3 {
 		t.Errorf("SearchCount = %d, want 3 (unchanged)", ctx.SearchCount)
+	}
+}
+
+// --- Append-only debug history tests ---
+
+func TestRegen_AppendsDebugHistory(t *testing.T) {
+	m := newTestModel()
+	m.context.DebugHistory = []DebugTurn{
+		{Turn: 1, Kind: "agent", Prompt: "p1"},
+		{Turn: 2, Kind: "agent", Prompt: "p2"},
+	}
+
+	m, _ = sendKey(m, "r")
+
+	if len(m.context.DebugHistory) != 3 {
+		t.Fatalf("DebugHistory len = %d, want 3", len(m.context.DebugHistory))
+	}
+	if m.context.DebugHistory[0].Prompt != "p1" {
+		t.Error("original entry 0 was modified")
+	}
+	if m.context.DebugHistory[1].Prompt != "p2" {
+		t.Error("original entry 1 was modified")
+	}
+	last := m.context.DebugHistory[2]
+	if last.Kind != "separator" {
+		t.Errorf("last Kind = %q, want 'separator'", last.Kind)
+	}
+	if last.Round != 1 {
+		t.Errorf("separator Round = %d, want 1", last.Round)
+	}
+	if last.RoundLabel != "Regen #1" {
+		t.Errorf("separator RoundLabel = %q, want 'Regen #1'", last.RoundLabel)
+	}
+}
+
+func TestRegen_IncrementsDebugRound(t *testing.T) {
+	m := newTestModel()
+
+	m, _ = sendKey(m, "r")
+	if m.context.DebugRound != 1 {
+		t.Errorf("after 1st regen: DebugRound = %d, want 1", m.context.DebugRound)
+	}
+
+	m.done = true
+	m, _ = sendKey(m, "r")
+	if m.context.DebugRound != 2 {
+		t.Errorf("after 2nd regen: DebugRound = %d, want 2", m.context.DebugRound)
+	}
+}
+
+func TestUserResponse_AppendsToDebugHistory(t *testing.T) {
+	m := newTestModel()
+	m.done = false
+	m.agentAsking = true
+	m.context.AwaitingInput = true
+	m.context.AgentQuestion = "What level?"
+	m.context.DebugHistory = []DebugTurn{
+		{Turn: 1, Kind: "agent"},
+	}
+	m.agentInput.SetValue("beginner")
+
+	m, _ = sendKey(m, "ctrl+d")
+
+	if len(m.context.DebugHistory) != 2 {
+		t.Fatalf("DebugHistory len = %d, want 2", len(m.context.DebugHistory))
+	}
+	entry := m.context.DebugHistory[1]
+	if entry.Kind != "user_response" {
+		t.Errorf("Kind = %q, want 'user_response'", entry.Kind)
+	}
+	if !strings.Contains(entry.Prompt, "What level?") {
+		t.Errorf("Prompt missing question: %q", entry.Prompt)
+	}
+	if !strings.Contains(entry.Prompt, "beginner") {
+		t.Errorf("Prompt missing response: %q", entry.Prompt)
+	}
+}
+
+func TestFormatDebugHistory_Empty(t *testing.T) {
+	got := formatDebugHistory(nil)
+	if got != "(no agent turns recorded)" {
+		t.Errorf("got %q, want '(no agent turns recorded)'", got)
+	}
+}
+
+func TestFormatDebugHistory_MixedKinds(t *testing.T) {
+	history := []DebugTurn{
+		{Kind: "agent", Turn: 1, Prompt: "prompt1", RawResponse: "resp1",
+			Parsed: &AgentResponse{Action: "search", SearchTerm: "quantum"}},
+		{Kind: "user_response", Turn: 1, Prompt: "Agent asked: q\nUser responded: a"},
+		{Kind: "separator", Round: 1, RoundLabel: "Regen #1"},
+		{Kind: "agent", Turn: 1, Prompt: "prompt2", RawResponse: "resp2",
+			Parsed: &AgentResponse{Action: "generate"}},
+		{Kind: "separator", Round: 2, RoundLabel: "Iterate #2"},
+		{Kind: "user_response", Round: 2, Prompt: "Iteration instructions: fix typo"},
+		{Kind: "iterate", Round: 2, Prompt: "iter-prompt", RawResponse: "iter-resp"},
+	}
+
+	got := formatDebugHistory(history)
+
+	checks := []string{
+		"Entry 1 [Agent Turn 1]",
+		"Entry 2 [User]",
+		"Regen #1",
+		"Entry 3 [Agent Turn 1]",
+		"Iterate #2",
+		"Entry 4 [User]",
+		"Entry 5 [Iterate]",
+		"term=\"quantum\"",
+		"iter-prompt",
+	}
+	for _, want := range checks {
+		if !strings.Contains(got, want) {
+			t.Errorf("output missing %q", want)
+		}
 	}
 }
