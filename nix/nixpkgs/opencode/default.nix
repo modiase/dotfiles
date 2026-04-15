@@ -23,6 +23,8 @@ let
     attn = "${attn}/bin/attn";
   };
 
+  contextReinjectPlugin = ./plugins/context-reinject.ts;
+
   explorePrompt = ''
     You are a fast, read-only codebase exploration agent. FOLLOW WITHOUT EXCEPTION:
 
@@ -35,6 +37,12 @@ let
     Output format:
     - **Finding**: description (file:line)
     - **Finding**: description (file:line)
+
+    NEVER:
+    - Guess or infer file contents — always verify with read/grep before citing
+    - Explore beyond the scope of the question
+    - Return prose paragraphs — use structured bullets only
+    - Suggest code changes or improvements — you are read-only
   '';
 
   researchPrompt = ''
@@ -80,9 +88,25 @@ let
       plugin = [
         "${homeDir}/.config/opencode/plugins/plan-review.ts"
         "${homeDir}/.config/opencode/plugins/notify.ts"
+        "${homeDir}/.config/opencode/plugins/context-reinject.ts"
       ];
       agent = {
-        plan.prompt = "Before writing a plan, call @explore with a carefully constructed prompt to gather the codebase context you need — relevant files, structure, dependencies, and existing patterns. Use the explore findings to ground your plan in reality rather than assumptions. You may also use the question tool to ask the user clarifying questions. Once your plan is ready, you MUST call the submit_plan tool — do NOT present the plan in chat. Format every actionable item as a markdown checkbox (- [ ] item). If the user rejects, revise based on their feedback and call submit_plan again. NEVER proceed to implementation without plan approval via submit_plan.";
+        plan.prompt = builtins.concatStringsSep " " [
+          "Before writing a plan, you MUST call @explore at least once. Your explore prompt must ask for:"
+          "1) Existing implementations of similar functionality,"
+          "2) File structure and naming conventions in the affected area,"
+          "3) Dependencies and imports that will be affected."
+          "Use the explore findings to ground your plan in reality rather than assumptions."
+          "You may also use the question tool to ask the user clarifying questions."
+          "After receiving explore results, your plan MUST:"
+          "reference specific files and line numbers from explore findings,"
+          "reuse existing functions/utilities identified by explore,"
+          "and note any conventions that must be followed."
+          "Once your plan is ready, you MUST call the submit_plan tool — do NOT present the plan in chat."
+          "Format every actionable item as a markdown checkbox (- [ ] item)."
+          "If the user rejects, revise based on their feedback and call submit_plan again."
+          "NEVER proceed to implementation without plan approval via submit_plan."
+        ];
 
         explore = {
           model = "openrouter/google/gemini-2.5-flash";
@@ -169,6 +193,7 @@ in
           $DRY_RUN_CMD mkdir -p "$HOME/.config/opencode/plugins"
           $DRY_RUN_CMD cp -f ${planReviewPlugin} "$HOME/.config/opencode/plugins/plan-review.ts"
           $DRY_RUN_CMD cp -f ${notifyPlugin} "$HOME/.config/opencode/plugins/notify.ts"
+          $DRY_RUN_CMD cp -f ${contextReinjectPlugin} "$HOME/.config/opencode/plugins/context-reinject.ts"
           $DRY_RUN_CMD cp -f ${../devlogs-lib/devlogs.ts} "$HOME/.config/opencode/plugins/devlogs.ts"
         '';
       };

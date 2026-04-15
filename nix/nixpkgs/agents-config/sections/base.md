@@ -5,14 +5,16 @@ priority: 10
 # Code Quality Guidelines
 
 ## Mandatory Review
+
 After EVERY round of changes, review your work against these guidelines before finalising.
 
 ## Context Maintenance
-- After conversation compaction, re-read any `CLAUDE.md` and `AGENTS.md` files in the repo
-- Periodically reconsider repo-specific rules to ensure continued compliance
-- When in doubt about conventions, check these files rather than assuming
+
+- After conversation compaction or context summarisation, re-read `AGENTS.md` and any active plan files completely before resuming work
+- When in doubt about conventions, re-read `AGENTS.md` rather than assuming
 
 ## Comments
+
 - Comments may be used during implementation to track ideas and intent
 - During code quality review (after each round of changes), **remove all obvious comments**
 - **ONLY keep comments that explain**: workarounds, non-obvious behaviour, security implications
@@ -52,6 +54,7 @@ programs.fish.interactiveShellInit = "set -gx TERM xterm-256color";
 ## Shell Scripting Style
 
 ### Prefer `&&` chaining over if/else
+
 ```bash
 # BAD: Verbose if/else
 if [[ "$condition" ]]; then
@@ -66,6 +69,7 @@ fallback_action
 ```
 
 ### Use conditional assignment
+
 ```bash
 # BAD: if/else for variable assignment
 if [[ "$condition" ]]; then
@@ -80,6 +84,7 @@ local output="$default"
 ```
 
 ### CRITICAL: `set -e` with `[[ ]] &&`
+
 When using `set -e`, a bare `[[ condition ]] && cmd` exits with code 1 if false.
 
 ```bash
@@ -95,26 +100,31 @@ if [[ ${LOG_LEVEL:-2} -ge 4 ]]; then set -x; fi
 ```
 
 ## Configuration Best Practices
+
 - **Research defaults first** - only specify values that differ
 - **Extract shared config** into variables when used 2+ times
 - **Inline single-use variables** - except when aiding readability
 
 ## Language
+
 - Use **British English** spelling (summarise, colour, organisation)
 
 ## Git Commits
+
 - **NEVER commit to main** unless explicitly instructed
 - Exception: when working on a separate Claude-authored branch, commits are permitted
 - When in doubt, wait for user approval before committing
 
 ## Adhoc Files
+
 - Prefer outputting to /tmp when writing or running code that produces
-adhoc outputs. - Examples to be mindful of are the outputs of nix-build -E,
-tables, json files and images.
+  adhoc outputs. - Examples to be mindful of are the outputs of nix-build -E,
+  tables, json files and images.
 - This should be the default unless another obvious target is presenet
-(output/data directory) or you are explicitly otherwise instructed.
+  (output/data directory) or you are explicitly otherwise instructed.
 
 ## Core Principles
+
 - **Be Precise**: State facts, not assumptions
 - **Be Thorough**: Research completely before acting
 - **Be Efficient**: Anticipate issues rather than discover through trial-and-error
