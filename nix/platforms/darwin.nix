@@ -38,6 +38,29 @@ in
       hs.hotkey.bind({"cmd", "shift"}, "l", function() hs.application.launchOrFocus("Todoist") end)
       hs.hotkey.bind({"cmd", "shift"}, "t", function() hs.application.launchOrFocus("Ghostty") end)
       hs.hotkey.bind({"cmd", "shift"}, "u", function() hs.application.launchOrFocus("Youtube Music") end)
+
+      hs.hotkey.bind({"cmd", "shift"}, "j", function()
+        hs.osascript.javascript([[
+          (() => {
+            const se = Application("System Events");
+            const nc = se.processes.byName("NotificationCenter");
+            try { var win = nc.windows[0]; } catch(e) { return; }
+            const ROLES = ["AXNotificationCenterAlert", "AXNotificationCenterAlertStack", "AXNotificationCenterBanner"];
+            const ACTIONS = ["Clear All", "Close"];
+            function dismiss(elements) {
+              for (let elem of elements) {
+                let sr = ""; try { sr = elem.subrole(); } catch(e) { continue; }
+                if (ROLES.indexOf(sr) > -1) {
+                  for (let a of elem.actions()) {
+                    if (ACTIONS.indexOf(a.description()) > -1) { a.perform(); break; }
+                  }
+                } else { try { if (elem.uiElements.length > 0) dismiss(elem.uiElements()); } catch(e) {} }
+              }
+            }
+            dismiss(win.uiElements());
+          })()
+        ]])
+      end)
     '';
   };
 
