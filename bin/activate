@@ -607,6 +607,10 @@ do_activate() {
                 run_logged "nixos-rebuild" sudo nixos-rebuild switch \
                     --flake "$flake_target" --max-jobs "$MAX_CORES" --cores "$MAX_CORES" &&
                     record_state "$SYSTEM_STATE" "$target_hash" || exit 1
+                if systemctl list-unit-files vllm-update-profile.service &>/dev/null; then
+                    log_to_system "info" "Triggering vLLM profile build..."
+                    sudo systemctl start vllm-update-profile.service --no-block || true
+                fi
             else
                 log_info "Skipping system management (manageSystem=false)"
                 record_state "$SYSTEM_STATE" "$target_hash"

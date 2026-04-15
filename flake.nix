@@ -518,6 +518,17 @@
                   config.allowUnfree = true;
                 }).claude-code;
             };
+        }
+        // lib.optionalAttrs (system == "x86_64-linux") {
+          vllm-env = import ./systems/herakles/run/services/llm-orchestrator/vllm-env.nix {
+            pkgs = import nixpkgs {
+              inherit system;
+              config = {
+                allowUnfree = true;
+                cudaSupport = true;
+              };
+            };
+          };
         };
 
         inherit shellutils;
