@@ -5,6 +5,7 @@
   coreutils,
   curl,
   google-cloud-sdk,
+  inetutils,
   jq,
   secrets,
   attn,
@@ -17,6 +18,7 @@ let
     name = "ntfy-me";
     runtimeInputs = [
       google-cloud-sdk
+      inetutils
       jq
     ];
     text = builtins.readFile ./ntfy-me.sh;
@@ -29,6 +31,7 @@ let
       attn
       coreutils
       curl
+      inetutils
       jq
       secrets
       # keep-sorted end

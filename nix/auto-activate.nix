@@ -16,14 +16,25 @@ let
   attn = pkgs.callPackage ./nixpkgs/attn { };
   ntfy-me = pkgs.callPackage ./nixpkgs/ntfy-me { inherit secrets attn; };
 
-  wrapper = pkgs.writeShellScript "auto-activate" ''
-    if ${activatePath}; then
-      ${ntfy-me}/bin/ntfy-me -t jobs -p 2 -T "Auto-activate" "$(hostname -s) activated successfully"
-    else
-      ${ntfy-me}/bin/ntfy-me -t jobs -p 4 -T "Auto-activate" "$(hostname -s) activation failed"
-      exit 1
-    fi
-  '';
+  wrapper = pkgs.writeShellApplication {
+    name = "auto-activate";
+    runtimeInputs = [
+      pkgs.bashInteractive
+      pkgs.coreutils
+      pkgs.flock
+      pkgs.git
+      pkgs.inetutils
+      ntfy-me
+    ];
+    text = ''
+      if ${activatePath}; then
+        ntfy-me -t jobs -p 2 -T "Auto-activate" "$(hostname -s) activated successfully"
+      else
+        ntfy-me -t jobs -p 4 -T "Auto-activate" "$(hostname -s) activation failed"
+        exit 1
+      fi
+    '';
+  };
 in
 
 {
@@ -36,7 +47,7 @@ in
       {
         launchd.daemons.auto-activate = {
           serviceConfig = {
-            ProgramArguments = [ "${wrapper}" ];
+            ProgramArguments = [ "${wrapper}/bin/auto-activate" ];
             StartCalendarInterval = [
               {
                 Hour = 3;
@@ -67,7 +78,7 @@ in
           serviceConfig = {
             Type = "oneshot";
             User = "moye";
-            ExecStart = "${wrapper}";
+            ExecStart = "${wrapper}/bin/auto-activate";
             TimeoutStartSec = "30min";
           };
         };
