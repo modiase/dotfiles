@@ -9,6 +9,7 @@ let
   agentsCfg = config.dotfiles.agents-config;
 
   homeDir = config.home.homeDirectory;
+  colors = import ../../colors.nix;
 
   tmuxNvimSelect = pkgs.callPackage ../tmux-nvim { };
   nvr = pkgs.callPackage ../nvr { };
@@ -80,6 +81,90 @@ let
   };
 
   mcp = baseMcp // darwinMcp;
+
+  # Baked theme that mirrors the terminal palette from colors.nix. Avoids the
+  # OSC 4/10/11 query race opencode hits on first launch inside tmux, which
+  # otherwise falls back to the built-in `opencode` theme (bg #0a0a0a) and
+  # clashes with our actual terminal bg. See sst/opencode#19254.
+  pastelGrayTheme = pkgs.writeText "opencode-pastel-gray-theme.json" (
+    let
+      h = c: "#${c}";
+    in
+    builtins.toJSON {
+      "$schema" = "https://opencode.ai/theme.json";
+      defs = {
+        bg = h colors.base16.base00;
+        bgPanel = h colors.base16.base01;
+        bgElement = h colors.base16.base02;
+        border = h colors.base16.base02;
+        borderSubtle = h colors.base16.base01;
+        fg = h colors.base16.base05;
+        fgMuted = h colors.foregroundMuted;
+        fgDim = h colors.base16.base03;
+        red = h colors.base16.base08;
+        green = h colors.base16.base09;
+        yellow = h colors.base16.base0B;
+        blue = h colors.base16.base0D;
+        magenta = h colors.base16.base0E;
+        cyan = h colors.base16.base0C;
+        pink = h colors.base16.base0A;
+        diffAddBg = h colors.diffAdd;
+        diffRemoveBg = h colors.diffDelete;
+      };
+      theme = {
+        primary = "blue";
+        secondary = "magenta";
+        accent = "cyan";
+        background = "bg";
+        backgroundPanel = "bgPanel";
+        backgroundElement = "bgElement";
+        border = "border";
+        borderActive = "blue";
+        borderSubtle = "borderSubtle";
+        error = "red";
+        warning = "yellow";
+        success = "green";
+        info = "blue";
+        text = "fg";
+        textMuted = "fgDim";
+        diffAdded = "green";
+        diffRemoved = "red";
+        diffContext = "fgDim";
+        diffHunkHeader = "blue";
+        diffHighlightAdded = "green";
+        diffHighlightRemoved = "red";
+        diffAddedBg = "diffAddBg";
+        diffRemovedBg = "diffRemoveBg";
+        diffContextBg = "bg";
+        diffLineNumber = "fgDim";
+        diffAddedLineNumberBg = "diffAddBg";
+        diffRemovedLineNumberBg = "diffRemoveBg";
+        markdownText = "fg";
+        markdownHeading = "blue";
+        markdownLink = "cyan";
+        markdownLinkText = "fg";
+        markdownCode = "green";
+        markdownBlockQuote = "fgMuted";
+        markdownEmph = "magenta";
+        markdownStrong = "pink";
+        markdownHorizontalRule = "fgDim";
+        markdownListItem = "fg";
+        markdownListEnumeration = "blue";
+        markdownImage = "cyan";
+        markdownImageText = "fg";
+        markdownCodeBlock = "green";
+        syntaxComment = "fgDim";
+        syntaxKeyword = "magenta";
+        syntaxFunction = "blue";
+        syntaxVariable = "red";
+        syntaxString = "yellow";
+        syntaxNumber = "green";
+        syntaxType = "pink";
+        syntaxOperator = "cyan";
+        syntaxPunctuation = "fg";
+      };
+    }
+  );
 
   opencodeConfig = pkgs.writeText "opencode.json" (
     builtins.toJSON {
@@ -183,6 +268,7 @@ in
 
       file.".config/opencode/opencode.json".source = opencodeConfig;
       file.".config/opencode/tui.json".source = tuiConfig;
+      file.".config/opencode/themes/pastel-gray.json".source = pastelGrayTheme;
 
       activation = {
         opencode-agent-links = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
