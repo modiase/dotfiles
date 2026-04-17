@@ -8,6 +8,7 @@ return {
 				frecency = {
 					default_workspace = "CWD",
 					show_filter_column = false,
+					matcher = "fuzzy",
 				},
 			},
 		})
