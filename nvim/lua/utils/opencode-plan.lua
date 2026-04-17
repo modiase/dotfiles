@@ -50,7 +50,7 @@ local function accept_and_transition(fifo_path, response)
 	local buf = vim.api.nvim_win_get_buf(win)
 	local filepath = vim.api.nvim_buf_get_name(buf)
 
-	log.info(response)
+	log.debug(response)
 	comments.serialise_comments(buf, ns)
 	comments.write_fifo(fifo_path, response)
 
@@ -111,7 +111,7 @@ function M.open(file_path, fifo_path)
 	if not file_path or not fifo_path then
 		return
 	end
-	log.info("open file=" .. file_path .. " fifo=" .. fifo_path)
+	log.debug("open file=" .. file_path .. " fifo=" .. fifo_path)
 
 	local _, existing_tab = find_win_by_fifo(fifo_path)
 	if existing_tab then
@@ -129,12 +129,12 @@ function M.setup_buffer(fifo_path)
 
 	local buf = vim.api.nvim_get_current_buf()
 	if vim.b[buf].opencode_plan_setup then
-		log.info("setup_buffer: reused buf=" .. buf .. " new win fifo=" .. tostring(fifo_path))
+		log.debug("setup_buffer: reused buf=" .. buf .. " new win fifo=" .. tostring(fifo_path))
 		return
 	end
 	vim.b[buf].opencode_plan_setup = true
 	vim.b[buf].plan_provider = "opencode"
-	log.info("setup_buffer buf=" .. buf .. " fifo=" .. tostring(fifo_path))
+	log.debug("setup_buffer buf=" .. buf .. " fifo=" .. tostring(fifo_path))
 
 	local ok, count = pcall(comments.deserialise, buf, ns)
 	if ok then

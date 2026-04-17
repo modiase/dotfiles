@@ -35,7 +35,7 @@ const plugin: Plugin = async ({ $, client }) => {
 
 					const planFile = `${plansDir}/${uuid}.md`;
 					const fifo = `/tmp/opencode-plan-${uuid}.fifo`;
-					log.info(`execute: plan=${planFile}`);
+					log.debug(`execute: plan=${planFile}`);
 
 					const content = args.title
 						? `# ${args.title}\n\n${args.content}`
@@ -87,7 +87,7 @@ const plugin: Plugin = async ({ $, client }) => {
 							await $`tmux select-pane -t ${env.TARGET_PANE}`.quiet().nothrow();
 						}
 
-						log.info("execute: blocking on fifo");
+						log.debug("execute: blocking on fifo");
 						const response = await new Promise<string>((resolve, reject) => {
 							if (ctx.abort.aborted) {
 								resolve("reject:Plan review cancelled");
@@ -109,7 +109,7 @@ const plugin: Plugin = async ({ $, client }) => {
 								});
 						});
 
-						log.info(`execute: response=${response}`);
+						log.debug(`execute: response=${response}`);
 
 						if (response.startsWith("reject:")) {
 							const reason = response.slice("reject:".length);
@@ -118,7 +118,7 @@ const plugin: Plugin = async ({ $, client }) => {
 						}
 
 						const planContent = await Bun.file(planFile).text();
-						log.info("execute: switching to build agent");
+						log.debug("execute: switching to build agent");
 						await client.session.promptAsync({
 							path: { id: ctx.sessionID },
 							body: {
