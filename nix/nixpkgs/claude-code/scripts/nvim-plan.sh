@@ -15,23 +15,23 @@ config_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 plans_dir="$config_dir/plans"
 
 if [[ ! -d "$plans_dir" ]]; then
-    clog info "no plans dir"
+    clog debug "no plans dir"
     exit 0
 fi
 
 # shellcheck disable=SC2012 # plan filenames are UUIDs, safe for ls
 PLAN_FILE=$(ls -t "$plans_dir"/*.md 2>/dev/null | head -1)
 if [[ -z "$PLAN_FILE" ]]; then
-    clog info "no plan file"
+    clog debug "no plan file"
     exit 0
 fi
 
 eval "$(tmux-nvim-select 2>/dev/null)" || {
-    clog info "no nvim socket"
+    clog debug "tmux-nvim-select failed"
     exit 0
 }
 if [[ -z "${NVIM_SOCKET:-}" ]]; then
-    clog info "no nvim socket"
+    clog debug "no nvim socket"
     exit 0
 fi
 

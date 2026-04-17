@@ -15,7 +15,7 @@ fi
 trap 'rm -f "$edits_file"' EXIT
 
 mapfile -t files < <(sort -u "$edits_file")
-clog info "formatting ${#files[@]} file(s)"
+clog debug "formatting ${#files[@]} file(s)"
 
 for file_path in "${files[@]}"; do
     format_file "$file_path"

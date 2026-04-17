@@ -161,7 +161,7 @@ on_permission() {
         result=$(attn -i 'Gemini CLI' -m "$msg" --actions 'Allow,Show')
         case "$result" in
             Allow)
-                clog info "permission: sending approval keystroke"
+                clog debug "permission: sending approval keystroke"
                 if [[ -n "${TMUX_PANE:-}" ]]; then
                     tmux send-keys -t "$TMUX_PANE" y 2>/dev/null || true
                 fi

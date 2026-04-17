@@ -60,7 +60,7 @@ while read -r line; do
     [[ -n "$msg_id" ]] && echo "$msg_id" >"$state_file"
 
     if [[ "$tags" == *"$current_host"* ]]; then
-        clog info "skipped (from self)"
+        clog debug "skipped (from self)"
         continue
     fi
     if [[ $age -gt 300 ]]; then

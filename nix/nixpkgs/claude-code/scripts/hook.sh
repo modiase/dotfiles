@@ -75,7 +75,7 @@ on_permission() {
     result=$(attn -i 'Claude Code' -m "$msg" --actions "$actions")
     case "$result" in
         Allow)
-            clog info "permission: allowed via dialog — $msg"
+            clog debug "permission: allowed via dialog — $msg"
             jq -n '{
                 "hookSpecificOutput": {
                     "hookEventName": "PermissionRequest",
