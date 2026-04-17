@@ -25,6 +25,7 @@ let
   };
 
   contextReinjectPlugin = ./plugins/context-reinject.ts;
+  tokenCounterPlugin = ./plugins/token-counter.tsx;
 
   explorePrompt = ''
     You are a fast, read-only codebase exploration agent. FOLLOW WITHOUT EXCEPTION:
@@ -253,7 +254,15 @@ let
     }
   );
 
-  tuiConfig = pkgs.writeText "opencode-tui.json" (builtins.readFile ./config/tui.json);
+  tuiConfig = pkgs.writeText "opencode-tui.json" (
+    builtins.toJSON {
+      "$schema" = "https://opencode.ai/tui.json";
+      theme = "pastel-gray";
+      plugin = [
+        "${homeDir}/.config/opencode/plugins/token-counter.tsx"
+      ];
+    }
+  );
 
   agentsDir = "$HOME/.agents";
 in
@@ -281,6 +290,7 @@ in
           $DRY_RUN_CMD cp -f ${notifyPlugin} "$HOME/.config/opencode/plugins/notify.ts"
           $DRY_RUN_CMD cp -f ${contextReinjectPlugin} "$HOME/.config/opencode/plugins/context-reinject.ts"
           $DRY_RUN_CMD cp -f ${../devlogs-lib/devlogs.ts} "$HOME/.config/opencode/plugins/devlogs.ts"
+          $DRY_RUN_CMD cp -f ${tokenCounterPlugin} "$HOME/.config/opencode/plugins/token-counter.tsx"
         '';
       };
     };
