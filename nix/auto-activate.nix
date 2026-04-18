@@ -24,6 +24,8 @@ let
       pkgs.flock
       pkgs.git
       pkgs.inetutils
+      pkgs.jq
+      config.nix.package
       ntfy-me
     ];
     text = ''
