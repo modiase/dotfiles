@@ -1,4 +1,36 @@
 # shellcheck shell=bash
+infer_filetype() {
+    local fpath="$1"
+    local base="${fpath##*/}"
+
+    if [[ "$base" == *.* ]]; then
+        printf '%s' "${base##*.}"
+        return
+    fi
+
+    local shebang
+    IFS= read -r shebang <"$fpath" || true
+    if [[ "$shebang" == '#!'* ]]; then
+        local interp
+        interp="${shebang#\#!}"
+        interp="${interp##*/}"
+        interp="${interp%% *}"
+        if [[ "$interp" == "env" ]]; then
+            interp="${shebang#*env }"
+            interp="${interp%% *}"
+            interp="${interp##*/}"
+        fi
+        case "$interp" in
+            bash | sh) printf 'sh' ;;
+            python*) printf 'py' ;;
+            node | deno | bun) printf 'js' ;;
+            ruby) printf 'rb' ;;
+            fish) printf 'fish' ;;
+            perl) printf 'pl' ;;
+        esac
+    fi
+}
+
 format_file() {
     local file_path="$1"
 
@@ -19,33 +51,37 @@ format_file() {
         return 0
     fi
 
-    local ext="${file_path##*.}"
     local basename="${file_path##*/}"
+    local filetype
+    filetype=$(infer_filetype "$file_path")
+    clog debug "inferred filetype for $file_path: ${filetype:-unknown}"
 
-    if [[ -n "${FORMAT_HOOK_SKIP:-}" ]]; then
+    if [[ -n "${FORMAT_HOOK_SKIP:-}" && -n "$filetype" ]]; then
         IFS=',' read -ra skips <<<"$FORMAT_HOOK_SKIP"
         local s
         for s in "${skips[@]}"; do
-            if [[ "$s" == "$ext" ]]; then
-                clog debug "skipping $ext (FORMAT_HOOK_SKIP)"
+            if [[ "$s" == "$filetype" ]]; then
+                clog debug "skipping $filetype (FORMAT_HOOK_SKIP)"
                 return 0
             fi
         done
     fi
 
-    local ext_upper
-    ext_upper=$(printf '%s' "$ext" | tr '[:lower:]' '[:upper:]')
-    local override_var="FORMAT_HOOK_${ext_upper}"
+    if [[ -n "$filetype" ]]; then
+        local ft_upper
+        ft_upper=$(printf '%s' "$filetype" | tr '[:lower:]' '[:upper:]')
+        local override_var="FORMAT_HOOK_${ft_upper}"
 
-    if [[ -n "${!override_var:-}" ]]; then
-        local override="${!override_var}"
-        if [[ "$override" == "false" ]]; then
-            clog debug "formatter disabled for .$ext via $override_var=false"
+        if [[ -n "${!override_var:-}" ]]; then
+            local override="${!override_var}"
+            if [[ "$override" == "false" ]]; then
+                clog debug "formatter disabled for $filetype via $override_var=false"
+                return 0
+            fi
+            clog info "formatting $file_path with override: $override"
+            eval "$override \"\$file_path\"" || true
             return 0
         fi
-        clog info "formatting $file_path with override: $override"
-        eval "$override \"\$file_path\"" || true
-        return 0
     fi
 
     run_formatter() {
@@ -62,7 +98,7 @@ format_file() {
             ;;
     esac
 
-    case "$ext" in
+    case "$filetype" in
         nix)
             run_formatter statix fix "$file_path"
             run_formatter nixfmt "$file_path"
@@ -87,6 +123,6 @@ format_file() {
         yaml | yml) run_formatter prettier --write "$file_path" ;;
         html) run_formatter prettier --write "$file_path" ;;
         md) run_formatter prettier --write --prose-wrap preserve "$file_path" ;;
-        *) clog debug "no default formatter for .$ext" ;;
+        *) clog debug "no formatter for: $file_path" ;;
     esac
 }
