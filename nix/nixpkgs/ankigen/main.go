@@ -413,12 +413,12 @@ func (m model) finish() (model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) finishWithError(err error) (model, tea.Cmd) {
+func (m model) finishOnTab(err error, tab int) (model, tea.Cmd) {
 	m.err = err
 	m.done = true
 	m.tabView = initDebugModel(m.context, m.width, m.height)
-	m.tabView.activeTab = 6
-	m.tabView.viewport.SetContent(m.tabView.contents[6])
+	m.tabView.activeTab = tab
+	m.tabView.viewport.SetContent(m.tabView.contents[tab])
 	saveHistoryFunc(m.context)
 	return m, nil
 }
@@ -717,24 +717,30 @@ func (ctx *PipelineContext) Logf(format string, args ...any) {
 	fmt.Fprintf(&ctx.Logs, format+"\n", args...)
 }
 
-func initialModel(question string, webMode bool) model {
-	s := spinner.New()
-	s.Spinner = spinner.Dot
-	s.Style = lipgloss.NewStyle().Foreground(nord8)
-
+func newIterTextarea() textarea.Model {
 	ta := textarea.New()
 	ta.Placeholder = "Enter iteration instructions..."
 	ta.SetWidth(70)
 	ta.SetHeight(3)
 	ta.ShowLineNumbers = false
 	ta.CharLimit = 500
+	return ta
+}
 
-	agentTa := textarea.New()
-	agentTa.Placeholder = "Your response..."
-	agentTa.SetWidth(70)
-	agentTa.SetHeight(3)
-	agentTa.ShowLineNumbers = false
-	agentTa.CharLimit = 500
+func newAgentTextarea() textarea.Model {
+	ta := textarea.New()
+	ta.Placeholder = "Your response..."
+	ta.SetWidth(70)
+	ta.SetHeight(3)
+	ta.ShowLineNumbers = false
+	ta.CharLimit = 500
+	return ta
+}
+
+func initialModel(question string, webMode bool) model {
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(nord8)
 
 	ctx := &PipelineContext{Question: question}
 	ctx.History = newHistoryRecord(question, provider)
@@ -748,8 +754,8 @@ func initialModel(question string, webMode bool) model {
 		spinner:    s,
 		stage:      startStage,
 		context:    ctx,
-		iterInput:  ta,
-		agentInput: agentTa,
+		iterInput:  newIterTextarea(),
+		agentInput: newAgentTextarea(),
 	}
 }
 
@@ -758,20 +764,6 @@ func restoredModel(ctx *PipelineContext) model {
 	s.Spinner = spinner.Dot
 	s.Style = lipgloss.NewStyle().Foreground(nord8)
 
-	ta := textarea.New()
-	ta.Placeholder = "Enter iteration instructions..."
-	ta.SetWidth(70)
-	ta.SetHeight(3)
-	ta.ShowLineNumbers = false
-	ta.CharLimit = 500
-
-	agentTa := textarea.New()
-	agentTa.Placeholder = "Your response..."
-	agentTa.SetWidth(70)
-	agentTa.SetHeight(3)
-	agentTa.ShowLineNumbers = false
-	agentTa.CharLimit = 500
-
 	ctx.History = newHistoryRecord(ctx.Question, provider)
 
 	return model{
@@ -779,8 +771,8 @@ func restoredModel(ctx *PipelineContext) model {
 		stage:      generateStage{},
 		done:       true,
 		context:    ctx,
-		iterInput:  ta,
-		agentInput: agentTa,
+		iterInput:  newIterTextarea(),
+		agentInput: newAgentTextarea(),
 	}
 }
 
@@ -1003,7 +995,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.context = msg.ctx
 		recordAgentTurn(m.context, msg)
 		if msg.err != nil {
-			return m.finishWithError(msg.err)
+			return m.finishOnTab(msg.err, 6)
 		}
 
 		switch msg.action {
@@ -1042,14 +1034,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case errorMsg:
-		m.err = msg.err
 		m.context.Error = msg.err
-		m.done = true
-		m.tabView = initDebugModel(m.context, m.width, m.height)
-		m.tabView.activeTab = 5
-		m.tabView.viewport.SetContent(m.tabView.contents[5])
-		saveHistoryFunc(m.context)
-		return m, nil
+		return m.finishOnTab(msg.err, 5)
 	}
 
 	return m, nil

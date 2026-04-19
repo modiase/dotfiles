@@ -642,3 +642,107 @@ func TestFormatDebugHistory_MixedKinds(t *testing.T) {
 		}
 	}
 }
+
+// --- extractJSON / extractJSONArray ---
+
+func TestExtractJSON(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"valid", `{"front":"Q","back":"A"}`, false},
+		{"embedded", `some text {"front":"Q","back":"A"} more`, false},
+		{"code fenced", "```json\n{\"front\":\"Q\",\"back\":\"A\"}\n```", false},
+		{"no json", "no json here", true},
+		{"malformed", `{"front":"Q"`, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			card, err := extractJSON[Card](tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("want error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if card.Front != "Q" || card.Back != "A" {
+				t.Errorf("got front=%q back=%q, want Q/A", card.Front, card.Back)
+			}
+		})
+	}
+}
+
+func TestExtractJSONArray(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    int
+		wantErr bool
+	}{
+		{"valid", `["a","b","c"]`, 3, false},
+		{"embedded", `text ["a","b"] more`, 2, false},
+		{"code fenced", "```\n[\"a\"]\n```", 1, false},
+		{"no array", "no array", 0, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := extractJSONArray[string](tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("want error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if len(result) != tt.want {
+				t.Errorf("got %d items, want %d", len(result), tt.want)
+			}
+		})
+	}
+}
+
+// --- navigateTab ---
+
+func TestNavigateTab_Forward(t *testing.T) {
+	m := newTestModel()
+	m.tabView.activeTab = 0
+	m = m.navigateTab(1)
+	if m.tabView.activeTab != 1 {
+		t.Errorf("activeTab = %d, want 1", m.tabView.activeTab)
+	}
+}
+
+func TestNavigateTab_Wrap(t *testing.T) {
+	m := newTestModel()
+	n := len(m.tabView.titles)
+	m.tabView.activeTab = n - 1
+	m = m.navigateTab(1)
+	if m.tabView.activeTab != 0 {
+		t.Errorf("activeTab = %d, want 0", m.tabView.activeTab)
+	}
+}
+
+func TestNavigateTab_Backward(t *testing.T) {
+	m := newTestModel()
+	m.tabView.activeTab = 0
+	m = m.navigateTab(-1)
+	expected := len(m.tabView.titles) - 1
+	if m.tabView.activeTab != expected {
+		t.Errorf("activeTab = %d, want %d", m.tabView.activeTab, expected)
+	}
+}
+
+func TestNavigateTab_NilTabView(t *testing.T) {
+	m := newTestModel()
+	m.tabView = nil
+	m = m.navigateTab(1)
+	if m.tabView != nil {
+		t.Error("tabView should remain nil")
+	}
+}
