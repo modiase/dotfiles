@@ -84,7 +84,7 @@ type DebugTurn struct {
 	Turn        int
 	Round       int
 	RoundLabel  string
-	Kind        string // "agent", "user_response", "iterate", "separator"
+	Kind        string // "agent", "user_response", "tool_result", "separator"
 	Prompt      string
 	RawResponse string
 	Parsed      *AgentResponse
@@ -310,6 +310,11 @@ func runAgentTurn(ctx *PipelineContext) tea.Cmd {
 			ctx.SearchCount++
 			ctx.Logf("Agent requested search: %s", resp.SearchTerm)
 			result, searchErr := performAdditionalSearch(resp.SearchTerm)
+			ctx.DebugHistory = append(ctx.DebugHistory, DebugTurn{
+				Turn: ctx.AgentTurn, Round: ctx.DebugRound,
+				RoundLabel: roundLabelForCtx(ctx), Kind: "tool_result",
+				Prompt: resp.SearchTerm, RawResponse: result, Error: searchErr,
+			})
 			if searchErr != nil {
 				ctx.Logf("Search failed: %v", searchErr)
 				ctx.Summary += fmt.Sprintf("\n\n[Search for '%s' failed: %v]", resp.SearchTerm, searchErr)
@@ -347,27 +352,29 @@ func (generateStage) Validate(ctx *PipelineContext) error {
 }
 
 type PipelineContext struct {
-	Question          string
-	SearchTerms       []string
-	SearchResult      string
-	Summary           string
-	Card              Card
-	Error             error
-	FailedAttempts    []string
-	CardHistory       []Card
-	HistoryIndex      int
-	Logs              strings.Builder
-	SearchCount       int
-	Refused           bool
-	RefusalReason     string
-	AgentQuestion     string
-	UserResponses     []string
-	AwaitingInput     bool
-	DebugHistory      []DebugTurn
-	DebugRound        int
-	AgentTurn         int
-	AdditionalContext []string
-	History           *HistoryRecord
+	Question            string
+	SearchTerms         []string
+	SearchResult        string
+	Summary             string
+	Card                Card
+	Error               error
+	FailedAttempts      []string
+	CardHistory         []Card
+	HistoryIndex        int
+	Logs                strings.Builder
+	SearchCount         int
+	Refused             bool
+	RefusalReason       string
+	AgentQuestion       string
+	UserResponses       []string
+	AwaitingInput       bool
+	DebugHistory        []DebugTurn
+	DebugRound          int
+	AgentTurn           int
+	AdditionalContext   []string
+	IterateInstructions string
+	IterateCurrentCard  *Card
+	History             *HistoryRecord
 }
 
 type model struct {
@@ -397,6 +404,36 @@ type debugModel struct {
 	titles    []string
 	width     int
 	height    int
+}
+
+func (m model) finish() (model, tea.Cmd) {
+	m.done = true
+	m.tabView = initDebugModel(m.context, m.width, m.height)
+	saveHistoryFunc(m.context)
+	return m, nil
+}
+
+func (m model) finishWithError(err error) (model, tea.Cmd) {
+	m.err = err
+	m.done = true
+	m.tabView = initDebugModel(m.context, m.width, m.height)
+	m.tabView.activeTab = 6
+	m.tabView.viewport.SetContent(m.tabView.contents[6])
+	saveHistoryFunc(m.context)
+	return m, nil
+}
+
+func (m model) navigateTab(direction int) model {
+	if m.tabView == nil {
+		return m
+	}
+	n := len(m.tabView.titles)
+	m.tabView.activeTab = (m.tabView.activeTab + n + direction) % n
+	if m.tabView.activeTab > 0 {
+		m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
+		m.tabView.viewport.GotoTop()
+	}
+	return m
 }
 
 type inputModel struct {
@@ -560,12 +597,6 @@ type errorMsg struct {
 	err error
 }
 
-type iterateCompleteMsg struct {
-	card         Card
-	err          error
-	instructions string
-}
-
 type agentTurnMsg struct {
 	turn   int
 	action string
@@ -645,13 +676,14 @@ func formatDebugHistory(history []DebugTurn) string {
 			fmt.Fprintf(&b, "─── Entry %d [User] ───\n", entry)
 			fmt.Fprintf(&b, "%s\n\n", turn.Prompt)
 
-		case "iterate":
+		case "tool_result":
 			entry++
-			fmt.Fprintf(&b, "═══ Entry %d [Iterate] ═══\n", entry)
-			fmt.Fprintf(&b, "PROMPT:\n%s\n\n", turn.Prompt)
-			fmt.Fprintf(&b, "RAW RESPONSE:\n%s\n\n", turn.RawResponse)
+			fmt.Fprintf(&b, "─── Entry %d [Search: %s] ───\n", entry, turn.Prompt)
 			if turn.Error != nil {
-				fmt.Fprintf(&b, "ERROR: %v\n", turn.Error)
+				fmt.Fprintf(&b, "FAILED: %v\n", turn.Error)
+			}
+			if turn.RawResponse != "" {
+				fmt.Fprintf(&b, "RESULT (%d bytes):\n%s\n", len(turn.RawResponse), turn.RawResponse)
 			}
 			b.WriteString("\n")
 
@@ -770,13 +802,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "esc", "ctrl+c":
 				m.agentAsking = false
 				m.context.AwaitingInput = false
-				m.done = true
 				m.context.Refused = true
 				m.context.RefusalReason = "User cancelled agent question"
-				m.tabView = initDebugModel(m.context, m.width, m.height)
 				m.agentInput.Reset()
-				saveHistoryFunc(m.context)
-				return m, nil
+				return m.finish()
 			case "ctrl+d":
 				response := strings.TrimSpace(m.agentInput.Value())
 				if response == "" {
@@ -917,41 +946,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.tabView.viewport.GotoTop()
 				}
 			}
-		case "tab":
-			if m.done && m.tabView != nil {
-				n := len(m.tabView.titles)
-				m.tabView.activeTab = (m.tabView.activeTab + 1) % n
-				if m.tabView.activeTab > 0 {
-					m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
-					m.tabView.viewport.GotoTop()
-				}
+		case "tab", "right":
+			if m.done {
+				m = m.navigateTab(1)
 			}
-		case "shift+tab":
-			if m.done && m.tabView != nil {
-				n := len(m.tabView.titles)
-				m.tabView.activeTab = (m.tabView.activeTab + n - 1) % n
-				if m.tabView.activeTab > 0 {
-					m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
-					m.tabView.viewport.GotoTop()
-				}
-			}
-		case "left":
-			if m.done && m.tabView != nil {
-				n := len(m.tabView.titles)
-				m.tabView.activeTab = (m.tabView.activeTab + n - 1) % n
-				if m.tabView.activeTab > 0 {
-					m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
-					m.tabView.viewport.GotoTop()
-				}
-			}
-		case "right":
-			if m.done && m.tabView != nil {
-				n := len(m.tabView.titles)
-				m.tabView.activeTab = (m.tabView.activeTab + 1) % n
-				if m.tabView.activeTab > 0 {
-					m.tabView.viewport.SetContent(m.tabView.contents[m.tabView.activeTab])
-					m.tabView.viewport.GotoTop()
-				}
+		case "shift+tab", "left":
+			if m.done {
+				m = m.navigateTab(-1)
 			}
 		default:
 			if m.done && m.tabView != nil && m.tabView.activeTab > 0 {
@@ -990,14 +991,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.stage = msg.stage.Next()
 		if m.stage == nil {
-			m.done = true
 			if !m.context.Refused {
 				m.context.CardHistory = append(m.context.CardHistory, m.context.Card)
 				m.context.HistoryIndex = len(m.context.CardHistory) - 1
 			}
-			m.tabView = initDebugModel(m.context, m.width, m.height)
-			saveHistoryFunc(m.context)
-			return m, nil
+			return m.finish()
 		}
 		return m, runStage(m.stage, m.context)
 
@@ -1005,31 +1003,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.context = msg.ctx
 		recordAgentTurn(m.context, msg)
 		if msg.err != nil {
-			m.err = msg.err
-			m.done = true
-			m.tabView = initDebugModel(m.context, m.width, m.height)
-			m.tabView.activeTab = 6
-			m.tabView.viewport.SetContent(m.tabView.contents[6])
-			saveHistoryFunc(m.context)
-			return m, nil
+			return m.finishWithError(msg.err)
 		}
 
 		switch msg.action {
 		case "generate":
 			m.substage = fmt.Sprintf("Turn %d: generated card", msg.turn)
-			m.done = true
 			m.context.CardHistory = append(m.context.CardHistory, m.context.Card)
 			m.context.HistoryIndex = len(m.context.CardHistory) - 1
-			m.tabView = initDebugModel(m.context, m.width, m.height)
-			saveHistoryFunc(m.context)
-			return m, nil
+			if m.context.IterateInstructions != "" {
+				m.context.History.AddEvent("card_iterated", map[string]any{
+					"instructions": m.context.IterateInstructions,
+					"card":         m.context.Card,
+				})
+				m.context.IterateInstructions = ""
+				m.context.IterateCurrentCard = nil
+				m.substage = "iterated card"
+			}
+			return m.finish()
 
 		case "refuse":
 			m.substage = fmt.Sprintf("Turn %d: refused", msg.turn)
-			m.done = true
-			m.tabView = initDebugModel(m.context, m.width, m.height)
-			saveHistoryFunc(m.context)
-			return m, nil
+			return m.finish()
 
 		case "search":
 			m.substage = fmt.Sprintf("Turn %d: searched %q", msg.turn, msg.detail)
@@ -1045,29 +1040,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.substage = fmt.Sprintf("Turn %d: %s, retrying...", msg.turn, msg.action)
 			return m, runAgentTurn(m.context)
 		}
-
-	case iterateCompleteMsg:
-		if msg.err != nil {
-			m.err = msg.err
-			m.done = true
-			m.tabView = initDebugModel(m.context, m.width, m.height)
-			m.tabView.activeTab = 6
-			m.tabView.viewport.SetContent(m.tabView.contents[6])
-			saveHistoryFunc(m.context)
-			return m, nil
-		}
-		m.context.Card = msg.card
-		m.context.CardHistory = append(m.context.CardHistory, msg.card)
-		m.context.HistoryIndex = len(m.context.CardHistory) - 1
-		m.context.History.AddEvent("card_iterated", map[string]any{
-			"instructions": msg.instructions,
-			"card":         msg.card,
-		})
-		m.done = true
-		m.substage = "iterated card"
-		m.tabView = initDebugModel(m.context, m.width, m.height)
-		saveHistoryFunc(m.context)
-		return m, nil
 
 	case errorMsg:
 		m.err = msg.err
@@ -1257,13 +1229,6 @@ func runStage(stage Stage, ctx *PipelineContext) tea.Cmd {
 }
 
 func runIterate(ctx *PipelineContext, instructions string) tea.Cmd {
-	return func() tea.Msg {
-		card, err := iterateCard(ctx, instructions)
-		return iterateCompleteMsg{card: card, err: err, instructions: instructions}
-	}
-}
-
-func iterateCard(ctx *PipelineContext, instructions string) (Card, error) {
 	ctx.DebugRound++
 	iterLabel := fmt.Sprintf("Iterate #%d", ctx.DebugRound)
 	ctx.DebugHistory = append(ctx.DebugHistory,
@@ -1271,40 +1236,11 @@ func iterateCard(ctx *PipelineContext, instructions string) (Card, error) {
 		DebugTurn{Kind: "user_response", Round: ctx.DebugRound, RoundLabel: iterLabel,
 			Prompt: fmt.Sprintf("Iteration instructions: %s", instructions)},
 	)
-
-	systemPrompt := fetchSystemPrompt()
-
-	var userPrompt strings.Builder
-	fmt.Fprintf(&userPrompt, "Original question: %s\n\n", ctx.Question)
-	if ctx.Summary != "" {
-		fmt.Fprintf(&userPrompt, "Research context:\n%s\n\n", ctx.Summary)
-	}
-	if ac := formatAdditionalContext(ctx.AdditionalContext); ac != "" {
-		fmt.Fprintf(&userPrompt, "Additional context from user:\n%s\n\n", ac)
-	}
-	fmt.Fprintf(&userPrompt, "Current card:\nFront: %s\nBack: %s\n\n", ctx.Card.Front, ctx.Card.Back)
-	fmt.Fprintf(&userPrompt, "Please modify this card according to these instructions: %s", instructions)
-
-	response, err := callLLMWithSystem(systemPrompt, userPrompt.String(), !deepThink)
-	ctx.DebugHistory = append(ctx.DebugHistory, DebugTurn{
-		Kind: "iterate", Round: ctx.DebugRound, RoundLabel: iterLabel,
-		Prompt: userPrompt.String(), RawResponse: response, Error: err,
-	})
-	if err != nil {
-		return Card{}, err
-	}
-
-	var card Card
-	card.RawResponse = response
-	response = stripCodeFences(strings.TrimSpace(response))
-	if start, end := strings.Index(response, "{"), strings.LastIndex(response, "}"); start != -1 && end > start {
-		if err := json.Unmarshal([]byte(response[start:end+1]), &card); err == nil {
-			card.RawResponse = response
-			return card, nil
-		}
-	}
-
-	return Card{Error: "Failed to parse iterated card", RawResponse: response}, nil
+	ctx.IterateInstructions = instructions
+	ctx.IterateCurrentCard = &Card{Front: ctx.Card.Front, Back: ctx.Card.Back}
+	ctx.AgentTurn = 0
+	ctx.FailedAttempts = nil
+	return runAgentTurn(ctx)
 }
 
 func (m model) completedStages() []Stage {
@@ -1332,13 +1268,8 @@ Example output: ["query 1", "query 2", "query 3"]`, question)
 		return nil, fmt.Errorf("search term generation failed: %w", err)
 	}
 
-	var terms []string
-	response = stripCodeFences(strings.TrimSpace(response))
-	if start, end := strings.Index(response, "["), strings.LastIndex(response, "]"); start != -1 && end > start {
-		response = response[start : end+1]
-	}
-
-	if err := json.Unmarshal([]byte(response), &terms); err != nil || len(terms) == 0 {
+	terms, err := extractJSONArray[string](response)
+	if err != nil || len(terms) == 0 {
 		return []string{question}, nil
 	}
 	return terms, nil
@@ -1404,16 +1335,7 @@ Example: For "Why is the sky blue?" you might generate:
 		return nil, fmt.Errorf("no response from herakles")
 	}
 
-	response := stripCodeFences(strings.TrimSpace(result.Choices[0].Message.Content))
-	if start, end := strings.Index(response, "["), strings.LastIndex(response, "]"); start != -1 && end > start {
-		response = response[start : end+1]
-	}
-
-	var terms []string
-	if err := json.Unmarshal([]byte(response), &terms); err != nil {
-		return nil, err
-	}
-	return terms, nil
+	return extractJSONArray[string](result.Choices[0].Message.Content)
 }
 
 func performWebSearch(terms []string) (string, error) {
@@ -1570,14 +1492,9 @@ func generateCard(question, summary string, additional []string) (Card, error) {
 		return Card{}, err
 	}
 
-	var card Card
-	card.RawResponse = response
-	response = stripCodeFences(strings.TrimSpace(response))
-	if start, end := strings.Index(response, "{"), strings.LastIndex(response, "}"); start != -1 && end > start {
-		if err := json.Unmarshal([]byte(response[start:end+1]), &card); err == nil {
-			card.RawResponse = response
-			return card, nil
-		}
+	if parsed, err := extractJSON[Card](response); err == nil {
+		parsed.RawResponse = response
+		return parsed, nil
 	}
 
 	lines := strings.Split(response, "\n")
@@ -1661,6 +1578,12 @@ You are an agentic card generator. You must respond with exactly one raw JSON ob
 		}
 		userPrompt.WriteString("\n")
 	}
+	if ctx.IterateInstructions != "" && ctx.IterateCurrentCard != nil {
+		fmt.Fprintf(&userPrompt, "Current card to modify:\nFront: %s\nBack: %s\n\n",
+			ctx.IterateCurrentCard.Front, ctx.IterateCurrentCard.Back)
+		fmt.Fprintf(&userPrompt, "Modification instructions: %s\n\n", ctx.IterateInstructions)
+		userPrompt.WriteString("Return the modified card using the 'generate' action. Use 'search' if you need more information.\n\n")
+	}
 	debug.Prompt = userPrompt.String()
 
 	response, err := callLLMWithSystem(systemPrompt, userPrompt.String(), !deepThink)
@@ -1670,18 +1593,14 @@ You are an agentic card generator. You must respond with exactly one raw JSON ob
 	}
 
 	debug.RawResponse = response
-	var resp AgentResponse
-	response = stripCodeFences(strings.TrimSpace(response))
-	if start, end := strings.Index(response, "{"), strings.LastIndex(response, "}"); start != -1 && end > start {
-		if err := json.Unmarshal([]byte(response[start:end+1]), &resp); err == nil {
-			debug.Parsed = &resp
-			return resp, debug, nil
-		}
+	resp, parseErr := extractJSON[AgentResponse](response)
+	if parseErr != nil {
+		parseErr = fmt.Errorf("failed to parse agent response: %s", response)
+		debug.Error = parseErr
+		return AgentResponse{}, debug, parseErr
 	}
-
-	parseErr := fmt.Errorf("failed to parse agent response: %s", response)
-	debug.Error = parseErr
-	return AgentResponse{}, debug, parseErr
+	debug.Parsed = &resp
+	return resp, debug, nil
 }
 
 func performAdditionalSearch(term string) (string, error) {
@@ -2268,6 +2187,32 @@ func stripCodeFences(s string) string {
 		}
 	}
 	return strings.TrimSpace(strings.Join(lines[start:end], "\n"))
+}
+
+func extractJSON[T any](response string) (T, error) {
+	var zero T
+	response = stripCodeFences(strings.TrimSpace(response))
+	start, end := strings.Index(response, "{"), strings.LastIndex(response, "}")
+	if start == -1 || end <= start {
+		return zero, fmt.Errorf("no JSON object found in response")
+	}
+	var result T
+	if err := json.Unmarshal([]byte(response[start:end+1]), &result); err != nil {
+		return zero, fmt.Errorf("JSON parse error: %w", err)
+	}
+	return result, nil
+}
+
+func extractJSONArray[T any](response string) ([]T, error) {
+	response = stripCodeFences(strings.TrimSpace(response))
+	if start, end := strings.Index(response, "["), strings.LastIndex(response, "]"); start != -1 && end > start {
+		response = response[start : end+1]
+	}
+	var result []T
+	if err := json.Unmarshal([]byte(response), &result); err != nil {
+		return nil, fmt.Errorf("JSON array parse error: %w", err)
+	}
+	return result, nil
 }
 
 func stripTags(s string, tags ...string) string {

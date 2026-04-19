@@ -129,12 +129,20 @@ func TestRegenerate_ResetsAllState(t *testing.T) {
 
 // --- Bug 1: Debug tab not reinitialised after iteration ---
 
-func TestIterateComplete_Success_InitialisesDebugModel(t *testing.T) {
+func iterateAgentMsg(card Card) agentTurnMsg {
+	ctx := newTestContext()
+	ctx.IterateInstructions = "make it better"
+	ctx.IterateCurrentCard = &Card{Front: "Q", Back: "A"}
+	ctx.Card = card
+	return agentTurnMsg{turn: 1, action: "generate", done: true, ctx: ctx}
+}
+
+func TestIterateGenerate_Success_InitialisesDebugModel(t *testing.T) {
 	m := newTestModel()
 	m.tabView = nil
 	m.done = false
 
-	m, _ = sendMsg(m, iterateCompleteMsg{card: Card{Front: "Q2", Back: "A2"}})
+	m, _ = sendMsg(m, iterateAgentMsg(Card{Front: "Q2", Back: "A2"}))
 
 	if m.tabView == nil {
 		t.Error("tabView is nil, want initialised")
@@ -144,16 +152,18 @@ func TestIterateComplete_Success_InitialisesDebugModel(t *testing.T) {
 	}
 }
 
-func TestIterateComplete_Success_PreservesDebugHistory(t *testing.T) {
+func TestIterateGenerate_Success_PreservesDebugHistory(t *testing.T) {
 	m := newTestModel()
-	m.context.DebugHistory = []DebugTurn{
+	m.done = false
+
+	msg := iterateAgentMsg(Card{Front: "Q2", Back: "A2"})
+	msg.ctx.DebugHistory = []DebugTurn{
 		{Turn: 1, Prompt: "p1"},
 		{Turn: 2, Prompt: "p2"},
 		{Turn: 3, Prompt: "p3"},
 	}
-	m.done = false
 
-	m, _ = sendMsg(m, iterateCompleteMsg{card: Card{Front: "Q2", Back: "A2"}})
+	m, _ = sendMsg(m, msg)
 
 	if len(m.context.DebugHistory) != 3 {
 		t.Errorf("DebugHistory len = %d, want 3", len(m.context.DebugHistory))
@@ -162,24 +172,24 @@ func TestIterateComplete_Success_PreservesDebugHistory(t *testing.T) {
 
 // --- Bug 3: substage not updated after iteration ---
 
-func TestIterateComplete_Success_UpdatesSubstage(t *testing.T) {
+func TestIterateGenerate_Success_UpdatesSubstage(t *testing.T) {
 	m := newTestModel()
 	m.substage = "iterating"
 	m.done = false
 
-	m, _ = sendMsg(m, iterateCompleteMsg{card: Card{Front: "Q2", Back: "A2"}})
+	m, _ = sendMsg(m, iterateAgentMsg(Card{Front: "Q2", Back: "A2"}))
 
 	if m.substage != "iterated card" {
 		t.Errorf("substage = %q, want %q", m.substage, "iterated card")
 	}
 }
 
-func TestIterateComplete_Success_AppendsCardHistory(t *testing.T) {
+func TestIterateGenerate_Success_AppendsCardHistory(t *testing.T) {
 	m := newTestModel()
 	m.done = false
 	newCard := Card{Front: "Q2", Back: "A2"}
 
-	m, _ = sendMsg(m, iterateCompleteMsg{card: newCard})
+	m, _ = sendMsg(m, iterateAgentMsg(newCard))
 
 	if len(m.context.CardHistory) != 2 {
 		t.Errorf("CardHistory len = %d, want 2", len(m.context.CardHistory))
@@ -187,17 +197,29 @@ func TestIterateComplete_Success_AppendsCardHistory(t *testing.T) {
 	if m.context.HistoryIndex != 1 {
 		t.Errorf("HistoryIndex = %d, want 1", m.context.HistoryIndex)
 	}
-	if m.context.Card != newCard {
-		t.Errorf("Card = %+v, want %+v", m.context.Card, newCard)
+}
+
+func TestIterateGenerate_ClearsIterateState(t *testing.T) {
+	m := newTestModel()
+	m.done = false
+
+	m, _ = sendMsg(m, iterateAgentMsg(Card{Front: "Q2", Back: "A2"}))
+
+	if m.context.IterateInstructions != "" {
+		t.Errorf("IterateInstructions = %q, want empty", m.context.IterateInstructions)
+	}
+	if m.context.IterateCurrentCard != nil {
+		t.Error("IterateCurrentCard not nil, want nil")
 	}
 }
 
-func TestIterateComplete_Error_InitialisesDebugModel(t *testing.T) {
+func TestAgentTurn_Error_InitialisesDebugModel(t *testing.T) {
 	m := newTestModel()
 	m.tabView = nil
 	m.done = false
+	ctx := newTestContext()
 
-	m, _ = sendMsg(m, iterateCompleteMsg{err: errors.New("fail")})
+	m, _ = sendMsg(m, agentTurnMsg{err: errors.New("fail"), ctx: ctx})
 
 	if m.tabView == nil {
 		t.Fatal("tabView is nil, want initialised")
@@ -588,25 +610,29 @@ func TestFormatDebugHistory_MixedKinds(t *testing.T) {
 	history := []DebugTurn{
 		{Kind: "agent", Turn: 1, Prompt: "prompt1", RawResponse: "resp1",
 			Parsed: &AgentResponse{Action: "search", SearchTerm: "quantum"}},
+		{Kind: "tool_result", Turn: 1, Prompt: "quantum", RawResponse: "search results here"},
 		{Kind: "user_response", Turn: 1, Prompt: "Agent asked: q\nUser responded: a"},
 		{Kind: "separator", Round: 1, RoundLabel: "Regen #1"},
 		{Kind: "agent", Turn: 1, Prompt: "prompt2", RawResponse: "resp2",
 			Parsed: &AgentResponse{Action: "generate"}},
 		{Kind: "separator", Round: 2, RoundLabel: "Iterate #2"},
 		{Kind: "user_response", Round: 2, Prompt: "Iteration instructions: fix typo"},
-		{Kind: "iterate", Round: 2, Prompt: "iter-prompt", RawResponse: "iter-resp"},
+		{Kind: "agent", Turn: 1, Round: 2, Prompt: "iter-prompt", RawResponse: "iter-resp",
+			Parsed: &AgentResponse{Action: "generate"}},
 	}
 
 	got := formatDebugHistory(history)
 
 	checks := []string{
 		"Entry 1 [Agent Turn 1]",
-		"Entry 2 [User]",
+		"Entry 2 [Search: quantum]",
+		"search results here",
+		"Entry 3 [User]",
 		"Regen #1",
-		"Entry 3 [Agent Turn 1]",
+		"Entry 4 [Agent Turn 1]",
 		"Iterate #2",
-		"Entry 4 [User]",
-		"Entry 5 [Iterate]",
+		"Entry 5 [User]",
+		"Entry 6 [Agent Turn 1]",
 		"term=\"quantum\"",
 		"iter-prompt",
 	}
