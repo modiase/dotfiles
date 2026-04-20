@@ -440,13 +440,15 @@ type inputModel struct {
 	textarea textarea.Model
 	done     bool
 	question string
+	width    int
+	height   int
 }
 
 func initialInputModel() inputModel {
 	ta := textarea.New()
-	ta.Placeholder = "Enter your question..."
+	ta.Placeholder = "Type your question"
 	ta.Focus()
-	ta.SetWidth(80)
+	ta.SetWidth(60)
 	ta.SetHeight(3)
 	ta.ShowLineNumbers = false
 	ta.CharLimit = 1000
@@ -470,7 +472,9 @@ func (m inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 	case tea.WindowSizeMsg:
-		m.textarea.SetWidth(min(msg.Width-4, 100))
+		m.width = msg.Width
+		m.height = msg.Height
+		m.textarea.SetWidth(min(msg.Width-4, 60))
 	}
 
 	var cmd tea.Cmd
@@ -479,12 +483,15 @@ func (m inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m inputModel) View() string {
-	return fmt.Sprintf(
-		"\n%s\n\n%s\n\n%s\n",
-		titleStyle.Render("Enter your question:"),
+	content := fmt.Sprintf("%s\n\n%s\n\n%s",
+		titleStyle.Render("ankigen"),
 		m.textarea.View(),
-		dimStyle.Render("Press Ctrl+D to submit, Esc to cancel"),
+		dimStyle.Render("Ctrl+D to submit · Esc to cancel"),
 	)
+	if m.width > 0 && m.height > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+	}
+	return content
 }
 
 type addInputModel struct {
@@ -871,7 +878,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.stage = generateStage{}
 				m.done = false
 				m.copied = false
-				m.substage = "Turn 1: thinking..."
+				m.substage = "thinking..."
 				m.context.Refused = false
 				m.context.RefusalReason = ""
 				m.context.AwaitingInput = false
@@ -977,7 +984,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if _, ok := msg.stage.(generateStage); ok {
-			m.substage = "Turn 1: thinking..."
+			m.substage = "thinking..."
 			return m, runAgentTurn(m.context)
 		}
 
@@ -1000,7 +1007,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.action {
 		case "generate":
-			m.substage = fmt.Sprintf("Turn %d: generated card", msg.turn)
+			m.substage = "generated"
 			m.context.CardHistory = append(m.context.CardHistory, m.context.Card)
 			m.context.HistoryIndex = len(m.context.CardHistory) - 1
 			if m.context.IterateInstructions != "" {
@@ -1015,21 +1022,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.finish()
 
 		case "refuse":
-			m.substage = fmt.Sprintf("Turn %d: refused", msg.turn)
+			m.substage = "refused"
 			return m.finish()
 
 		case "search":
-			m.substage = fmt.Sprintf("Turn %d: searched %q", msg.turn, msg.detail)
+			m.substage = "searching..."
 			return m, runAgentTurn(m.context)
 
 		case "ask":
-			m.substage = fmt.Sprintf("Turn %d: asking question", msg.turn)
+			m.substage = "asking question"
 			m.agentAsking = true
 			m.agentInput.Focus()
 			return m, textarea.Blink
 
 		default:
-			m.substage = fmt.Sprintf("Turn %d: %s, retrying...", msg.turn, msg.action)
+			m.substage = "retrying..."
 			return m, runAgentTurn(m.context)
 		}
 
@@ -2368,7 +2375,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	if len(args) == 0 {
-		p := tea.NewProgram(initialInputModel())
+		p := tea.NewProgram(initialInputModel(), tea.WithAltScreen())
 		m, err := p.Run()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)

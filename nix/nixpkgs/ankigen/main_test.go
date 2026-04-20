@@ -122,8 +122,8 @@ func TestRegenerate_ResetsAllState(t *testing.T) {
 	if _, ok := m.stage.(generateStage); !ok {
 		t.Errorf("stage = %T, want generateStage", m.stage)
 	}
-	if !strings.Contains(m.substage, "Turn 1") {
-		t.Errorf("substage = %q, want to contain 'Turn 1'", m.substage)
+	if m.substage != "thinking..." {
+		t.Errorf("substage = %q, want %q", m.substage, "thinking...")
 	}
 }
 
@@ -319,8 +319,8 @@ func TestUpdate_AgentTurnMsg_Generate(t *testing.T) {
 	if m.tabView == nil {
 		t.Error("tabView is nil")
 	}
-	if !strings.Contains(m.substage, "generated card") {
-		t.Errorf("substage = %q, want to contain 'generated card'", m.substage)
+	if m.substage != "generated" {
+		t.Errorf("substage = %q, want %q", m.substage, "generated")
 	}
 	if len(m.context.CardHistory) != 2 {
 		t.Errorf("CardHistory len = %d, want 2", len(m.context.CardHistory))
@@ -355,11 +355,8 @@ func TestUpdate_AgentTurnMsg_Search(t *testing.T) {
 	if m.done {
 		t.Error("done = true, want false")
 	}
-	if !strings.Contains(m.substage, "searched") {
-		t.Errorf("substage = %q, want to contain 'searched'", m.substage)
-	}
-	if !strings.Contains(m.substage, "quantum physics") {
-		t.Errorf("substage = %q, want to contain 'quantum physics'", m.substage)
+	if m.substage != "searching..." {
+		t.Errorf("substage = %q, want %q", m.substage, "searching...")
 	}
 }
 
@@ -436,8 +433,8 @@ func TestUpdate_StageCompleteMsg_GenerateStartsAgent(t *testing.T) {
 
 	m, cmd := sendMsg(m, stageCompleteMsg{stage: generateStage{}, ctx: m.context})
 
-	if m.substage != "Turn 1: thinking..." {
-		t.Errorf("substage = %q, want %q", m.substage, "Turn 1: thinking...")
+	if m.substage != "thinking..." {
+		t.Errorf("substage = %q, want %q", m.substage, "thinking...")
 	}
 	if cmd == nil {
 		t.Error("cmd is nil, want runAgentTurn command")
