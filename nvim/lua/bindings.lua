@@ -23,7 +23,6 @@ end
 
 local opts = { silent = true }
 
-vim.keymap.set("n", "<leader>C", ":bufdo bd<CR>:Dashboard<CR>", opts)
 vim.keymap.set({ "n", "v" }, "<leader>y", '"+y', opts)
 vim.keymap.set({ "n", "v" }, "<leader>d", '"+d', opts)
 

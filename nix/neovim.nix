@@ -33,6 +33,7 @@ in
       "claudecode"
       "coc"
       "copy-path"
+      "dashboard"
       "diffview"
       "fidget"
       "flash"
