@@ -29,6 +29,9 @@
       url = "github:Mic92/sops-nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nixpkgs-claude-code.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-gemini-cli.url = "github:nixos/nixpkgs/nixos-unstable";
+    nixpkgs-opencode.url = "github:nixos/nixpkgs/nixos-unstable";
   };
 
   outputs =
@@ -41,6 +44,9 @@
       nix-darwin,
       nix-homebrew,
       nixpkgs,
+      nixpkgs-claude-code,
+      nixpkgs-gemini-cli,
+      nixpkgs-opencode,
       sops-nix,
       tk700-controller-dashboard,
       ...
@@ -120,31 +126,45 @@
       ];
 
       sharedOverlays = [
-        (_: super: {
-          aleo = super.callPackage ./nix/nixpkgs/aleo { };
-          gemini-nvim-ide-bridge = super.callPackage ./nix/nixpkgs/gemini-cli/scripts/gemini-nvim-ide-bridge {
-            tmuxNvimSelect = super.callPackage ./nix/nixpkgs/tmux-nvim { };
-            devlogsLibSrc = ./nix/nixpkgs/devlogs-lib;
-          };
-          lato = super.callPackage ./nix/nixpkgs/lato { };
-          nvim-mcp = super.callPackage ./nix/nixpkgs/nvim-mcp { };
-          space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
-          viddy = super.viddy.overrideAttrs (old: {
-            postPatch = (old.postPatch or "") + ''
-              substituteInPlace src/components/home.rs \
-                --replace-fail 'Constraint::Length(32)]).areas(footer);' \
-                               'Constraint::Length(0)]).areas(footer);'
-            '';
-          });
-          anki-sync-server = super.anki-sync-server.overrideAttrs (old: {
-            postPatch = (old.postPatch or "") + ''
-              substituteInPlace rslib/src/storage/sqlite.rs \
-                --replace-fail '"locking_mode", "exclusive"' '"locking_mode", "normal"'
-              substituteInPlace rslib/src/sync/media/database/server/mod.rs \
-                --replace-fail '"locking_mode", "exclusive"' '"locking_mode", "normal"'
-            '';
-          });
-        })
+        (
+          _: super:
+          let
+            pkgsClaudeCode = import nixpkgs-claude-code {
+              inherit (super) system;
+              config.allowUnfree = true;
+            };
+            pkgsGeminiCli = import nixpkgs-gemini-cli { inherit (super) system; };
+            pkgsOpencode = import nixpkgs-opencode { inherit (super) system; };
+          in
+          {
+            inherit (pkgsClaudeCode) claude-code;
+            inherit (pkgsGeminiCli) gemini-cli;
+            inherit (pkgsOpencode) opencode;
+            aleo = super.callPackage ./nix/nixpkgs/aleo { };
+            gemini-nvim-ide-bridge = super.callPackage ./nix/nixpkgs/gemini-cli/scripts/gemini-nvim-ide-bridge {
+              tmuxNvimSelect = super.callPackage ./nix/nixpkgs/tmux-nvim { };
+              devlogsLibSrc = ./nix/nixpkgs/devlogs-lib;
+            };
+            lato = super.callPackage ./nix/nixpkgs/lato { };
+            nvim-mcp = super.callPackage ./nix/nixpkgs/nvim-mcp { };
+            space-grotesk = super.callPackage ./nix/nixpkgs/space-grotesk { };
+            viddy = super.viddy.overrideAttrs (old: {
+              postPatch = (old.postPatch or "") + ''
+                substituteInPlace src/components/home.rs \
+                  --replace-fail 'Constraint::Length(32)]).areas(footer);' \
+                                 'Constraint::Length(0)]).areas(footer);'
+              '';
+            });
+            anki-sync-server = super.anki-sync-server.overrideAttrs (old: {
+              postPatch = (old.postPatch or "") + ''
+                substituteInPlace rslib/src/storage/sqlite.rs \
+                  --replace-fail '"locking_mode", "exclusive"' '"locking_mode", "normal"'
+                substituteInPlace rslib/src/sync/media/database/server/mod.rs \
+                  --replace-fail '"locking_mode", "exclusive"' '"locking_mode", "normal"'
+              '';
+            });
+          }
+        )
       ];
 
       fontOverlays = [ ];
@@ -513,7 +533,7 @@
             import ./nix/nixpkgs/claude-code/wrapper.nix {
               inherit pkgs generateAgentsMd;
               claudeCodePkg =
-                (import nixpkgs {
+                (import nixpkgs-claude-code {
                   inherit system;
                   config.allowUnfree = true;
                 }).claude-code;
