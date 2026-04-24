@@ -395,6 +395,8 @@ type model struct {
 	iterInput   textarea.Model
 	agentAsking bool
 	agentInput  textarea.Model
+	inputting   bool
+	inputArea   textarea.Model
 }
 
 type debugModel struct {
@@ -436,64 +438,6 @@ func (m model) navigateTab(direction int) model {
 	return m
 }
 
-type inputModel struct {
-	textarea textarea.Model
-	done     bool
-	question string
-	width    int
-	height   int
-}
-
-func initialInputModel() inputModel {
-	ta := textarea.New()
-	ta.Placeholder = "Type your question"
-	ta.Focus()
-	ta.SetWidth(60)
-	ta.SetHeight(3)
-	ta.ShowLineNumbers = false
-	ta.CharLimit = 1000
-	return inputModel{textarea: ta}
-}
-
-func (m inputModel) Init() tea.Cmd {
-	return textarea.Blink
-}
-
-func (m inputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "ctrl+c", "esc":
-			m.done = true
-			return m, tea.Quit
-		case "ctrl+d":
-			m.question = strings.TrimSpace(m.textarea.Value())
-			m.done = true
-			return m, tea.Quit
-		}
-	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
-		m.textarea.SetWidth(min(msg.Width-4, 60))
-	}
-
-	var cmd tea.Cmd
-	m.textarea, cmd = m.textarea.Update(msg)
-	return m, cmd
-}
-
-func (m inputModel) View() string {
-	content := fmt.Sprintf("%s\n\n%s\n\n%s",
-		titleStyle.Render("ankigen"),
-		m.textarea.View(),
-		dimStyle.Render("Ctrl+D to submit · Esc to cancel"),
-	)
-	if m.width > 0 && m.height > 0 {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
-	}
-	return content
-}
-
 type addInputModel struct {
 	textarea  textarea.Model
 	inputs    []string
@@ -503,13 +447,8 @@ type addInputModel struct {
 }
 
 func initialAddInputModel() addInputModel {
-	ta := textarea.New()
-	ta.Placeholder = "Paste additional context..."
+	ta := newTextarea("Paste additional context...", 80, 10, 10000)
 	ta.Focus()
-	ta.SetWidth(80)
-	ta.SetHeight(10)
-	ta.ShowLineNumbers = false
-	ta.CharLimit = 10000
 	return addInputModel{textarea: ta}
 }
 
@@ -523,13 +462,8 @@ func (m addInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyMsg:
 			switch msg.String() {
 			case "a":
-				ta := textarea.New()
-				ta.Placeholder = "Paste additional context..."
+				ta := newTextarea("Paste additional context...", 80, 10, 10000)
 				ta.Focus()
-				ta.SetWidth(80)
-				ta.SetHeight(10)
-				ta.ShowLineNumbers = false
-				ta.CharLimit = 10000
 				m.textarea = ta
 				m.reviewing = false
 				return m, textarea.Blink
@@ -724,23 +658,13 @@ func (ctx *PipelineContext) Logf(format string, args ...any) {
 	fmt.Fprintf(&ctx.Logs, format+"\n", args...)
 }
 
-func newIterTextarea() textarea.Model {
+func newTextarea(placeholder string, width, height, charLimit int) textarea.Model {
 	ta := textarea.New()
-	ta.Placeholder = "Enter iteration instructions..."
-	ta.SetWidth(70)
-	ta.SetHeight(3)
+	ta.Placeholder = placeholder
+	ta.SetWidth(width)
+	ta.SetHeight(height)
 	ta.ShowLineNumbers = false
-	ta.CharLimit = 500
-	return ta
-}
-
-func newAgentTextarea() textarea.Model {
-	ta := textarea.New()
-	ta.Placeholder = "Your response..."
-	ta.SetWidth(70)
-	ta.SetHeight(3)
-	ta.ShowLineNumbers = false
-	ta.CharLimit = 500
+	ta.CharLimit = charLimit
 	return ta
 }
 
@@ -757,12 +681,22 @@ func initialModel(question string, webMode bool) model {
 		startStage = generateStage{}
 	}
 
+	ta := newTextarea("Type your question", 60, 3, 1000)
+	needsInput := question == ""
+	if needsInput {
+		ta.Focus()
+	} else {
+		ta.SetValue(question)
+	}
+
 	return model{
 		spinner:    s,
 		stage:      startStage,
 		context:    ctx,
-		iterInput:  newIterTextarea(),
-		agentInput: newAgentTextarea(),
+		iterInput:  newTextarea("Enter iteration instructions...", 70, 3, 500),
+		agentInput: newTextarea("Your response...", 70, 3, 500),
+		inputting:  needsInput,
+		inputArea:  ta,
 	}
 }
 
@@ -778,14 +712,17 @@ func restoredModel(ctx *PipelineContext) model {
 		stage:      generateStage{},
 		done:       true,
 		context:    ctx,
-		iterInput:  newIterTextarea(),
-		agentInput: newAgentTextarea(),
+		iterInput:  newTextarea("Enter iteration instructions...", 70, 3, 500),
+		agentInput: newTextarea("Your response...", 70, 3, 500),
 	}
 }
 
 func (m model) Init() tea.Cmd {
 	if m.done {
 		return nil
+	}
+	if m.inputting {
+		return textarea.Blink
 	}
 	return tea.Batch(
 		m.spinner.Tick,
@@ -794,6 +731,34 @@ func (m model) Init() tea.Cmd {
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.inputting {
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			switch msg.String() {
+			case "ctrl+c", "esc":
+				m.quitting = true
+				return m, tea.Quit
+			case "ctrl+d":
+				q := strings.TrimSpace(m.inputArea.Value())
+				if q == "" {
+					return m, nil
+				}
+				m.inputting = false
+				m.context.Question = q
+				m.context.History = newHistoryRecord(q, provider)
+				return m, tea.Batch(m.spinner.Tick, runStage(m.stage, m.context))
+			}
+		case tea.WindowSizeMsg:
+			m.width = msg.Width
+			m.height = msg.Height
+			m.inputArea.SetWidth(min(msg.Width-4, 60))
+			return m, nil
+		}
+		var cmd tea.Cmd
+		m.inputArea, cmd = m.inputArea.Update(msg)
+		return m, cmd
+	}
+
 	if m.agentAsking {
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
@@ -1055,6 +1020,18 @@ func (m model) View() string {
 
 	var b strings.Builder
 
+	if m.inputting {
+		content := fmt.Sprintf("%s\n\n%s\n\n%s",
+			titleStyle.Render("ankigen"),
+			m.inputArea.View(),
+			dimStyle.Render("Ctrl+D to submit · Esc to cancel"),
+		)
+		if m.width > 0 && m.height > 0 {
+			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+		}
+		return content
+	}
+
 	if m.agentAsking {
 		b.WriteString("\n")
 		b.WriteString(titleStyle.Render("Agent is asking:"))
@@ -1083,6 +1060,10 @@ func (m model) View() string {
 
 	if !m.done {
 		b.WriteString("\n")
+		b.WriteString(titleStyle.Render("ankigen"))
+		b.WriteString("\n\n")
+		b.WriteString(dimStyle.Render(m.context.Question))
+		b.WriteString("\n\n")
 		b.WriteString(m.spinner.View())
 		b.WriteString(" ")
 		if m.substage == "iterating" {
@@ -2374,20 +2355,7 @@ func run(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	if len(args) == 0 {
-		p := tea.NewProgram(initialInputModel(), tea.WithAltScreen())
-		m, err := p.Run()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			os.Exit(1)
-		}
-
-		inputM := m.(inputModel)
-		if inputM.question == "" {
-			os.Exit(0)
-		}
-		question = inputM.question
-	} else {
+	if len(args) > 0 {
 		question = strings.Join(args, " ")
 	}
 
