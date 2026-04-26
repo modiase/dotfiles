@@ -1033,10 +1033,31 @@ func (m model) View() string {
 	}
 
 	if m.agentAsking {
+		width := min(m.width-4, 80)
+		if m.width == 0 {
+			width = 80
+		}
 		b.WriteString("\n")
+		if m.context.IterateInstructions != "" && m.context.IterateCurrentCard != nil {
+			b.WriteString(titleStyle.Render("Iterating on:"))
+			b.WriteString("\n\n")
+			b.WriteString(boxStyle.Width(width).Render(
+				labelStyle.Render("FRONT") + "\n\n" + wordWrap(m.context.IterateCurrentCard.Front, width-4),
+			))
+			b.WriteString("\n\n")
+			b.WriteString(boxStyle.Width(width).Render(
+				labelStyle.Render("BACK") + "\n\n" + wordWrap(m.context.IterateCurrentCard.Back, width-4),
+			))
+			b.WriteString("\n\n")
+			b.WriteString(dimStyle.Render("Your instructions: " + wordWrap(m.context.IterateInstructions, width)))
+			b.WriteString("\n\n")
+		} else if m.context.Question != "" {
+			b.WriteString(dimStyle.Render("Question: " + wordWrap(m.context.Question, width)))
+			b.WriteString("\n\n")
+		}
 		b.WriteString(titleStyle.Render("Agent is asking:"))
 		b.WriteString("\n\n")
-		b.WriteString(boxStyle.Width(min(m.width-4, 80)).Render(m.context.AgentQuestion))
+		b.WriteString(boxStyle.Width(width).Render(m.context.AgentQuestion))
 		b.WriteString("\n\n")
 		b.WriteString(titleStyle.Render("Your response:"))
 		b.WriteString("\n\n")
@@ -1048,7 +1069,29 @@ func (m model) View() string {
 	}
 
 	if m.iterating {
+		width := min(m.width-4, 100)
+		if m.width == 0 {
+			width = 80
+		}
 		b.WriteString("\n")
+		if m.context.Question != "" {
+			b.WriteString(titleStyle.Render("Original question:"))
+			b.WriteString("\n")
+			b.WriteString(dimStyle.Render(wordWrap(m.context.Question, width)))
+			b.WriteString("\n\n")
+		}
+		if m.context.Card.Front != "" || m.context.Card.Back != "" {
+			b.WriteString(titleStyle.Render("Current card:"))
+			b.WriteString("\n\n")
+			b.WriteString(boxStyle.Width(width).Render(
+				labelStyle.Render("FRONT") + "\n\n" + wordWrap(m.context.Card.Front, width-4),
+			))
+			b.WriteString("\n\n")
+			b.WriteString(boxStyle.Width(width).Render(
+				labelStyle.Render("BACK") + "\n\n" + wordWrap(m.context.Card.Back, width-4),
+			))
+			b.WriteString("\n\n")
+		}
 		b.WriteString(titleStyle.Render("Iteration instructions:"))
 		b.WriteString("\n\n")
 		b.WriteString(m.iterInput.View())
@@ -1064,6 +1107,16 @@ func (m model) View() string {
 		b.WriteString("\n\n")
 		b.WriteString(dimStyle.Render(m.context.Question))
 		b.WriteString("\n\n")
+		if m.substage == "iterating" && m.context.IterateInstructions != "" {
+			width := min(m.width-4, 100)
+			if m.width == 0 {
+				width = 80
+			}
+			b.WriteString(boxStyle.Width(width).Render(
+				labelStyle.Render("YOUR INSTRUCTIONS") + "\n\n" + wordWrap(m.context.IterateInstructions, width-4),
+			))
+			b.WriteString("\n\n")
+		}
 		b.WriteString(m.spinner.View())
 		b.WriteString(" ")
 		if m.substage == "iterating" {
@@ -1144,6 +1197,17 @@ func (m model) View() string {
 
 		if m.tabView == nil || m.tabView.activeTab == 0 {
 			if m.context.Refused {
+				if m.context.Question != "" {
+					b.WriteString(dimStyle.Render("Question: " + wordWrap(m.context.Question, width)))
+					b.WriteString("\n")
+				}
+				if m.context.IterateInstructions != "" {
+					b.WriteString(dimStyle.Render("Iteration: " + wordWrap(m.context.IterateInstructions, width)))
+					b.WriteString("\n")
+				}
+				if m.context.Question != "" || m.context.IterateInstructions != "" {
+					b.WriteString("\n")
+				}
 				b.WriteString(boxStyle.Width(width).BorderForeground(nord11).Render(
 					errorStyle.Render("AGENT REFUSED") + "\n\n" + wordWrap(m.context.RefusalReason, width-4),
 				))
