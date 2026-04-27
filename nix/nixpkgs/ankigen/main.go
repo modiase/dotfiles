@@ -9,12 +9,14 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/atotto/clipboard"
 	osc52 "github.com/aymanbagabas/go-osc52/v2"
+	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/textarea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -64,6 +66,41 @@ var (
 	remoteURL   string
 	remoteModel string
 )
+
+// resolveModel must stay in lockstep with callClaude/callOpenAI/callGemini so
+// the front-page status line cannot drift from what is actually sent.
+func resolveModel(prov string, useFast bool) (label, modelName string) {
+	switch prov {
+	case "claude":
+		if useFast {
+			return "Claude", claudeHaiku
+		}
+		return "Claude", claudeOpus
+	case "chatgpt":
+		if useFast {
+			return "ChatGPT", gptMini
+		}
+		return "ChatGPT", gpt4
+	case "gemini":
+		if useFast {
+			return "Gemini", geminiFlash
+		}
+		return "Gemini", geminiPro
+	case "local":
+		name := localModel
+		if name == "" {
+			name = "(autodetect)"
+		}
+		return "Local", name
+	case "herakles":
+		name := remoteModel
+		if name == "" {
+			name = "(autodetect)"
+		}
+		return "Herakles", name
+	}
+	return prov, ""
+}
 
 type Card struct {
 	Front       string `json:"front"`
@@ -377,6 +414,13 @@ type PipelineContext struct {
 	History             *HistoryRecord
 }
 
+type frontMode int
+
+const (
+	modeInsert frontMode = iota
+	modeNormal
+)
+
 type model struct {
 	spinner     spinner.Model
 	stage       Stage
@@ -397,6 +441,10 @@ type model struct {
 	agentInput  textarea.Model
 	inputting   bool
 	inputArea   textarea.Model
+	frontMode   frontMode
+	extraInputs []string
+	modelPicker *modelPickerState
+	addingInput *addInputModel
 }
 
 type debugModel struct {
@@ -438,22 +486,66 @@ func (m model) navigateTab(direction int) model {
 	return m
 }
 
+type inputSource int
+
+const (
+	srcText inputSource = iota
+	srcFile
+)
+
+// filePrefix marks an additional-context entry sourced from a file so the
+// review screen and downstream prompt can identify it.
+const filePrefix = "--- file: "
+
 type addInputModel struct {
 	textarea  textarea.Model
+	source    inputSource
 	inputs    []string
 	reviewing bool
 	done      bool
 	cancelled bool
+	errMsg    string
+}
+
+func newSourceTextarea(src inputSource) textarea.Model {
+	if src == srcFile {
+		ta := newTextarea("path/to/file.md", 80, 1, 1000)
+		ta.Focus()
+		return ta
+	}
+	ta := newTextarea("Paste additional context...", 80, 10, 10000)
+	ta.Focus()
+	return ta
 }
 
 func initialAddInputModel() addInputModel {
-	ta := newTextarea("Paste additional context...", 80, 10, 10000)
-	ta.Focus()
-	return addInputModel{textarea: ta}
+	return addInputModel{textarea: newSourceTextarea(srcText)}
 }
 
 func (m addInputModel) Init() tea.Cmd {
 	return textarea.Blink
+}
+
+func readFileInput(raw string) (string, error) {
+	path := strings.TrimSpace(raw)
+	if path == "" {
+		return "", fmt.Errorf("path is empty")
+	}
+	if strings.HasPrefix(path, "~") {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			path = filepath.Join(home, strings.TrimPrefix(path, "~"))
+		}
+	}
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(abs)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s%s ---\n%s", filePrefix, abs, string(data)), nil
 }
 
 func (m addInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -462,9 +554,7 @@ func (m addInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case tea.KeyMsg:
 			switch msg.String() {
 			case "a":
-				ta := newTextarea("Paste additional context...", 80, 10, 10000)
-				ta.Focus()
-				m.textarea = ta
+				m.textarea = newSourceTextarea(m.source)
 				m.reviewing = false
 				return m, textarea.Blink
 			case "enter", "ctrl+d":
@@ -481,14 +571,34 @@ func (m addInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
+		case "tab":
+			if m.source == srcText {
+				m.source = srcFile
+			} else {
+				m.source = srcText
+			}
+			m.textarea = newSourceTextarea(m.source)
+			m.errMsg = ""
+			return m, textarea.Blink
 		case "ctrl+d":
-			text := strings.TrimSpace(m.textarea.Value())
-			if text != "" {
-				m.inputs = append(m.inputs, text)
+			raw := m.textarea.Value()
+			if m.source == srcFile {
+				content, err := readFileInput(raw)
+				if err != nil {
+					m.errMsg = err.Error()
+					return m, nil
+				}
+				m.inputs = append(m.inputs, content)
+			} else {
+				text := strings.TrimSpace(raw)
+				if text != "" {
+					m.inputs = append(m.inputs, text)
+				}
 			}
 			if len(m.inputs) == 0 {
 				return m, nil
 			}
+			m.errMsg = ""
 			m.reviewing = true
 			return m, nil
 		case "esc", "ctrl+c":
@@ -504,16 +614,33 @@ func (m addInputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
+func (m addInputModel) sourceHeader() string {
+	textLabel := "text"
+	fileLabel := "file"
+	if m.source == srcText {
+		return labelStyle.Render("["+textLabel+"]") + dimStyle.Render(" | "+fileLabel+"  (tab to toggle)")
+	}
+	return dimStyle.Render(textLabel+" | ") + labelStyle.Render("["+fileLabel+"]") + dimStyle.Render("  (tab to toggle)")
+}
+
 func (m addInputModel) View() string {
 	if m.reviewing {
 		var b strings.Builder
 		fmt.Fprintf(&b, "\n%s\n\n", titleStyle.Render(fmt.Sprintf("Additional context (%d inputs):", len(m.inputs))))
 		for i, input := range m.inputs {
-			preview := strings.ReplaceAll(input, "\n", " ")
+			tag := ""
+			preview := input
+			if strings.HasPrefix(input, filePrefix) {
+				if header, _, ok := strings.Cut(input, "\n"); ok {
+					preview = strings.TrimSuffix(strings.TrimPrefix(header, filePrefix), " ---")
+				}
+				tag = dimStyle.Render("[file] ")
+			}
+			preview = strings.ReplaceAll(preview, "\n", " ")
 			if len(preview) > 70 {
 				preview = preview[:67] + "..."
 			}
-			fmt.Fprintf(&b, "  %d. %s\n", i+1, preview)
+			fmt.Fprintf(&b, "  %d. %s%s\n", i+1, tag, preview)
 		}
 		b.WriteString("\n")
 		b.WriteString(dimStyle.Render("[a] Add another  [enter] Proceed  [esc] Cancel"))
@@ -521,12 +648,104 @@ func (m addInputModel) View() string {
 		return b.String()
 	}
 
-	return fmt.Sprintf(
-		"\n%s\n\n%s\n\n%s\n",
-		titleStyle.Render("Paste additional context:"),
-		m.textarea.View(),
-		dimStyle.Render("Ctrl+D to add, Esc to cancel"),
-	)
+	var b strings.Builder
+	fmt.Fprintf(&b, "\n%s\n\n", titleStyle.Render("Add additional context:"))
+	fmt.Fprintf(&b, "Source: %s\n\n", m.sourceHeader())
+	b.WriteString(m.textarea.View())
+	b.WriteString("\n\n")
+	if m.errMsg != "" {
+		b.WriteString(errorStyle.Render(m.errMsg))
+		b.WriteString("\n\n")
+	}
+	b.WriteString(dimStyle.Render("Ctrl+D to add, Tab to switch source, Esc to cancel"))
+	b.WriteString("\n")
+	return b.String()
+}
+
+type providerChoice struct {
+	label    string
+	provider string
+	useFast  bool
+	hasFast  bool
+}
+
+func (c providerChoice) Title() string { return c.label }
+func (c providerChoice) Description() string {
+	_, modelName := resolveModel(c.provider, c.useFast)
+	return modelName
+}
+func (c providerChoice) FilterValue() string { return c.label }
+
+func providerChoices() []providerChoice {
+	return []providerChoice{
+		{label: "Claude (opus)", provider: "claude", useFast: false, hasFast: true},
+		{label: "Claude (haiku, fast)", provider: "claude", useFast: true, hasFast: true},
+		{label: "ChatGPT (gpt-4.1)", provider: "chatgpt", useFast: false, hasFast: true},
+		{label: "ChatGPT (o4-mini, fast)", provider: "chatgpt", useFast: true, hasFast: true},
+		{label: "Gemini (2.5 Pro)", provider: "gemini", useFast: false, hasFast: true},
+		{label: "Gemini (2.5 Flash, fast)", provider: "gemini", useFast: true, hasFast: true},
+		{label: "Local (Ollama)", provider: "local", useFast: true},
+		{label: "Herakles (vLLM)", provider: "herakles", useFast: true},
+	}
+}
+
+type modelPickerState struct {
+	list list.Model
+}
+
+func newModelPickerState(currentProvider string, currentDeepThink bool) *modelPickerState {
+	choices := providerChoices()
+	items := make([]list.Item, len(choices))
+	current := 0
+	for i, c := range choices {
+		items[i] = c
+		if c.provider == currentProvider {
+			if !c.hasFast || c.useFast == !currentDeepThink {
+				current = i
+			}
+		}
+	}
+
+	delegate := list.NewDefaultDelegate()
+	delegate.Styles.SelectedTitle = delegate.Styles.SelectedTitle.Foreground(nord8)
+	delegate.Styles.SelectedDesc = delegate.Styles.SelectedDesc.Foreground(nord4)
+
+	l := list.New(items, delegate, 60, 14)
+	l.Title = "Choose model"
+	l.Styles.Title = lipgloss.NewStyle().Bold(true).Foreground(nord8).MarginLeft(2)
+	l.SetFilteringEnabled(false)
+	l.SetShowStatusBar(false)
+	l.Select(current)
+
+	return &modelPickerState{list: l}
+}
+
+type pickerResult struct {
+	choice  providerChoice
+	chosen  bool
+	dismiss bool
+	cmd     tea.Cmd
+}
+
+func (p *modelPickerState) Update(msg tea.Msg) (*modelPickerState, pickerResult) {
+	if km, ok := msg.(tea.KeyMsg); ok {
+		switch km.String() {
+		case "esc":
+			return p, pickerResult{dismiss: true}
+		case "enter":
+			if it, ok := p.list.SelectedItem().(providerChoice); ok {
+				return p, pickerResult{choice: it, chosen: true, dismiss: true}
+			}
+			return p, pickerResult{dismiss: true}
+		}
+	}
+	var cmd tea.Cmd
+	p.list, cmd = p.list.Update(msg)
+	return p, pickerResult{cmd: cmd}
+}
+
+func (p *modelPickerState) View() string {
+	return p.list.View()
 }
 
 type stageCompleteMsg struct {
@@ -730,23 +949,105 @@ func (m model) Init() tea.Cmd {
 	)
 }
 
+func (m model) submitFront() (tea.Model, tea.Cmd) {
+	q := strings.TrimSpace(m.inputArea.Value())
+	if q == "" {
+		return m, nil
+	}
+	m.inputting = false
+	m.context.Question = q
+	m.context.History = newHistoryRecord(q, provider)
+	if len(m.extraInputs) > 0 {
+		m.context.AdditionalContext = append(m.context.AdditionalContext, m.extraInputs...)
+		m.context.History.AddEvent("add_input", map[string]any{"inputs": m.extraInputs})
+	}
+	return m, tea.Batch(m.spinner.Tick, runStage(m.stage, m.context))
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.inputting {
+		if m.modelPicker != nil {
+			if wm, ok := msg.(tea.WindowSizeMsg); ok {
+				m.width = wm.Width
+				m.height = wm.Height
+				m.modelPicker.list.SetWidth(min(wm.Width, 80))
+				m.modelPicker.list.SetHeight(min(wm.Height-2, 18))
+				return m, nil
+			}
+			next, res := m.modelPicker.Update(msg)
+			m.modelPicker = next
+			if res.dismiss {
+				if res.chosen {
+					provider = res.choice.provider
+					if res.choice.hasFast {
+						deepThink = !res.choice.useFast
+					}
+				}
+				m.modelPicker = nil
+				return m, nil
+			}
+			return m, res.cmd
+		}
+
+		if m.addingInput != nil {
+			if wm, ok := msg.(tea.WindowSizeMsg); ok {
+				m.width = wm.Width
+				m.height = wm.Height
+			}
+			updated, cmd := m.addingInput.Update(msg)
+			aim := updated.(addInputModel)
+			m.addingInput = &aim
+			if aim.done || aim.cancelled {
+				if aim.done {
+					m.extraInputs = append(m.extraInputs, aim.inputs...)
+				}
+				m.addingInput = nil
+				m.frontMode = modeNormal
+				m.inputArea.Blur()
+				return m, nil
+			}
+			return m, cmd
+		}
+
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
+			if m.frontMode == modeNormal {
+				switch msg.String() {
+				case "ctrl+c", "q":
+					m.quitting = true
+					return m, tea.Quit
+				case "esc":
+					return m, nil
+				case "i":
+					m.frontMode = modeInsert
+					m.inputArea.Focus()
+					return m, textarea.Blink
+				case "m":
+					m.modelPicker = newModelPickerState(provider, deepThink)
+					if m.width > 0 {
+						m.modelPicker.list.SetWidth(min(m.width, 80))
+						m.modelPicker.list.SetHeight(min(m.height-2, 18))
+					}
+					return m, nil
+				case "a":
+					aim := initialAddInputModel()
+					m.addingInput = &aim
+					return m, textarea.Blink
+				case "enter":
+					return m.submitFront()
+				}
+				return m, nil
+			}
 			switch msg.String() {
-			case "ctrl+c", "esc":
+			case "ctrl+c":
 				m.quitting = true
 				return m, tea.Quit
+			case "esc":
+				m.frontMode = modeNormal
+				m.inputArea.Blur()
+				return m, nil
 			case "ctrl+d":
-				q := strings.TrimSpace(m.inputArea.Value())
-				if q == "" {
-					return m, nil
-				}
-				m.inputting = false
-				m.context.Question = q
-				m.context.History = newHistoryRecord(q, provider)
-				return m, tea.Batch(m.spinner.Tick, runStage(m.stage, m.context))
+				return m.submitFront()
 			}
 		case tea.WindowSizeMsg:
 			m.width = msg.Width
@@ -754,9 +1055,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.inputArea.SetWidth(min(msg.Width-4, 60))
 			return m, nil
 		}
-		var cmd tea.Cmd
-		m.inputArea, cmd = m.inputArea.Update(msg)
-		return m, cmd
+		if m.frontMode == modeInsert {
+			var cmd tea.Cmd
+			m.inputArea, cmd = m.inputArea.Update(msg)
+			return m, cmd
+		}
+		return m, nil
 	}
 
 	if m.agentAsking {
@@ -1021,11 +1325,35 @@ func (m model) View() string {
 	var b strings.Builder
 
 	if m.inputting {
-		content := fmt.Sprintf("%s\n\n%s\n\n%s",
-			titleStyle.Render("ankigen"),
-			m.inputArea.View(),
-			dimStyle.Render("Ctrl+D to submit · Esc to cancel"),
-		)
+		if m.modelPicker != nil {
+			view := m.modelPicker.View()
+			if m.width > 0 && m.height > 0 {
+				return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, view)
+			}
+			return view
+		}
+		if m.addingInput != nil {
+			return m.addingInput.View()
+		}
+
+		var fb strings.Builder
+		fb.WriteString(titleStyle.Render("ankigen"))
+		fb.WriteString("\n\n")
+		fb.WriteString(m.inputArea.View())
+		fb.WriteString("\n\n")
+		if len(m.extraInputs) > 0 {
+			fb.WriteString(dimStyle.Render(fmt.Sprintf("Additional context: %d input(s)", len(m.extraInputs))))
+			fb.WriteString("\n")
+		}
+		label, modelName := resolveModel(provider, !deepThink)
+		fb.WriteString(dimStyle.Render(fmt.Sprintf("Provider: %s · Model: %s", label, modelName)))
+		fb.WriteString("\n")
+		if m.frontMode == modeNormal {
+			fb.WriteString(dimStyle.Render("[i] insert · [a] add input · [m] model · [enter] submit · [q] quit"))
+		} else {
+			fb.WriteString(dimStyle.Render("Esc to leave insert · Ctrl+D submit · Ctrl+C cancel"))
+		}
+		content := fb.String()
 		if m.width > 0 && m.height > 0 {
 			return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
 		}
@@ -1729,10 +2057,7 @@ func callClaude(systemPrompt, userPrompt string, useFast bool) (string, error) {
 		return "", err
 	}
 
-	model := claudeOpus
-	if useFast {
-		model = claudeHaiku
-	}
+	_, model := resolveModel("claude", useFast)
 
 	payload := map[string]any{
 		"model":       model,
@@ -1800,10 +2125,7 @@ func callOpenAI(systemPrompt, userPrompt string, useFast bool) (string, error) {
 		return "", err
 	}
 
-	model := gpt4
-	if useFast {
-		model = gptMini
-	}
+	_, model := resolveModel("chatgpt", useFast)
 
 	var input []map[string]any
 	if systemPrompt != "" {
@@ -1890,10 +2212,7 @@ func callGemini(systemPrompt, userPrompt string, useFast bool) (string, error) {
 		return "", err
 	}
 
-	model := geminiPro
-	if useFast {
-		model = geminiFlash
-	}
+	_, model := resolveModel("gemini", useFast)
 
 	payload := map[string]any{
 		"contents": []map[string]any{
