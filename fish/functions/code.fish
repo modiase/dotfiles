@@ -12,7 +12,7 @@ if set -q _flag_help
     echo "  --no-rename       Don't rename tmux window"
     echo "  --no-debug        Don't add devlogs pane"
     echo ""
-    echo "Layout: yazi[/hgr] | nvim / terminal | agent (optional) / devlogs (default)"
+    echo "Layout: yazi[/gst+glg] | nvim / terminal | agent (optional) / devlogs (default)"
     return 0
 end
 
@@ -77,6 +77,8 @@ else
     tmux select-layout -t $win '1d6e,384x92,0,0{40x92,0,0,67,343x92,41,0[343x81,41,0,68,343x10,41,82,69]}'
 end
 
+set -l nvim_pane (tmux display-message -t $win.1 -p '#{pane_id}')
+
 tmux send-keys -t $win.0 yazi Enter
 tmux send-keys -t $win.1 nvim Enter
 
@@ -90,6 +92,10 @@ if test $has_debug -eq 1
 end
 
 if git_is_repo
-    set -l hgr_pane (tmux split-window -v -t $win.0 -l 40% -c "$dir" -P -F '#{pane_id}')
-    tmux send-keys -t $hgr_pane hgr Enter
+    set -l graph_pane (tmux split-window -v -t $win.0 -l 50% -c "$dir" -P -F '#{pane_id}')
+    set -l status_pane (tmux split-window -v -b -t $graph_pane -l 40% -c "$dir" -P -F '#{pane_id}')
+    tmux send-keys -t $status_pane 'gst --watch' Enter
+    tmux send-keys -t $graph_pane 'glg --watch' Enter
 end
+
+tmux select-pane -t $nvim_pane
