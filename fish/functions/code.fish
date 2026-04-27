@@ -8,7 +8,7 @@ if set -q _flag_help
     echo ""
     echo "Options:"
     echo "  -n, --name=NAME   Override tmux window name (default: lowercased dirname)"
-    echo "  -a, --agent=NAME  Add agent column (gemini, claude, open, opencode)"
+    echo "  -a, --agent=NAME  Add agent column"
     echo "  --no-rename       Don't rename tmux window"
     echo "  --no-debug        Don't add devlogs pane"
     echo ""
@@ -50,16 +50,11 @@ end
 
 set -l agent_cmd
 if set -q _flag_agent
-    switch $_flag_agent
-        case gemini
-            set agent_cmd gemini
-        case claude
-            set agent_cmd claude
-        case open opencode
-            set agent_cmd opencode
-        case '*'
-            echo "Error: unknown agent '$_flag_agent' (use: gemini, claude, open)" >&2
-            return 1
+    if type -q $_flag_agent
+        set agent_cmd $_flag_agent
+    else
+        echo "Error: unknown agent '$_flag_agent' (command not found)" >&2
+        return 1
     end
 end
 

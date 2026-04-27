@@ -35,6 +35,14 @@ var providers = map[string]providerConfig{
 			"reject":        "3",
 		},
 	},
+	"jetski": {
+		dialogPattern: "Ready to start implementation",
+		keys: map[string]string{
+			"accept_auto":   "1",
+			"accept_manual": "2",
+			"reject":        "3",
+		},
+	},
 }
 
 var log = devlogs.NewLogger("agents-plan-responder")
