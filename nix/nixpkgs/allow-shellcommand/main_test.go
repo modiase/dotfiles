@@ -224,17 +224,6 @@ func TestStripCdPrefix(t *testing.T) {
 		}
 	})
 
-	t.Run("cd to parent passes through unchanged", func(t *testing.T) {
-		input := "cd .. && git status"
-		cmd, d := stripCdPrefix(input, log)
-		if d != nil {
-			t.Fatal("expected nil decision (abstain), got", d)
-		}
-		if cmd != input {
-			t.Errorf("cmd = %q, want %q (unchanged)", cmd, input)
-		}
-	})
-
 	t.Run("cd with quoted path", func(t *testing.T) {
 		cwd, _ := os.Getwd()
 		input := `cd "` + cwd + `" && echo hello`
@@ -348,6 +337,96 @@ func TestStripCdPrefix(t *testing.T) {
 			t.Errorf("cmd = %q, want %q", cmd, "ls")
 		}
 	})
+
+	// git-common-dir branch: cd targets outside cwd are allowed when
+	// they share cwd's git common-dir. The subtests stub gitCommonDirFn
+	// so no real git invocation happens and CI without git still works.
+	t.Run("git common-dir branch", func(t *testing.T) {
+		repoA := "/repos/a"
+		repoB := "/repos/b"
+		commonA := "/repos/a/.git"
+		commonB := "/repos/b/.git"
+
+		cases := []struct {
+			name      string
+			cwd       string
+			cdPath    string
+			lookups   map[string]string
+			wantStrip bool
+		}{
+			{
+				name:      "worktree to main checkout",
+				cwd:       "/repos/a/worktrees/wt",
+				cdPath:    repoA,
+				lookups:   map[string]string{"/repos/a/worktrees/wt": commonA, repoA: commonA},
+				wantStrip: true,
+			},
+			{
+				name:      "subdir cd to ancestor in same repo",
+				cwd:       "/repos/a/sub",
+				cdPath:    repoA,
+				lookups:   map[string]string{"/repos/a/sub": commonA, repoA: commonA},
+				wantStrip: true,
+			},
+			{
+				name:      "sibling worktree",
+				cwd:       "/repos/a/worktrees/wt1",
+				cdPath:    "/repos/a/worktrees/wt2",
+				lookups:   map[string]string{"/repos/a/worktrees/wt1": commonA, "/repos/a/worktrees/wt2": commonA},
+				wantStrip: true,
+			},
+			{
+				name:      "different repo abstains",
+				cwd:       repoA,
+				cdPath:    repoB,
+				lookups:   map[string]string{repoA: commonA, repoB: commonB},
+				wantStrip: false,
+			},
+			{
+				name:      "cwd outside any repo abstains",
+				cwd:       "/scratch",
+				cdPath:    "/repos/a",
+				lookups:   map[string]string{"/repos/a": commonA},
+				wantStrip: false,
+			},
+			{
+				name:      "target outside any repo abstains",
+				cwd:       repoA,
+				cdPath:    "/scratch",
+				lookups:   map[string]string{repoA: commonA},
+				wantStrip: false,
+			},
+		}
+
+		origGetwd := getwdFn
+		origGitCommonDir := gitCommonDirFn
+		t.Cleanup(func() {
+			getwdFn = origGetwd
+			gitCommonDirFn = origGitCommonDir
+		})
+
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				getwdFn = func() (string, error) { return tc.cwd, nil }
+				gitCommonDirFn = func(p string) (string, bool) {
+					v, ok := tc.lookups[p]
+					return v, ok
+				}
+				input := "cd " + tc.cdPath + " && git status"
+				cmd, d := stripCdPrefix(input, log)
+				if d != nil {
+					t.Fatalf("expected nil decision, got %+v", d)
+				}
+				if tc.wantStrip {
+					if cmd != "git status" {
+						t.Errorf("cmd = %q, want %q (prefix stripped)", cmd, "git status")
+					}
+				} else if cmd != input {
+					t.Errorf("cmd = %q, want %q (unchanged abstain)", cmd, input)
+				}
+			})
+		}
+	})
 }
 
 func TestExtractCommands(t *testing.T) {
@@ -398,7 +477,10 @@ func TestExtractCommands(t *testing.T) {
 		{"echo $(echo $(whoami))", []string{"whoami", "echo $(whoami)", "echo $(echo $(whoami))"}},
 
 		// assignment with command substitution
-		{"FOO=$(rm -rf /)", []string{"rm -rf /"}},
+		// CallExpr-shaped (FOO=…) emits the captured cmd-subst plus the
+		// AssignOnly sentinel; DeclClause-shaped (export FOO=…) takes a
+		// different walker path and emits only the captured cmd-subst.
+		{"FOO=$(rm -rf /)", []string{"rm -rf /", "<assign-only>"}},
 		{"export FOO=$(rm -rf /)", []string{"rm -rf /"}},
 
 		// redirect with command substitution
@@ -415,8 +497,11 @@ func TestExtractCommands(t *testing.T) {
 		{`echo ${x:0:$(whoami)}`, []string{"whoami", `echo ${x:0:$(whoami)}`}},
 		{`echo ${arr[$(whoami)]}`, []string{"whoami", `echo ${arr[$(whoami)]}`}},
 
-		// array assignment with command substitution
-		{"x=($(whoami))", []string{"whoami"}},
+		// array assignment with command substitution.
+		// `x=(…)` is a CallExpr with an Array assign value, so the
+		// AssignOnly sentinel follows the captured cmd-subst.
+		// `declare -a arr=(…)` is a DeclClause and skips the sentinel.
+		{"x=($(whoami))", []string{"whoami", "<assign-only>"}},
 		{"declare -a arr=($(whoami))", []string{"whoami"}},
 
 		// quoting is stripped for simple words (bypass prevention)
@@ -452,6 +537,16 @@ func TestExtractCommands(t *testing.T) {
 		{"PATH=/evil git status", []string{"PATH=/evil git status", "git status"}},
 		{"FOO=bar BAZ=qux rm -rf /", []string{"FOO=bar BAZ=qux rm -rf /", "rm -rf /"}},
 		{"LD_PRELOAD=/evil.so git status", []string{"LD_PRELOAD=/evil.so git status", "git status"}},
+
+		// pure assignment (no command): emits AssignOnly sentinel so
+		// run() recognises the script as understood and allows it.
+		{"FOO=bar", []string{"<assign-only>"}},
+		{"FOO=bar BAZ=qux", []string{"<assign-only>"}},
+		{"FOO=bar; echo hi", []string{"<assign-only>", "echo hi"}},
+		{"FOO=bar\necho hi", []string{"<assign-only>", "echo hi"}},
+		// `for` loop with no items expands to nothing; the body is still
+		// walked so the AssignOnly statement inside it surfaces.
+		{"FOO=bar && echo hi", []string{"<assign-only>", "echo hi"}},
 
 		// SSH unwrapping
 		{"ssh hermes 'git status'", []string{"git status"}},
@@ -771,8 +866,8 @@ func TestExtractCommandsCaptured(t *testing.T) {
 		},
 		{
 			"x=$(gcloud secrets versions access latest)",
-			[]string{"gcloud secrets versions access latest"},
-			[]bool{true},
+			[]string{"gcloud secrets versions access latest", "<assign-only>"},
+			[]bool{true, false},
 		},
 		{
 			"gcloud secrets versions access latest | sha256sum",
@@ -825,8 +920,8 @@ func TestExtractCommandsCaptured(t *testing.T) {
 		},
 		{
 			"FOO=$(whoami)",
-			[]string{"whoami"},
-			[]bool{true},
+			[]string{"whoami", "<assign-only>"},
+			[]bool{true, false},
 		},
 		{
 			"a && b | c",
@@ -850,8 +945,8 @@ func TestExtractCommandsCaptured(t *testing.T) {
 		},
 		{
 			"x=$(a | b)",
-			[]string{"a", "b"},
-			[]bool{true, true},
+			[]string{"a", "b", "<assign-only>"},
+			[]bool{true, true, false},
 		},
 		{
 			"a & b",
@@ -875,8 +970,8 @@ func TestExtractCommandsCaptured(t *testing.T) {
 		},
 		{
 			"x=$(PATH=/evil git status)",
-			[]string{"PATH=/evil git status", "git status"},
-			[]bool{true, true},
+			[]string{"PATH=/evil git status", "git status", "<assign-only>"},
+			[]bool{true, true, false},
 		},
 
 		// SSH captured propagation
@@ -979,6 +1074,92 @@ func TestExtractCommandsCaptured(t *testing.T) {
 				if got[i].Captured != tt.wantCaptured[i] {
 					t.Errorf("[%d] %q captured = %v, want %v", i, got[i].Command, got[i].Captured, tt.wantCaptured[i])
 				}
+			}
+		})
+	}
+}
+
+// TestExtractCommandsAssignOnly pins the AssignOnly bit for the
+// sentinel emitted by pure variable assignments and confirms it stays
+// false for every other entry so allow/deny scanning isn't bypassed.
+func TestExtractCommandsAssignOnly(t *testing.T) {
+	tests := []struct {
+		input string
+		want  []bool
+	}{
+		{"FOO=bar", []bool{true}},
+		{"FOO=bar; echo hi", []bool{true, false}},
+		{"FOO=$(rm -rf /)", []bool{false, true}},
+		{"echo hi", []bool{false}},
+		{"FOO=bar rm -rf /", []bool{false, false}},
+		{"export FOO=bar", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := extractCommands(tt.input)
+			if err != nil {
+				t.Fatalf("extractCommands(%q) error: %v", tt.input, err)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("got %d entries %v, want %d %v",
+					len(got), got, len(tt.want), tt.want)
+			}
+			for i := range got {
+				if got[i].AssignOnly != tt.want[i] {
+					t.Errorf("[%d] %q AssignOnly = %v, want %v",
+						i, got[i].Command, got[i].AssignOnly, tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+// TestRunAssignPrefixedScript exercises run() end-to-end to confirm
+// AssignOnly statements no longer abstain a script that would otherwise
+// auto-allow, and that they don't short-circuit deny rules either.
+func TestRunAssignPrefixedScript(t *testing.T) {
+	tests := []struct {
+		name  string
+		cmd   string
+		allow []string
+		deny  []string
+		want  string
+	}{
+		{"lone assign with no allowlist", "FOO=bar", nil, nil, "allow"},
+		{"assign then allowed echo", "FOO=bar\necho hi", []string{"Bash(echo:*)"}, nil, "allow"},
+		{"assign then denied rm", "FOO=bar\nrm -rf /", []string{"Bash(echo:*)"}, []string{"Bash(rm -rf:*)"}, "deny"},
+		{"assign then unallowed cmd", "FOO=bar\nbogus arg", []string{"Bash(echo:*)"}, nil, "abstain"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			settings := settingsFile{}
+			settings.Permissions.Allow = tt.allow
+			settings.Permissions.Deny = tt.deny
+			data, _ := json.Marshal(settings)
+			if err := os.WriteFile(filepath.Join(dir, "settings.json"), data, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			t.Setenv("CLAUDE_CONFIG_DIR", dir)
+
+			input := hookInput{}
+			input.ToolInput.Command = tt.cmd
+			payload, _ := json.Marshal(input)
+
+			r, w, _ := os.Pipe()
+			_, _ = w.Write(payload)
+			_ = w.Close()
+			origStdin := os.Stdin
+			os.Stdin = r
+			t.Cleanup(func() { os.Stdin = origStdin })
+
+			got := run(devlogs.NewLogger("test"))
+			action := "abstain"
+			if got != nil {
+				action = got.Action
+			}
+			if action != tt.want {
+				t.Errorf("run(%q) = %s, want %s", tt.cmd, action, tt.want)
 			}
 		})
 	}

@@ -8,12 +8,39 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
 	devlogs "devlogs-lib"
 	"mvdan.cc/sh/v3/syntax"
 )
+
+// gitCommonDirFn / getwdFn are seams for tests; production code calls
+// gitCommonDir / os.Getwd directly.
+var (
+	gitCommonDirFn                        = gitCommonDir
+	getwdFn        func() (string, error) = os.Getwd
+)
+
+func gitCommonDir(path string) (string, bool) {
+	out, err := exec.Command("git", "-C", path, "rev-parse", "--git-common-dir").Output()
+	if err != nil {
+		return "", false
+	}
+	dir := strings.TrimSpace(string(out))
+	if dir == "" {
+		return "", false
+	}
+	if !filepath.IsAbs(dir) {
+		dir = filepath.Join(path, dir)
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return "", false
+	}
+	return filepath.Clean(abs), true
+}
 
 //go:embed deny-rules.json
 var embeddedDenyRulesJSON []byte
@@ -36,9 +63,12 @@ type hookInput struct {
 }
 
 type commandInfo struct {
-	Command  string
-	Captured bool
+	Command    string
+	Captured   bool
+	AssignOnly bool
 }
+
+const assignOnlySentinel = "<assign-only>"
 
 type denyRule struct {
 	Pattern      string
@@ -574,6 +604,17 @@ func extractCommands(cmd string) ([]commandInfo, error) {
 				for _, s := range printCallExpr(c) {
 					commands = append(commands, commandInfo{Command: s, Captured: captured})
 				}
+			} else if len(c.Assigns) > 0 {
+				// Pure variable assignment (e.g. `FOO=bar`). Sets a shell
+				// variable but does not run any external command, so it is
+				// safe to allow. Emit a sentinel so run() knows the script
+				// was understood; the per-command loop skips AssignOnly
+				// entries when checking allow patterns.
+				commands = append(commands, commandInfo{
+					Command:    assignOnlySentinel,
+					Captured:   captured,
+					AssignOnly: true,
+				})
 			}
 		case *syntax.BinaryCmd:
 			if c.Op == syntax.Pipe || c.Op == syntax.PipeAll {
@@ -712,7 +753,7 @@ func stripCdPrefix(cmd string, log *devlogs.Logger) (string, *Decision) {
 	}
 	resolved = filepath.Clean(resolved)
 
-	cwd, err := os.Getwd()
+	cwd, err := getwdFn()
 	if err != nil {
 		log.Debug("cannot get cwd: " + err.Error())
 		return cmd, nil
@@ -720,8 +761,13 @@ func stripCdPrefix(cmd string, log *devlogs.Logger) (string, *Decision) {
 	cwd = filepath.Clean(cwd)
 
 	if resolved != cwd && !strings.HasPrefix(resolved, cwd+string(filepath.Separator)) {
-		log.Info("cd target outside cwd, abstaining: " + resolved)
-		return cmd, nil
+		cwdRepo, cwdOK := gitCommonDirFn(cwd)
+		targetRepo, targetOK := gitCommonDirFn(resolved)
+		if !cwdOK || !targetOK || cwdRepo != targetRepo {
+			log.Info("cd target outside cwd, abstaining: " + resolved)
+			return cmd, nil
+		}
+		log.Debug("cd target shares git common-dir with cwd, allowing: " + resolved)
 	}
 
 	if remaining == "" {
@@ -779,6 +825,9 @@ func run(log *devlogs.Logger) *Decision {
 
 	allAllowed := true
 	for _, ci := range commands {
+		if ci.AssignOnly {
+			continue
+		}
 		for _, rule := range denyRules {
 			if rule.TopLevelOnly && ci.Captured {
 				continue

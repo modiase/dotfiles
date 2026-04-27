@@ -93,6 +93,7 @@ in
         "Bash(xargs:*)"
         "Bash(date:*)"
         "Bash(timeout:*)"
+        "Bash(sleep:*)"
         "Bash(tmux:*)"
         "Bash(diff:*)"
         "Bash(cut:*)"
@@ -179,6 +180,7 @@ in
         # macOS-specific
         "Bash(launchctl list:*)"
         "Bash(/usr/bin/log show:*)"
+        "Bash(log show:*)"
         "Bash(mdfind:*)"
         "Bash(sw_vers:*)"
         "Bash(defaults read:*)"
